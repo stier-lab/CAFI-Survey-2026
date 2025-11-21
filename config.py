@@ -13,10 +13,10 @@ load_dotenv()
 # =============================================================================
 
 # Provider settings
-LLM_DEFAULT_PROVIDER = os.getenv('LLM_DEFAULT_PROVIDER', 'mock')
+LLM_DEFAULT_PROVIDER = os.getenv('LLM_DEFAULT_PROVIDER', 'anthropic')
 
 # Model IDs
-CLAUDE_MODEL = os.getenv('CLAUDE_MODEL', 'claude-sonnet-4-5-20250514')
+CLAUDE_MODEL = os.getenv('CLAUDE_MODEL', 'claude-sonnet-4-20250514')
 GPT4_MODEL = os.getenv('GPT4_MODEL', 'gpt-4-turbo')
 
 # Generation defaults

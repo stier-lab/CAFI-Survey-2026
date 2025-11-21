@@ -17,7 +17,7 @@ try:
         LLM_MAX_RETRIES, LLM_RETRY_DELAY
     )
 except ImportError:
-    CLAUDE_MODEL = 'claude-sonnet-4-5-20250514'
+    CLAUDE_MODEL = 'claude-sonnet-4-20250514'
     GPT4_MODEL = 'gpt-4-turbo'
     DEFAULT_TEMPERATURE = 0.7
     DEFAULT_MAX_TOKENS = 4096

@@ -55,15 +55,33 @@ Flag any uncertain or speculative claims."""
         return ["thematic_synthesis", "gap_analysis", "methods_summary", "intro_outline"]
 
     def execute(self, inputs: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        prompt = self.format_prompt(inputs, context)
-        outputs = {
-            'thematic_synthesis': '# Thematic Literature Synthesis\n\n[To be generated]',
-            'gap_analysis': '# Gap Analysis\n\n[To be generated]',
-            'methods_summary': '# Methods from Literature\n\n[To be generated]',
-            'intro_outline': '# Draft Introduction Outline\n\n[To be generated]'
-        }
-        self.log_execution(inputs, outputs, 'success')
-        return outputs
+        try:
+            use_llm = context.get('use_llm', True)
+            if use_llm:
+                llm_response = self.call_llm(inputs, context, temperature=0.6, max_tokens=6000)
+                outputs = {
+                    'thematic_synthesis': llm_response,
+                    'gap_analysis': '# Gap Analysis\n\n[See thematic synthesis]',
+                    'methods_summary': '# Methods from Literature\n\n[See thematic synthesis]',
+                    'intro_outline': '# Draft Introduction Outline\n\n[See thematic synthesis]'
+                }
+            else:
+                outputs = {
+                    'thematic_synthesis': '# Thematic Literature Synthesis\n\n[To be generated]',
+                    'gap_analysis': '# Gap Analysis\n\n[To be generated]',
+                    'methods_summary': '# Methods from Literature\n\n[To be generated]',
+                    'intro_outline': '# Draft Introduction Outline\n\n[To be generated]'
+                }
+            self.log_execution(inputs, outputs, 'success')
+            return outputs
+        except Exception as e:
+            self.log_execution(inputs, {}, 'error', str(e))
+            return {
+                'thematic_synthesis': f'# Error\n\n{str(e)}',
+                'gap_analysis': '',
+                'methods_summary': '',
+                'intro_outline': ''
+            }
 
 
 class ConceptualFrameworkAgent(BaseAgent):
@@ -406,18 +424,40 @@ Match tone to target journal."""
     def execute(self, inputs: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         section = context.get('requested_section', 'all')
         outputs = {}
+        use_llm = context.get('use_llm', True)
 
-        if section in ['all', 'introduction']:
-            outputs['draft_introduction'] = '# Introduction\n\n[To be generated]'
-        if section in ['all', 'methods']:
-            outputs['draft_methods'] = '# Methods\n\n[To be generated]'
-        if section in ['all', 'results']:
-            outputs['draft_results'] = '# Results\n\n[To be generated]'
-        if section in ['all', 'discussion']:
-            outputs['draft_discussion'] = '# Discussion\n\n[To be generated]'
+        try:
+            if use_llm:
+                # Add section-specific instruction to prompt
+                section_instruction = f"\n\nPlease write the **{section.upper()}** section only."
+                modified_context = {**context, 'section_instruction': section_instruction}
 
-        self.log_execution(inputs, outputs, 'success')
-        return outputs
+                llm_response = self.call_llm(inputs, modified_context, temperature=0.8, max_tokens=8000)
+
+                if section in ['all', 'introduction']:
+                    outputs['draft_introduction'] = llm_response if section == 'introduction' else llm_response
+                if section in ['all', 'methods']:
+                    outputs['draft_methods'] = llm_response if section == 'methods' else llm_response
+                if section in ['all', 'results']:
+                    outputs['draft_results'] = llm_response if section == 'results' else llm_response
+                if section in ['all', 'discussion']:
+                    outputs['draft_discussion'] = llm_response if section == 'discussion' else llm_response
+            else:
+                if section in ['all', 'introduction']:
+                    outputs['draft_introduction'] = '# Introduction\n\n[To be generated]'
+                if section in ['all', 'methods']:
+                    outputs['draft_methods'] = '# Methods\n\n[To be generated]'
+                if section in ['all', 'results']:
+                    outputs['draft_results'] = '# Results\n\n[To be generated]'
+                if section in ['all', 'discussion']:
+                    outputs['draft_discussion'] = '# Discussion\n\n[To be generated]'
+
+            self.log_execution(inputs, outputs, 'success')
+            return outputs
+        except Exception as e:
+            self.log_execution(inputs, {}, 'error', str(e))
+            key = f'draft_{section}' if section != 'all' else 'draft_introduction'
+            return {key: f'# Error\n\n{str(e)}'}
 
 
 class ReferenceAgent(BaseAgent):
