@@ -125,13 +125,26 @@ Focus on mechanisms and qualitative relationships."""
         return ["conceptual_frameworks", "figure1_design", "narrative"]
 
     def execute(self, inputs: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        outputs = {
-            'conceptual_frameworks': '# Conceptual Frameworks\n\n[To be generated]',
-            'figure1_design': '# Figure 1 Design\n\n[To be generated]',
-            'narrative': '# Framework Narrative\n\n[To be generated]'
-        }
-        self.log_execution(inputs, outputs, 'success')
-        return outputs
+        try:
+            use_llm = context.get('use_llm', True)
+            if use_llm:
+                llm_response = self.call_llm(inputs, context, temperature=0.7, max_tokens=4000)
+                outputs = {
+                    'conceptual_frameworks': llm_response,
+                    'figure1_design': '# Figure 1 Design\n\n[See conceptual frameworks]',
+                    'narrative': '# Framework Narrative\n\n[See conceptual frameworks]'
+                }
+            else:
+                outputs = {
+                    'conceptual_frameworks': '# Conceptual Frameworks\n\n[To be generated]',
+                    'figure1_design': '# Figure 1 Design\n\n[To be generated]',
+                    'narrative': '# Framework Narrative\n\n[To be generated]'
+                }
+            self.log_execution(inputs, outputs, 'success')
+            return outputs
+        except Exception as e:
+            self.log_execution(inputs, {}, 'error', str(e))
+            return {'conceptual_frameworks': f'# Error\n\n{str(e)}', 'figure1_design': '', 'narrative': ''}
 
 
 class DataQAAgent(BaseAgent):
@@ -183,14 +196,28 @@ Clearly separate "checks" from "fixes"."""
         return ["qa_playbook", "qa_checks", "code_snippets", "qa_report_template"]
 
     def execute(self, inputs: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        outputs = {
-            'qa_playbook': '# Data QA Playbook\n\n[To be generated]',
-            'qa_checks': '# QA Checks\n\n[To be generated]',
-            'code_snippets': '# QA Code Snippets\n\n[To be generated]',
-            'qa_report_template': '# QA Report Template\n\n[To be generated]'
-        }
-        self.log_execution(inputs, outputs, 'success')
-        return outputs
+        try:
+            use_llm = context.get('use_llm', True)
+            if use_llm:
+                llm_response = self.call_llm(inputs, context, temperature=0.3, max_tokens=4000)
+                outputs = {
+                    'qa_playbook': llm_response,
+                    'qa_checks': '# QA Checks\n\n[See playbook]',
+                    'code_snippets': '# QA Code Snippets\n\n[See playbook]',
+                    'qa_report_template': '# QA Report Template\n\n[See playbook]'
+                }
+            else:
+                outputs = {
+                    'qa_playbook': '# Data QA Playbook\n\n[To be generated]',
+                    'qa_checks': '# QA Checks\n\n[To be generated]',
+                    'code_snippets': '# QA Code Snippets\n\n[To be generated]',
+                    'qa_report_template': '# QA Report Template\n\n[To be generated]'
+                }
+            self.log_execution(inputs, outputs, 'success')
+            return outputs
+        except Exception as e:
+            self.log_execution(inputs, {}, 'error', str(e))
+            return {'qa_playbook': f'# Error\n\n{str(e)}', 'qa_checks': '', 'code_snippets': '', 'qa_report_template': ''}
 
 
 class EDAAgent(BaseAgent):
@@ -238,14 +265,28 @@ Do not over-interpret exploratory patterns as causal."""
         return ["eda_plan", "plot_catalog", "interpretations", "flagged_issues"]
 
     def execute(self, inputs: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        outputs = {
-            'eda_plan': '# EDA Plan\n\n[To be generated]',
-            'plot_catalog': '# Plot Catalog\n\n[To be generated]',
-            'interpretations': '# EDA Interpretations\n\n[To be generated]',
-            'flagged_issues': '# Flagged Issues\n\n[To be generated]'
-        }
-        self.log_execution(inputs, outputs, 'success')
-        return outputs
+        try:
+            use_llm = context.get('use_llm', True)
+            if use_llm:
+                llm_response = self.call_llm(inputs, context, temperature=0.5, max_tokens=5000)
+                outputs = {
+                    'eda_plan': llm_response,
+                    'plot_catalog': '# Plot Catalog\n\n[See EDA plan]',
+                    'interpretations': '# EDA Interpretations\n\n[See EDA plan]',
+                    'flagged_issues': '# Flagged Issues\n\n[See EDA plan]'
+                }
+            else:
+                outputs = {
+                    'eda_plan': '# EDA Plan\n\n[To be generated]',
+                    'plot_catalog': '# Plot Catalog\n\n[To be generated]',
+                    'interpretations': '# EDA Interpretations\n\n[To be generated]',
+                    'flagged_issues': '# Flagged Issues\n\n[To be generated]'
+                }
+            self.log_execution(inputs, outputs, 'success')
+            return outputs
+        except Exception as e:
+            self.log_execution(inputs, {}, 'error', str(e))
+            return {'eda_plan': f'# Error\n\n{str(e)}', 'plot_catalog': '', 'interpretations': '', 'flagged_issues': ''}
 
 
 class ModelingAgent(BaseAgent):
@@ -301,14 +342,28 @@ Emphasize effect sizes and uncertainty over p-value hunting."""
         return ["modeling_prd", "model_specifications", "diagnostics_plan", "code_skeletons"]
 
     def execute(self, inputs: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        outputs = {
-            'modeling_prd': '# Modeling PRD\n\n[To be generated]',
-            'model_specifications': '# Model Specifications\n\n[To be generated]',
-            'diagnostics_plan': '# Diagnostics Plan\n\n[To be generated]',
-            'code_skeletons': '# Code Skeletons\n\n[To be generated]'
-        }
-        self.log_execution(inputs, outputs, 'success')
-        return outputs
+        try:
+            use_llm = context.get('use_llm', True)
+            if use_llm:
+                llm_response = self.call_llm(inputs, context, temperature=0.4, max_tokens=5000)
+                outputs = {
+                    'modeling_prd': llm_response,
+                    'model_specifications': '# Model Specifications\n\n[See modeling PRD]',
+                    'diagnostics_plan': '# Diagnostics Plan\n\n[See modeling PRD]',
+                    'code_skeletons': '# Code Skeletons\n\n[See modeling PRD]'
+                }
+            else:
+                outputs = {
+                    'modeling_prd': '# Modeling PRD\n\n[To be generated]',
+                    'model_specifications': '# Model Specifications\n\n[To be generated]',
+                    'diagnostics_plan': '# Diagnostics Plan\n\n[To be generated]',
+                    'code_skeletons': '# Code Skeletons\n\n[To be generated]'
+                }
+            self.log_execution(inputs, outputs, 'success')
+            return outputs
+        except Exception as e:
+            self.log_execution(inputs, {}, 'error', str(e))
+            return {'modeling_prd': f'# Error\n\n{str(e)}', 'model_specifications': '', 'diagnostics_plan': '', 'code_skeletons': ''}
 
 
 class FigureFactoryAgent(BaseAgent):
@@ -356,14 +411,28 @@ Ensure consistent styling across all figures."""
         return ["figure_inventory", "panel_designs", "caption_drafts", "code_outlines"]
 
     def execute(self, inputs: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        outputs = {
-            'figure_inventory': '# Figure Inventory\n\n[To be generated]',
-            'panel_designs': '# Panel Designs\n\n[To be generated]',
-            'caption_drafts': '# Figure Captions\n\n[To be generated]',
-            'code_outlines': '# Code Outlines\n\n[To be generated]'
-        }
-        self.log_execution(inputs, outputs, 'success')
-        return outputs
+        try:
+            use_llm = context.get('use_llm', True)
+            if use_llm:
+                llm_response = self.call_llm(inputs, context, temperature=0.6, max_tokens=4000)
+                outputs = {
+                    'figure_inventory': llm_response,
+                    'panel_designs': '# Panel Designs\n\n[See figure inventory]',
+                    'caption_drafts': '# Figure Captions\n\n[See figure inventory]',
+                    'code_outlines': '# Code Outlines\n\n[See figure inventory]'
+                }
+            else:
+                outputs = {
+                    'figure_inventory': '# Figure Inventory\n\n[To be generated]',
+                    'panel_designs': '# Panel Designs\n\n[To be generated]',
+                    'caption_drafts': '# Figure Captions\n\n[To be generated]',
+                    'code_outlines': '# Code Outlines\n\n[To be generated]'
+                }
+            self.log_execution(inputs, outputs, 'success')
+            return outputs
+        except Exception as e:
+            self.log_execution(inputs, {}, 'error', str(e))
+            return {'figure_inventory': f'# Error\n\n{str(e)}', 'panel_designs': '', 'caption_drafts': '', 'code_outlines': ''}
 
 
 class ScientificWriterAgent(BaseAgent):
