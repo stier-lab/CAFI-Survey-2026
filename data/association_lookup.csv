@@ -1,0 +1,54 @@
+taxon_name,genus,family,functional_group,association
+Alpheus A.lottini,Alpheus,Alpheidae,Alpheidae (obl),obligate
+Synalpheus S.charon,Synalpheus,Alpheidae,Alpheidae (obl),obligate
+Athanas A.djiboutensis,Athanas,Alpheidae,Alpheidae (fac),facultative
+Arete A.indicus,Arete,Alpheidae,Alpheidae (fac),facultative
+Alpheus A.collumianus,Alpheus,Alpheidae,Alpheidae (fac),facultative
+Alpheus A.parvirostris,Alpheus,Alpheidae,Alpheidae (fac),facultative
+Alpheus A.dolerus,Alpheus,Alpheidae,Alpheidae (fac),facultative
+Alpheopsis A.equalis,Alpheopsis,Alpheidae,Alpheidae (fac),facultative
+Synalpheus S.gracilirostris,Synalpheus,Alpheidae,Alpheidae (fac),facultative
+Alpheus,Alpheus,Alpheidae,Alpheidae (fac),facultative
+Alpheus A.pachychirus,Alpheus,Alpheidae,Alpheidae (fac),facultative
+Synalpheus S.tumidomanus,Synalpheus,Alpheidae,Alpheidae (fac),facultative
+Alpheus A.diadema,Alpheus,Alpheidae,Alpheidae (fac),facultative
+Alpheus A.sizou,Alpheus,Alpheidae,Alpheidae (fac),facultative
+Calaxius,Calaxius,Axiidae,,facultative
+Manaethuis M.monoceros,Manaethuis,Epialtidae,,facultative
+Perinia P.tumida,Perinia,Epialtidae,,facultative
+Manaethuis M.orientalis,Manaethuis,Epialtidae,,facultative
+Galathea,Galathea,Galatheidae,Galatheidae,facultative
+Phylladiorhynchus,Phylladiorhynchus,Galatheidae,Galatheidae,facultative
+Saron S.marmoratus,Saron,hyppolitidae,,facultative
+Thor,Thor,hyppolitidae,,facultative
+Thor T.amboinensis,Thor,hyppolitidae,,facultative
+Harpiliopsis H.spinigera,Harpiliopsis,Palaemonidae,Palaemonidae (obl),obligate
+Harpiliopsis H.depressa,Harpiliopsis,Palaemonidae,Palaemonidae (obl),obligate
+Fennera,Fennera,Palaemonidae,Palaemonidae (obl),obligate
+Chlorocurtis C.jactans,Chlorocurtis,Palaemonidae,,facultative
+Cuapetes C. cf. ensifrons,Cuapetes,Palaemonidae,,facultative
+Periclimenes P.gonioporae,Periclimenes,Palaemonidae,Palaemonidae (obl),facultative
+Onycocaris,Onycocaris,Palaemonidae,,facultative
+Pilumnus P.tahitensis,Pilumnus,Pilumnidae,,facultative
+Petrolisthes,Petrolisthes,Porcellanidae,,facultative
+Thalamita,Thalamita,Portunidae,,facultative
+Thalamita T.coeruleipes,Thalamita,Portunidae,,facultative
+Trapezia T.tigrina,Trapezia,Trapeziidae,Trapeziidae,obligate
+Trapezia T.speciosa,Trapezia,Trapeziidae,Trapeziidae,obligate
+Trapezia T.bella,Trapezia,Trapeziidae,Trapeziidae,obligate
+Trapezia T.serenei,Trapezia,Trapeziidae,Trapeziidae,obligate
+Trapezia T.rufo,Trapezia,Trapeziidae,Trapeziidae,obligate
+Trapezia T.guttata,Trapezia,Trapeziidae,Trapeziidae,obligate
+Trapezia T.bidentata,Trapezia,Trapeziidae,Trapeziidae,obligate
+Trapezia T.areolata,Trapezia,Trapeziidae,Trapeziidae,obligate
+Trapezia T.flavo,Trapezia,Trapeziidae,Trapeziidae,obligate
+Domecia D. hispida,Domecia,Xanthidae,,obligate
+Cymo,Cymo,Xanthidae,,obligate
+Pilodius,Pilodius,Xanthidae,,facultative
+Pseudoliomera P.speciosa,Pseudoliomera,Xanthidae,,facultative
+Liomera L.monticulosa,Liomera,Xanthidae,,facultative
+Chlorodiella C.laevissima,Chlorodiella,Xanthidae,,facultative
+Macromedaeus sp Macromedaeus nudipes,Macromedaeus sp,Xanthidae,,facultative
+Pilodius P.pugil,Pilodius,Xanthidae,,facultative
+Platypodia,Platypodia,Xanthidae,,facultative
+Xanthias X.lamarcki,Xanthias,Xanthidae,,facultative

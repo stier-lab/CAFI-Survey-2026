@@ -1,0 +1,44 @@
+# R specific
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+.Rproj.user/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+.env
+.venv
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Output files (can be regenerated from scripts)
+output/
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Large data files (optional - uncomment if you don't want to track raw data)
+# data/*.csv
+
+# Log files
+*.log
+
+# Session files
+.Renviron
