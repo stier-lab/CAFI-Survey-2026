@@ -11,7 +11,7 @@ cat("Comprehensive Predictor Analysis\n")
 cat("========================================\n\n")
 
 # Load libraries
-source(here::here("scripts/Survey/00_load_libraries.R"))
+source(here::here("scripts/00_load_libraries.R"))
 library(glmmTMB)
 library(MuMIn)
 library(performance)
@@ -22,15 +22,15 @@ library(corrplot)
 cat("Loading comprehensive coral characteristics data...\n")
 
 # Load coral characteristics with all predictors
-coral_chars <- read_csv(file.path(here("data/Survey"),
+coral_chars <- read_csv(file.path(here("data"),
                                   "1. survey_coral_characteristics_merged_v2.csv"))
 
 # Load CAFI data
-cafi_data <- read_csv(file.path(here("data/Survey"),
+cafi_data <- read_csv(file.path(here("data"),
                                 "1. survey_cafi_data_w_taxonomy_summer2019_v5.csv"))
 
 # Load physiology data if available
-physio_data <- read_csv(file.path(here("data/Survey"),
+physio_data <- read_csv(file.path(here("data"),
                                   "1. survey_master_phys_data_v3.csv"))
 
 # Create figure subdirectory

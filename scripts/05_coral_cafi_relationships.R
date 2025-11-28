@@ -1,20 +1,28 @@
 #!/usr/bin/env Rscript
 # ============================================================================
-# 05_coral_cafi_relationships.R - Analyze coral-CAFI relationships
+# 05_coral_cafi_relationships.R - Coral-CAFI Relationships (H2, H4)
 # Author: CAFI Analysis Pipeline
 # Date: 2025-11-01
 #
-# Purpose: Examine relationships between coral characteristics and CAFI
-#          community patterns (abundance, richness, composition) across
-#          three Mo'orea locations.
+# Hypotheses tested (aligned with PRD):
+#   H2: CAFI abundance scales with coral volume following a power-law with
+#       exponent < 1, indicating larger corals have lower CAFI densities
+#   H4: Coral physiological condition positively predicts CAFI diversity
+#
+# Theoretical Background:
+#   Propagule redirection theory predicts that occupant abundance scales
+#   nonlinearly with habitat amount, causing occupant density (per unit
+#   habitat) to decrease as habitat increases. Larvae distribute among
+#   available habitats based on chemical cue strength, so larger corals
+#   intercept more propagules but at lower density per unit volume.
+#   Expected scaling exponent ~0.75 for 3D habitat.
 #
 # Key Analyses:
-#   - CAFI abundance and richness patterns
-#   - Taxonomic group composition (crabs, shrimp, fish, snails)
-#   - Relationships with coral physiology (tissue biomass, protein, etc.)
-#   - Effects of branch width (if available)
-#   - Statistical models accounting for location effects
-#   - Size distributions of CAFI taxa
+#   - CAFI abundance patterns across sites
+#   - Size-abundance relationships (power-law scaling)
+#   - Branch architecture effects
+#   - Condition-diversity relationships
+#   - Taxonomic group composition
 #
 # Important Notes:
 #   - All corals are Pocillopora spp. (cannot reliably distinguish
@@ -22,8 +30,8 @@
 #   - branch_width is a real measured trait (wide vs tight branching)
 #   - "OTU" = Operational Taxonomic Unit (genetic cluster, not necessarily
 #     a true species without further validation)
-#   - Analysis covers 3 locations in Mo'orea: Hauru (HAU), Maharepa (MAT),
-#     Moorea Biocode (MRB)
+#   - Analysis covers 3 locations in Mo'orea: Hauru (HAU), Maatea (MAT),
+#     Moorea Barrier Reef (MRB)
 # ============================================================================
 
 cat("\n========================================\n")
@@ -31,7 +39,7 @@ cat("Coral-CAFI Relationship Analysis\n")
 cat("========================================\n\n")
 
 # Load libraries and data
-source(here::here("scripts/Survey/00_load_libraries.R"))
+source(here::here("scripts/00_load_libraries.R"))
 
 # Load processed data
 survey_master <- readRDS(file.path(SURVEY_OBJECTS, "survey_master_data.rds"))
@@ -46,8 +54,7 @@ condition_scores <- readRDS(file.path(SURVEY_OBJECTS, "coral_condition_scores.rd
 fig_dir <- file.path(SURVEY_FIGURES, "coral_cafi_relationships")
 dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
 
-# Set white background theme
-theme_set(theme_bw())
+# Use publication theme (loaded via 00_load_libraries.R)
 
 # ============================================================================
 # CAFI Abundance vs Coral Characteristics
@@ -98,7 +105,7 @@ p_site_cafi <- coral_cafi_summary %>%
   ggplot(aes(x = site, y = total_cafi)) +
   geom_boxplot(aes(fill = site), alpha = 0.7, outlier.shape = NA) +
   geom_jitter(width = 0.2, alpha = 0.4, size = 2) +
-  scale_fill_viridis_d(option = "plasma") +
+  scale_fill_site() +
   scale_y_sqrt(breaks = c(0, 25, 100, 225, 400)) +
   labs(
     title = "CAFI Abundance by Location",
@@ -106,11 +113,8 @@ p_site_cafi <- coral_cafi_summary %>%
     x = "Location",
     y = "CAFI Abundance (sqrt scale)"
   ) +
-  theme(
-    legend.position = "none",
-    plot.title = element_text(face = "bold", size = 14),
-    plot.subtitle = element_text(size = 10, color = "gray30")
-  )
+  theme_publication() +
+  theme(legend.position = "none")
 
 ggsave(file.path(fig_dir, "cafi_by_location.png"),
        p_site_cafi, width = 10, height = 6, dpi = 300, bg = "white")
@@ -123,7 +127,7 @@ if("branch_width" %in% names(coral_cafi_summary) && sum(!is.na(coral_cafi_summar
     ggplot(aes(x = branch_width, y = total_cafi)) +
     geom_boxplot(aes(fill = branch_width), alpha = 0.7, outlier.shape = NA) +
     geom_jitter(width = 0.2, alpha = 0.4, size = 2) +
-    scale_fill_viridis_d(option = "plasma") +
+    scale_fill_branch() +
     scale_y_sqrt(breaks = c(0, 25, 100, 225, 400)) +
     labs(
       title = "CAFI Abundance by Branch Width",
@@ -131,11 +135,8 @@ if("branch_width" %in% names(coral_cafi_summary) && sum(!is.na(coral_cafi_summar
       x = "Branch Width Category",
       y = "CAFI Abundance (sqrt scale)"
     ) +
-    theme(
-      legend.position = "none",
-      plot.title = element_text(face = "bold", size = 14),
-      plot.subtitle = element_text(size = 10, color = "gray30")
-    )
+    theme_publication() +
+    theme(legend.position = "none")
 
   ggsave(file.path(fig_dir, "cafi_by_branch_width.png"),
          p_branch_abundance, width = 10, height = 6, dpi = 300, bg = "white")
@@ -145,18 +146,15 @@ if("branch_width" %in% names(coral_cafi_summary) && sum(!is.na(coral_cafi_summar
     ggplot(aes(x = branch_width, y = otu_richness)) +
     geom_boxplot(aes(fill = branch_width), alpha = 0.7, outlier.shape = NA) +
     geom_jitter(width = 0.2, alpha = 0.4, size = 2) +
-    scale_fill_viridis_d(option = "plasma") +
+    scale_fill_branch() +
     labs(
       title = "CAFI OTU Richness by Branch Width",
       subtitle = "Branch width is a measured coral trait (wide vs tight branching)",
       x = "Branch Width Category",
       y = "OTU Richness"
     ) +
-    theme(
-      legend.position = "none",
-      plot.title = element_text(face = "bold", size = 14),
-      plot.subtitle = element_text(size = 10, color = "gray30")
-    )
+    theme_publication() +
+    theme(legend.position = "none")
 
   ggsave(file.path(fig_dir, "richness_by_branch_width.png"),
          p_branch_richness, width = 10, height = 6, dpi = 300, bg = "white")
@@ -217,7 +215,8 @@ tax_by_site <- coral_cafi_summary %>%
 
 p_tax_site <- ggplot(tax_by_site, aes(x = site, y = proportion, fill = group)) +
   geom_col(position = "stack", alpha = 0.9) +
-  scale_fill_viridis_d(option = "plasma") +
+  scale_fill_manual(values = c("Crabs" = "#E69F00", "Shrimps" = "#56B4E9",
+                                "Fish" = "#009E73", "Snails" = "#CC79A7")) +
   scale_y_continuous(labels = scales::percent) +
   labs(
     title = "CAFI Taxonomic Composition by Location",
@@ -226,11 +225,8 @@ p_tax_site <- ggplot(tax_by_site, aes(x = site, y = proportion, fill = group)) +
     y = "Proportion of CAFI Community",
     fill = "Taxonomic Group"
   ) +
-  theme(
-    plot.title = element_text(face = "bold", size = 14),
-    plot.subtitle = element_text(size = 10, color = "gray30"),
-    legend.position = "right"
-  )
+  theme_publication() +
+  theme(legend.position = "right")
 
 ggsave(file.path(fig_dir, "taxonomic_composition_by_site.png"),
        p_tax_site, width = 10, height = 6, dpi = 300, bg = "white")
@@ -262,7 +258,7 @@ if (nrow(cafi_condition) > 10) {
     geom_point(aes(color = site), size = 3, alpha = 0.6) +
     geom_smooth(method = "lm", color = "black", se = TRUE, linewidth = 1.2) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", alpha = 0.5) +
-    scale_color_viridis_d(option = "plasma", name = "Location") +
+    scale_color_site() +
     scale_x_sqrt(breaks = c(0, 25, 100, 225, 400)) +
     labs(
       title = "CAFI Abundance vs Coral Condition",
@@ -271,12 +267,8 @@ if (nrow(cafi_condition) > 10) {
       y = "Coral Condition Score (position-corrected)",
       caption = "Condition score automatically accounts for sampling position bias"
     ) +
-    theme(
-      plot.title = element_text(face = "bold", size = 14),
-      plot.subtitle = element_text(size = 10, color = "gray30"),
-      plot.caption = element_text(size = 9, hjust = 0),
-      legend.position = "right"
-    )
+    theme_publication() +
+    theme(legend.position = "right")
 
   ggsave(file.path(fig_dir, "cafi_vs_coral_condition.png"),
          p_cafi_condition, width = 11, height = 7, dpi = 300, bg = "white")

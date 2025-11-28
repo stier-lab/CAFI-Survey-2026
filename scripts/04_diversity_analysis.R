@@ -1,9 +1,20 @@
 #!/usr/bin/env Rscript
 # ============================================================================
-# 04_diversity_analysis.R - Comprehensive diversity analysis of Survey data
+# 04_diversity_analysis.R - Diversity and Condition Analysis (H1, H4)
 #
-# Purpose: Quantify alpha, beta, and gamma diversity of CAFI communities
-#          across 3 Moorea reef sites using multivariate approaches
+# Hypothesis H1: CAFI community composition differs among reef sites due to
+# variation in coral landscapes and environmental conditions.
+#   Tests: PERMANOVA, NMDS ordination, beta diversity partitioning
+#
+# Hypothesis H4: Coral physiological condition positively predicts CAFI
+# diversity, consistent with bidirectional coral-CAFI interactions.
+#   Model: Shannon ~ Condition + log(Volume) + Branch Width + (1|Site)
+#
+# Theoretical Background:
+#   CAFI provide benefits to corals (predator defense, sediment removal,
+#   nutrient cycling) while corals provide habitat. This bidirectional
+#   relationship predicts that healthier corals support more diverse CAFI
+#   communities, creating positive feedbacks.
 #
 # IMPORTANT TAXONOMIC NOTES:
 # - CAFI "species" are morphological OTUs (Operational Taxonomic Units)
@@ -18,7 +29,7 @@
 # - Alpha diversity (within-coral richness and evenness)
 # - Beta diversity (between-coral dissimilarity via NMDS, PCA)
 # - PERMANOVA (test for site/trait effects on community composition)
-# - Indicator species analysis
+# - Condition-diversity relationships
 # - Diversity partitioning (alpha, beta, gamma components)
 #
 # Author: CAFI Analysis Pipeline
@@ -30,7 +41,7 @@ cat("Survey Diversity Analysis\n")
 cat("========================================\n\n")
 
 # Load libraries and data
-source(here::here("scripts/Survey/00_load_libraries.R"))
+source(here::here("scripts/00_load_libraries.R"))
 
 # Load processed data
 survey_master <- readRDS(file.path(SURVEY_OBJECTS, "survey_master_data.rds"))
@@ -55,17 +66,19 @@ cat("Calculating alpha diversity metrics...\n")
 alpha_diversity <- data.frame(
   coral_id = rownames(community_matrix),
   species_richness = specnumber(community_matrix),  # Number of OTUs
-  shannon = diversity(community_matrix, index = "shannon"),  # Accounts for abundance
-  simpson = diversity(community_matrix, index = "simpson"),  # Probability same species
-  evenness = diversity(community_matrix) / log(specnumber(community_matrix))  # Equitability
+  shannon = vegan::diversity(community_matrix, index = "shannon"),  # Accounts for abundance
+  simpson = vegan::diversity(community_matrix, index = "simpson"),  # Probability same species
+  evenness = vegan::diversity(community_matrix) / log(specnumber(community_matrix))  # Equitability
 )
 
-# Handle corals with no CAFI (evenness = NaN)
-alpha_diversity$evenness[is.nan(alpha_diversity$evenness)] <- 0
+# Handle corals with no CAFI or only 1 species (evenness = NaN/Inf)
+# NaN occurs when richness = 0 (log(0)), Inf/NaN when richness = 1 (log(1) = 0)
+alpha_diversity$evenness[is.nan(alpha_diversity$evenness) |
+                         is.infinite(alpha_diversity$evenness)] <- NA
 
 # Add metadata - site and depth are key environmental predictors
 alpha_diversity <- alpha_diversity %>%
-  left_join(metadata %>% select(coral_id, site, morphotype, depth_m),
+  left_join(metadata %>% select(coral_id, site, depth_m),
             by = "coral_id")
 
 # Save alpha diversity metrics
@@ -86,13 +99,14 @@ p_alpha_boxplot <- alpha_diversity %>%
   geom_boxplot(alpha = 0.7) +
   geom_jitter(width = 0.2, alpha = 0.3) +
   facet_wrap(~metric, scales = "free_y") +
-  scale_fill_viridis_d() +
+  scale_fill_site() +
   labs(
     title = "Alpha Diversity Metrics by Site",
     subtitle = "Within-coral CAFI community diversity across reef zones",
     x = "Site",
     y = "Value"
   ) +
+  theme_publication() +
   theme(legend.position = "none")
 
 ggsave(file.path(fig_dir, "alpha_diversity_boxplot.png"),
@@ -129,25 +143,25 @@ nmds_bray <- metaMDS(community_matrix_clean, distance = "bray", k = 2,
 nmds_scores <- as.data.frame(scores(nmds_bray, display = "sites"))
 nmds_scores$coral_id <- rownames(nmds_scores)
 nmds_scores <- nmds_scores %>%
-  left_join(metadata %>% select(coral_id, site, morphotype, depth_m),
+  left_join(metadata %>% select(coral_id, site, depth_m),
             by = "coral_id")
 
 # Plot NMDS with site clustering
 # Ellipses show 95% confidence regions
 # Points closer together = more similar communities
 p_nmds <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2)) +
-  geom_point(aes(color = site, shape = morphotype), size = 3, alpha = 0.7) +
+  geom_point(aes(color = site), size = 3, alpha = 0.7) +
   stat_ellipse(aes(color = site), level = 0.95) +
-  scale_color_viridis_d() +
+  scale_color_site() +
   labs(
     title = "NMDS Ordination of CAFI Communities",
     subtitle = paste("Stress =", round(nmds_bray$stress, 3),
                      "| Lower stress = better 2D representation"),
     x = "NMDS1",
     y = "NMDS2",
-    color = "Site",
-    shape = "Morphotype\n(not species)"
-  )
+    color = "Site"
+  ) +
+  theme_publication()
 
 ggsave(file.path(fig_dir, "nmds_ordination.png"),
        p_nmds, width = 10, height = 8, dpi = 300)
@@ -194,23 +208,23 @@ p_scree <- ggplot(scree_data[1:min(10, nrow(scree_data)),],
 pca_scores <- as.data.frame(pca_species$x[, 1:2])
 pca_scores$coral_id <- rownames(pca_scores)
 pca_scores <- pca_scores %>%
-  left_join(metadata %>% select(coral_id, site, morphotype, depth_m),
+  left_join(metadata %>% select(coral_id, site, depth_m),
             by = "coral_id")
 
 # Plot PCA scores colored by site
 p_pca <- ggplot(pca_scores, aes(x = PC1, y = PC2)) +
-  geom_point(aes(color = site, shape = morphotype), size = 3, alpha = 0.7) +
+  geom_point(aes(color = site), size = 3, alpha = 0.7) +
   stat_ellipse(aes(color = site), level = 0.95) +
-  scale_color_viridis_d() +
+  scale_color_site() +
   labs(
     title = "PCA of CAFI Species Composition",
     subtitle = paste0("PC1: ", round(var_explained[1], 1), "%, ",
                      "PC2: ", round(var_explained[2], 1), "%"),
     x = paste0("PC1 (", round(var_explained[1], 1), "%)"),
     y = paste0("PC2 (", round(var_explained[2], 1), "%)"),
-    color = "Site",
-    shape = "Morphotype\n(not species)"
-  )
+    color = "Site"
+  ) +
+  theme_publication()
 
 # Create biplot with species loadings (which OTUs drive PC axes)
 # prcomp() stores loadings as $rotation (not $loadings like princomp)
@@ -282,12 +296,12 @@ cat("✓ PCA analysis complete\n\n")
 cat("Running PERMANOVA tests...\n")
 
 # PERMANOVA = Permutational Multivariate Analysis of Variance
-# Tests if community composition differs among groups (sites, morphotypes, etc.)
+# Tests if community composition differs among groups (sites, depth)
 # Uses permutations to generate null distribution
 
 # Filter out rows with NA values in predictors
 metadata_complete <- metadata %>%
-  filter(!is.na(site), !is.na(morphotype), !is.na(depth_m))
+  filter(!is.na(site), !is.na(depth_m))
 
 community_matrix_complete <- community_matrix[rownames(community_matrix) %in% metadata_complete$coral_id, ]
 
@@ -298,18 +312,9 @@ permanova_site <- adonis2(community_matrix_complete ~ site,
                           method = "bray",
                           permutations = 999)
 
-# Test for morphotype effects
-# WARNING: Morphotypes are NOT confirmed species
-# This tests branch architecture effects (tight/wide branching)
-# Interpret as coral trait effect, not species effect
-permanova_morph <- adonis2(community_matrix_complete ~ morphotype,
-                           data = metadata_complete,
-                           method = "bray",
-                           permutations = 999)
-
-# Combined model with multiple predictors
-# Tests independent and interactive effects
-permanova_combined <- adonis2(community_matrix_complete ~ site + morphotype + depth_m,
+# Combined model with site and depth
+# Tests independent effects
+permanova_combined <- adonis2(community_matrix_complete ~ site + depth_m,
                               data = metadata_complete,
                               method = "bray",
                               permutations = 999)
@@ -318,15 +323,11 @@ permanova_combined <- adonis2(community_matrix_complete ~ site + morphotype + de
 capture.output(
   cat("PERMANOVA Results - Community Composition Analysis\n"),
   cat("================================================\n\n"),
-  cat("NOTE: Morphotype refers to coral branch architecture, NOT genetic species\n\n"),
   cat("Site Effect:\n"),
   cat("Tests if CAFI communities differ among HAU, MAT, MRB\n"),
   print(permanova_site),
-  cat("\n\nMorphotype Effect:\n"),
-  cat("Tests if communities differ by coral branch architecture\n"),
-  print(permanova_morph),
-  cat("\n\nCombined Model:\n"),
-  cat("Tests independent effects of site, morphotype, and depth\n"),
+  cat("\n\nCombined Model (Site + Depth):\n"),
+  cat("Tests independent effects of site and depth\n"),
   print(permanova_combined),
   file = file.path(SURVEY_TABLES, "permanova_results.txt")
 )
@@ -342,7 +343,11 @@ cat("Testing multivariate dispersion...\n")
 # PERMDISP tests for homogeneity of multivariate dispersions
 # Significant result = groups have different spread (heteroscedasticity)
 # Important complement to PERMANOVA
-betadisp_site <- betadisper(beta_bray, metadata$site)
+# Ensure metadata alignment with cleaned community matrix
+metadata_clean <- metadata %>%
+  filter(coral_id %in% rownames(community_matrix_clean)) %>%
+  arrange(match(coral_id, rownames(community_matrix_clean)))
+betadisp_site <- betadisper(beta_bray, metadata_clean$site)
 permdisp_site <- permutest(betadisp_site, permutations = 999)
 
 # Plot dispersion with white background
@@ -418,7 +423,7 @@ cat("Partitioning diversity components...\n")
 # - Beta (between-site): turnover/differentiation
 
 # Gamma diversity (total regional diversity)
-gamma_div <- diversity(colSums(community_matrix), index = "shannon")
+gamma_div <- vegan::diversity(colSums(community_matrix), index = "shannon")
 
 # Try diversity partitioning if site information available
 tryCatch({
@@ -489,14 +494,15 @@ if (nrow(div_correlates) > 10) {
     geom_point(aes(y = shannon * 10, color = "Shannon (×10)"), size = 2, alpha = 0.6) +
     geom_smooth(aes(y = shannon * 10, color = "Shannon (×10)"),
                 method = "loess", se = TRUE) +
-    scale_color_viridis_d() +
+    scale_color_manual(values = c("Richness" = "#0072B2", "Shannon (×10)" = "#D55E00")) +
     labs(
       title = "Diversity Metrics vs Depth",
       subtitle = "Testing depth gradient effects on CAFI diversity",
       x = "Depth (m)",
       y = "Diversity Value",
       color = "Metric"
-    )
+    ) +
+    theme_publication()
 
   ggsave(file.path(fig_dir, "diversity_vs_depth.png"),
          p_div_depth, width = 10, height = 6, dpi = 300)
@@ -525,9 +531,7 @@ cat("  - NMDS stress:", round(nmds_bray$stress, 3),
 cat("  - Mean Bray-Curtis dissimilarity:", round(mean(beta_bray), 3), "\n\n")
 
 cat("PERMANOVA Results:\n")
-cat("  - Site effect p-value:", format.pval(permanova_site$`Pr(>F)`[1], digits = 3), "\n")
-cat("  - Morphotype effect p-value:", format.pval(permanova_morph$`Pr(>F)`[1], digits = 3), "\n")
-cat("  Note: Morphotype tests coral architecture, NOT genetic species\n\n")
+cat("  - Site effect p-value:", format.pval(permanova_site$`Pr(>F)`[1], digits = 3), "\n\n")
 
 cat("Diversity Partitioning:\n")
 cat("  - Gamma (regional):", round(gamma_div, 2), "\n")

@@ -19,7 +19,7 @@ library(here)
 setwd(here())
 
 # Create log file
-log_file <- file.path(here("output/Survey/reports"),
+log_file <- file.path(here("output/reports"),
                       paste0("survey_pipeline_log_",
                             format(Sys.Date(), "%Y%m%d"), ".txt"))
 dir.create(dirname(log_file), recursive = TRUE, showWarnings = FALSE)
@@ -41,14 +41,16 @@ run_script_safe <- function(script_path, script_name) {
   })
 }
 
-# Define analysis scripts in order
+# Define analysis scripts in order (aligned with H1-H5 hypotheses)
 scripts <- list(
   c("00_load_libraries.R", "Load Libraries"),
   c("01_load_clean_data.R", "Load and Clean Data"),
-  c("02_community_composition.R", "Community Composition Analysis"),
+  c("02_community_composition.R", "Community Composition (H1)"),
   c("03_spatial_patterns.R", "Spatial Pattern Analysis"),
-  c("04_diversity_analysis.R", "Diversity Analysis"),
-  c("05_coral_cafi_relationships.R", "Coral-CAFI Relationships")
+  c("04_diversity_analysis.R", "Diversity Analysis (H1, H4)"),
+  c("05_coral_cafi_relationships.R", "Coral-CAFI Relationships (H2, H4)"),
+  c("06_network_analysis.R", "Network Analysis (H5)"),
+  c("14_local_neighborhood_effects.R", "Neighborhood Effects (H3)")
 )
 
 # Run all scripts
@@ -56,7 +58,7 @@ results <- list()
 for (script_info in scripts) {
   script_file <- script_info[1]
   script_name <- script_info[2]
-  script_path <- here("scripts", "Survey", script_file)
+  script_path <- here("scripts", script_file)
 
   if (file.exists(script_path)) {
     results[[script_file]] <- run_script_safe(script_path, script_name)
@@ -91,11 +93,11 @@ cat("  - Run time:", round(run_time, 1), "minutes\n\n")
 
 # List outputs
 cat("Generated Outputs:\n")
-cat("  - Figures:", length(list.files(here("output/Survey/figures"),
+cat("  - Figures:", length(list.files(here("output/figures"),
                                     recursive = TRUE, pattern = "\\.(png|pdf)$")), "\n")
-cat("  - Tables:", length(list.files(here("output/Survey/tables"),
+cat("  - Tables:", length(list.files(here("output/tables"),
                                    pattern = "\\.csv$")), "\n")
-cat("  - Objects:", length(list.files(here("output/Survey/objects"),
+cat("  - Objects:", length(list.files(here("output/objects"),
                                     pattern = "\\.rds$")), "\n\n")
 
 # Write summary to log file
@@ -111,11 +113,11 @@ for (i in seq_along(results)) {
 }
 
 cat("\nOutput Summary:\n")
-cat("  Figures:", length(list.files(here("output/Survey/figures"),
+cat("  Figures:", length(list.files(here("output/figures"),
                                     recursive = TRUE, pattern = "\\.(png|pdf)$")), "\n")
-cat("  Tables:", length(list.files(here("output/Survey/tables"),
+cat("  Tables:", length(list.files(here("output/tables"),
                                    pattern = "\\.csv$")), "\n")
-cat("  Objects:", length(list.files(here("output/Survey/objects"),
+cat("  Objects:", length(list.files(here("output/objects"),
                                     pattern = "\\.rds$")), "\n")
 sink()
 
@@ -123,8 +125,8 @@ sink()
 # Create Data Summary
 # ============================================================================
 
-if (file.exists(here("output/Survey/objects/survey_master_data.rds"))) {
-  survey_data <- readRDS(here("output/Survey/objects/survey_master_data.rds"))
+if (file.exists(here("output/objects/survey_master_data.rds"))) {
+  survey_data <- readRDS(here("output/objects/survey_master_data.rds"))
 
   cat("Data Summary:\n")
   cat("  - Total corals:", nrow(survey_data), "\n")
@@ -140,9 +142,9 @@ if (n_success == n_total) {
   cat("   Check log file for details:", log_file, "\n\n")
 }
 
-cat("📁 All outputs saved to: output/Survey/\n")
-cat("📊 View results in: output/Survey/figures/\n")
-cat("📋 Statistical tables in: output/Survey/tables/\n")
+cat("📁 All outputs saved to: output/\n")
+cat("📊 View results in: output/figures/\n")
+cat("📋 Statistical tables in: output/tables/\n")
 cat("📝 Log file: ", log_file, "\n\n")
 
 # ============================================================================
@@ -164,17 +166,17 @@ html_content <- paste0(
   "</ul>",
   "<h2>Outputs</h2>",
   "<ul>",
-  "<li>Figures: ", length(list.files(here("output/Survey/figures"),
+  "<li>Figures: ", length(list.files(here("output/figures"),
                                      recursive = TRUE, pattern = "\\.(png|pdf)$")), "</li>",
-  "<li>Tables: ", length(list.files(here("output/Survey/tables"),
+  "<li>Tables: ", length(list.files(here("output/tables"),
                                     pattern = "\\.csv$")), "</li>",
-  "<li>Objects: ", length(list.files(here("output/Survey/objects"),
+  "<li>Objects: ", length(list.files(here("output/objects"),
                                      pattern = "\\.rds$")), "</li>",
   "</ul>",
   "</body></html>"
 )
 
-html_file <- file.path(here("output/Survey/reports"), "survey_analysis_summary.html")
+html_file <- file.path(here("output/reports"), "survey_analysis_summary.html")
 writeLines(html_content, html_file)
 cat("📄 HTML summary saved:", html_file, "\n\n")
 

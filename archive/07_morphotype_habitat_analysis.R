@@ -10,7 +10,7 @@ cat("Morphotype and Microhabitat Analysis\n")
 cat("========================================\n\n")
 
 # Load libraries and data
-source(here::here("scripts/Survey/00_load_libraries.R"))
+source(here::here("scripts/00_load_libraries.R"))
 library(ggridges)
 library(ggalluvial)
 
@@ -395,9 +395,9 @@ for (morph in morphotype_diversity$morphotype) {
 
     if (nrow(morph_comm) > 2) {
       # Calculate diversity metrics
-      alpha_div <- mean(diversity(morph_comm))
+      alpha_div <- mean(vegan::diversity(morph_comm))
       beta_div <- mean(vegdist(morph_comm, method = "bray"))
-      gamma_div <- diversity(colSums(morph_comm))
+      gamma_div <- vegan::diversity(colSums(morph_comm))
 
       diversity_by_morphotype[[morph]] <- data.frame(
         morphotype = morph,

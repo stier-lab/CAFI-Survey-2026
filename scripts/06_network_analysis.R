@@ -1,17 +1,30 @@
 #!/usr/bin/env Rscript
 # ============================================================================
-# 06_network_analysis.R - Co-occurrence network analysis of CAFI communities
+# 06_network_analysis.R - Co-occurrence Network Analysis (H5)
 # Author: CAFI Analysis Pipeline
 # Date: 2025-11-01
 #
-# Purpose: Analyze CAFI community structure using network approaches
+# Hypothesis H5: CAFI co-occurrence networks will exhibit non-random modular
+# structure, with modules corresponding to functional groups or shared habitat
+# preferences, and identifiable keystone species.
+#
+# Theoretical Background:
+#   Network analysis reveals community assembly rules and identifies species
+#   that disproportionately influence community structure. Modular networks
+#   suggest ecological organization rather than random assembly. Keystone
+#   species can be identified through centrality metrics.
 #
 # Key Analyses:
-#   - Species co-occurrence networks
-#   - Community detection (module identification)
-#   - Keystone species identification
+#   - Species co-occurrence networks (Spearman correlations)
+#   - Community detection (Louvain algorithm for modularity)
+#   - Keystone species identification (degree, betweenness centrality)
 #   - Network stability analysis
 #   - Integration with coral condition scores (position-corrected)
+#
+# Predictions:
+#   - Significant modularity (Q > 0.3)
+#   - Modules reflect ecological similarity
+#   - Keystone species identifiable through centrality
 #
 # Important Notes:
 #   - ALL corals are Pocillopora spp. (no coral species/morphotypes in network)
@@ -25,7 +38,7 @@ cat("Network Analysis of CAFI Communities\n")
 cat("========================================\n\n")
 
 # Load libraries and data
-source(here::here("scripts/Survey/00_load_libraries.R"))
+source(here::here("scripts/00_load_libraries.R"))
 library(igraph)
 
 # Load processed data
@@ -40,8 +53,7 @@ condition_scores <- readRDS(file.path(SURVEY_OBJECTS, "coral_condition_scores.rd
 fig_dir <- file.path(SURVEY_FIGURES, "network_analysis")
 dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
 
-# Set white background theme
-theme_set(theme_bw())
+# Use publication theme (already set via 00_load_libraries.R)
 
 # ============================================================================
 # IMPORTANT: Network Scope

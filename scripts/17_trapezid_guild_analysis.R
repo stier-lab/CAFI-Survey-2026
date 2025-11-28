@@ -12,7 +12,7 @@ cat("Trapezid Guild Analysis\n")
 cat("========================================\n\n")
 
 # Load libraries and data
-source(here::here("scripts/Survey/00_load_libraries.R"))
+source(here::here("scripts/00_load_libraries.R"))
 
 # Load processed data
 cafi_clean <- readRDS(file.path(SURVEY_OBJECTS, "cafi_clean.rds"))

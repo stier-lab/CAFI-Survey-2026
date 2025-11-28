@@ -42,6 +42,9 @@ library(sp)
 library(geosphere)
 library(ape)  # For Moran.I function
 
+# Network analysis
+library(igraph)
+
 # Community ecology
 library(indicspecies)
 # BiodiversityR is optional - load if available
@@ -77,6 +80,9 @@ library(DT)
 # Load custom path configuration
 source(here("scripts/utils/path_config.R"))
 
+# Load publication theme for consistent figure styling
+source(here("scripts/00_publication_theme.R"))
+
 # Set up Survey-specific paths (flat structure in output/)
 SURVEY_BASE    <- here("output")
 SURVEY_FIGURES <- here("output", "figures")
@@ -90,14 +96,8 @@ for (dir in survey_dirs) {
   dir.create(dir, recursive = TRUE, showWarnings = FALSE)
 }
 
-# Set theme for plots with white backgrounds
-theme_set(theme_bw() +
-          theme(panel.grid.minor = element_blank(),
-                strip.background = element_blank(),
-                strip.text = element_text(face = "bold"),
-                panel.background = element_rect(fill = "white", color = NA),
-                plot.background = element_rect(fill = "white", color = NA),
-                legend.background = element_rect(fill = "white", color = NA)))
+# Note: Theme is set by 00_publication_theme.R (sourced above)
+# Do not override theme_set() here
 
 # Helper function for saving figures
 save_survey_plot <- function(plot, filename, width = 10, height = 8, dpi = 300, ...) {

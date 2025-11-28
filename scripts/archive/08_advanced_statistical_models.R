@@ -10,7 +10,7 @@ cat("Advanced Statistical Modeling\n")
 cat("========================================\n\n")
 
 # Load libraries and data
-source(here::here("scripts/Survey/00_load_libraries.R"))
+source(here::here("scripts/00_load_libraries.R"))
 library(glmmTMB)
 library(DHARMa)
 library(performance)

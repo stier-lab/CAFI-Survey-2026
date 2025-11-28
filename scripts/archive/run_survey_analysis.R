@@ -89,9 +89,9 @@ cat("Output Structure:\n")
 cat("─────────────────────────────────────────────────────\n")
 
 # Count files in each subdirectory
-fig_subdirs <- list.dirs("output/Survey/figures", recursive = FALSE, full.names = FALSE)
+fig_subdirs <- list.dirs("output/figures", recursive = FALSE, full.names = FALSE)
 for (subdir in fig_subdirs) {
-  path <- file.path("output/Survey/figures", subdir)
+  path <- file.path("output/figures", subdir)
   if (dir.exists(path)) {
     n_files <- length(list.files(path))
     if (n_files > 0) {
@@ -100,8 +100,8 @@ for (subdir in fig_subdirs) {
   }
 }
 
-total_figs <- length(list.files("output/Survey/figures", recursive = TRUE, pattern = "\\.(png|pdf)$"))
-total_tables <- length(list.files("output/Survey/tables", recursive = TRUE, pattern = "\\.csv$"))
+total_figs <- length(list.files("output/figures", recursive = TRUE, pattern = "\\.(png|pdf)$"))
+total_tables <- length(list.files("output/tables", recursive = TRUE, pattern = "\\.csv$"))
 
 cat(sprintf("\n  Total figures: %d\n", total_figs))
 cat(sprintf("  Total tables: %d\n", total_tables))

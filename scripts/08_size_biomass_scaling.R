@@ -10,7 +10,7 @@ cat("Size Structure and Biomass Scaling Analysis\n")
 cat("========================================\n\n")
 
 # Load libraries and data
-source(here::here("scripts/Survey/00_load_libraries.R"))
+source(here::here("scripts/00_load_libraries.R"))
 # smatr is optional - load if available
 if (requireNamespace("smatr", quietly = TRUE)) {
   library(smatr)

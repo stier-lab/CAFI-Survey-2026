@@ -10,7 +10,7 @@ cat("Spatial Autocorrelation Analysis\n")
 cat("========================================\n\n")
 
 # Load libraries and data
-source(here::here("scripts/Survey/00_load_libraries.R"))
+source(here::here("scripts/00_load_libraries.R"))
 library(spdep)
 library(spatialreg)
 library(gstat)

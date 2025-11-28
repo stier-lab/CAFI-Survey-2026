@@ -30,7 +30,7 @@ cat("Position-Corrected Coral Condition Analysis\n")
 cat("========================================\n\n")
 
 # Load libraries and data
-source(here::here("scripts/Survey/00_load_libraries.R"))
+source(here::here("scripts/00_load_libraries.R"))
 
 # Load processed data
 physio_clean <- readRDS(file.path(SURVEY_OBJECTS, "physio_clean.rds"))

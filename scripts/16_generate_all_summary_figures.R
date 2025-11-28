@@ -68,8 +68,8 @@ if (file.exists(file.path(SURVEY_OBJECTS, "cafi_clean.rds"))) {
   # Load from raw files if processed data not available
   cat("Loading from raw data files...\n")
 
-  coral_chars <- read_csv(here("data/Survey/1. survey_coral_characteristics_merged_v2.csv"))
-  cafi_data <- read_csv(here("data/Survey/1. survey_cafi_data_w_taxonomy_summer2019_v5.csv"))
+  coral_chars <- read_csv(here("data/1. survey_coral_characteristics_merged_v2.csv"))
+  cafi_data <- read_csv(here("data/1. survey_cafi_data_w_taxonomy_summer2019_v5.csv"))
 
   # Process for visualization
   metadata <- coral_chars %>%

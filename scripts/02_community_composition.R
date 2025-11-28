@@ -1,11 +1,22 @@
 #!/usr/bin/env Rscript
 # ============================================================================
-# 02_community_composition.R - Analyze Survey CAFI community composition
+# 02_community_composition.R - Community Composition Analysis (H1)
 #
-# Purpose: Characterize CAFI community structure across Pocillopora colonies
-#          from 3 sites in Moorea
+# Hypothesis H1: CAFI community composition differs among reef sites due to
+# variation in coral landscapes and environmental conditions.
 #
-# IMPORTANT NOTES:
+# Theoretical Background:
+#   Propagule redirection occurs at multiple scales. At the landscape scale,
+#   sites with different coral abundance, size distributions, and spatial
+#   configurations should support different CAFI communities due to variation
+#   in settler supply and post-settlement processes.
+#
+# Tests:
+#   - PERMANOVA on Bray-Curtis dissimilarity (site effect)
+#   - NMDS ordination visualization
+#   - Pairwise site comparisons
+#
+# IMPORTANT TAXONOMIC NOTES:
 # - CAFI "species" are morphological OTUs (Operational Taxonomic Units)
 # - NO genetic haplotyping was performed - these are field identifications
 # - Use for richness/diversity metrics but NOT species-level inferences
@@ -23,7 +34,7 @@ cat("Survey Community Composition Analysis\n")
 cat("========================================\n\n")
 
 # Load libraries and data
-source(here::here("scripts/Survey/00_load_libraries.R"))
+source(here::here("scripts/00_load_libraries.R"))
 
 # Load processed data
 survey_master <- readRDS(file.path(SURVEY_OBJECTS, "survey_master_data.rds"))
@@ -73,7 +84,7 @@ p_rank_abundance <- ggplot(species_abundance, aes(x = rank, y = total_abundance)
   geom_point(aes(color = type), size = 3, alpha = 0.7) +
   geom_line(alpha = 0.3) +
   scale_y_log10(labels = scales::comma) +
-  scale_color_viridis_d() +
+  scale_color_taxon() +
   labs(
     title = "CAFI OTU Rank Abundance Curve",
     subtitle = "Field Survey Summer 2019 (morphotype-based groupings)",
@@ -81,6 +92,7 @@ p_rank_abundance <- ggplot(species_abundance, aes(x = rank, y = total_abundance)
     y = "Total Abundance (log scale)",
     color = "Functional\nGroup"
   ) +
+  theme_publication() +
   theme(legend.position = "right")
 
 ggsave(file.path(fig_dir, "species_rank_abundance.png"),
@@ -135,12 +147,13 @@ p_site_diversity <- site_richness %>%
   ggplot(aes(x = site, y = value, fill = site)) +
   geom_col() +
   facet_wrap(~metric, scales = "free_y") +
-  scale_fill_viridis_d() +
+  scale_fill_site() +
   labs(
     title = "Diversity Metrics by Site",
     x = "Site",
     y = "Value"
   ) +
+  theme_publication() +
   theme(legend.position = "none")
 
 ggsave(file.path(fig_dir, "site_diversity_metrics.png"),
@@ -172,13 +185,14 @@ p_taxonomic_pie <- ggplot(taxonomic_summary,
                           aes(x = "", y = proportion, fill = type)) +
   geom_bar(stat = "identity", width = 1) +
   coord_polar("y", start = 0) +
-  scale_fill_viridis_d() +
+  scale_fill_taxon() +
   labs(
     title = "Taxonomic Composition of CAFI Community",
     fill = "Taxonomic Group"
   ) +
   theme_void() +
-  theme(legend.position = "right") +
+  theme(legend.position = "right",
+        plot.background = element_rect(fill = "white", color = NA)) +
   geom_text(aes(label = paste0(round(proportion * 100, 1), "%")),
             position = position_stack(vjust = 0.5))
 
@@ -293,6 +307,7 @@ p_community_stack <- site_summary %>%
     y = "Proportion of Community",
     fill = "Species"
   ) +
+  theme_publication() +
   theme(legend.position = "right",
         legend.text = element_text(size = 8))
 
@@ -311,13 +326,14 @@ p_size_distribution <- cafi_clean %>%
   ggplot(aes(x = size_mm, fill = type)) +
   geom_histogram(binwidth = 2, alpha = 0.7, position = "identity") +
   facet_wrap(~type, scales = "free_y") +
-  scale_fill_viridis_d() +
+  scale_fill_taxon() +
   labs(
     title = "Size Distribution of CAFI by Taxonomic Group",
     x = "Size (mm)",
     y = "Count",
     fill = "Type"
   ) +
+  theme_publication() +
   theme(legend.position = "none")
 
 ggsave(file.path(fig_dir, "size_distribution_by_type.png"),

@@ -1,9 +1,27 @@
 #!/usr/bin/env Rscript
 # ============================================================================
-# 14_coral_size_neighbor_effects.R - Detailed analysis of coral size and
-# neighbor distance effects on CAFI communities
+# 14_coral_size_neighbor_effects.R - Coral Size Scaling and Neighbor Effects
 # Author: CAFI Analysis Pipeline
 # Date: 2025-10-29
+#
+# Hypotheses tested (aligned with PRD):
+#   H2: CAFI abundance scales with coral volume following a power-law with
+#       exponent < 1, indicating larger corals have lower CAFI densities
+#       (propagule redirection prediction)
+#   H3: CAFI abundance varies with local coral density and proximity,
+#       reflecting propagule redirection and spillover effects
+#
+# Theoretical Background:
+#   Propagule redirection theory predicts that larvae distribute among
+#   available habitats based on chemical cue strength. Larger and less
+#   isolated corals intercept more total larvae but at lower density per
+#   unit habitat. Expected scaling exponent ~0.75 for 3D habitat.
+#
+# Key Analyses:
+#   - Power-law scaling: log(Abundance) ~ log(Volume)
+#   - Test scaling exponent vs theoretical 0.75
+#   - Neighbor density/isolation effects
+#   - Taxon-specific responses to spatial context
 # ============================================================================
 
 cat("\n========================================\n")
@@ -11,17 +29,17 @@ cat("Coral Size and Neighbor Effects Analysis\n")
 cat("========================================\n\n")
 
 # Load libraries
-source(here::here("scripts/Survey/00_load_libraries.R"))
+source(here::here("scripts/00_load_libraries.R"))
 library(nlme)
 library(mgcv)
 library(gratia)
 library(ggeffects)
 
 # Load comprehensive coral data
-coral_chars <- read_csv(file.path(here("data/Survey"),
+coral_chars <- read_csv(file.path(here("data"),
                                   "1. survey_coral_characteristics_merged_v2.csv"))
 
-cafi_data <- read_csv(file.path(here("data/Survey"),
+cafi_data <- read_csv(file.path(here("data"),
                                 "1. survey_cafi_data_w_taxonomy_summer2019_v5.csv"))
 
 # Create figure subdirectory
@@ -143,13 +161,17 @@ cat("  Size metrics calculated: volume, surface area, shape indices\n")
 cat("  Neighbor metrics calculated: distance, density, competition\n\n")
 
 # ============================================================================
-# Size Effects Analysis
+# H2: Size Scaling Analysis - Power-law Relationships
 # ============================================================================
+# Tests whether CAFI abundance scales sublinearly with coral volume
+# Prediction: exponent < 1 (density decreases with size)
+# Theoretical expectation: ~0.75 for 3D habitat
 
-cat("Analyzing coral size effects on CAFI communities...\n")
+cat("Testing H2: Size scaling relationships...\n")
+cat("  Prediction: Power-law exponent < 1 (propagule redirection)\n\n")
 
-# 1. SIZE-ABUNDANCE RELATIONSHIPS
-# --------------------------------
+# 1. SIZE-ABUNDANCE POWER-LAW RELATIONSHIPS
+# -----------------------------------------
 # Fit multiple models for size-abundance relationship
 models_size <- list(
   linear = lm(total_cafi ~ coral_volume, data = analysis_data),

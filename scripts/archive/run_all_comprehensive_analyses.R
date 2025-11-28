@@ -55,7 +55,7 @@ cat("========================================\n\n")
 # Run each script
 for (i in seq_along(scripts_to_run)) {
   script <- scripts_to_run[i]
-  script_path <- here::here("scripts/Survey", script)
+  script_path <- here::here("scripts", script)
 
   cat(sprintf("\n[%d/%d] Running %s...\n", i, length(scripts_to_run), script))
   cat(rep("-", 50), "\n", sep = "")
@@ -95,7 +95,7 @@ cat("\n========================================\n")
 cat("Generating Comprehensive Report\n")
 cat("========================================\n\n")
 
-report_file <- here::here("output/Survey/reports/Survey_Comprehensive_Report.Rmd")
+report_file <- here::here("output/reports/Survey_Comprehensive_Report.Rmd")
 
 if (file.exists(report_file)) {
   cat("Rendering HTML report...\n")
@@ -104,11 +104,11 @@ if (file.exists(report_file)) {
     rmarkdown::render(
       report_file,
       output_file = "Survey_Comprehensive_Report.html",
-      output_dir = here::here("output/Survey/reports"),
+      output_dir = here::here("output/reports"),
       quiet = TRUE
     )
     cat("✓ Report generated successfully\n")
-    cat("  Output: output/Survey/reports/Survey_Comprehensive_Report.html\n")
+    cat("  Output: output/reports/Survey_Comprehensive_Report.html\n")
   }, error = function(e) {
     cat("❌ Report generation failed:\n")
     cat("  ", conditionMessage(e), "\n")
@@ -147,16 +147,16 @@ if (nrow(failed_scripts) > 0) {
 }
 
 # Save execution log
-log_file <- here::here("output/Survey/reports",
+log_file <- here::here("output/reports",
                       paste0("execution_log_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".csv"))
 write.csv(execution_log, log_file, row.names = FALSE)
 cat("Execution log saved to:", log_file, "\n\n")
 
 # Print output locations
 cat("Output Locations:\n")
-cat("  Figures: output/Survey/figures/\n")
-cat("  Tables: output/Survey/tables/\n")
-cat("  Objects: output/Survey/objects/\n")
-cat("  Reports: output/Survey/reports/\n\n")
+cat("  Figures: output/figures/\n")
+cat("  Tables: output/tables/\n")
+cat("  Objects: output/objects/\n")
+cat("  Reports: output/reports/\n\n")
 
 cat("✅ All analyses complete!\n")

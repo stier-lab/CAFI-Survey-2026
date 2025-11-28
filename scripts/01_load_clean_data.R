@@ -10,7 +10,7 @@ cat("Loading and Cleaning Survey Data\n")
 cat("========================================\n\n")
 
 # Load libraries
-source(here::here("scripts/Survey/00_load_libraries.R"))
+source(here::here("scripts/00_load_libraries.R"))
 
 # ============================================================================
 # Load Raw Data
@@ -19,17 +19,17 @@ source(here::here("scripts/Survey/00_load_libraries.R"))
 cat("Loading raw data files...\n")
 
 # Load CAFI data
-cafi_data <- read_csv(here("data/Survey/1. survey_cafi_data_w_taxonomy_summer2019_v5.csv"),
+cafi_data <- read_csv(here("data/1. survey_cafi_data_w_taxonomy_summer2019_v5.csv"),
                       show_col_types = FALSE) %>%
   clean_names()
 
 # Load coral characteristics
-coral_chars <- read_csv(here("data/Survey/1. survey_coral_characteristics_merged_v2.csv"),
+coral_chars <- read_csv(here("data/1. survey_coral_characteristics_merged_v2.csv"),
                         show_col_types = FALSE) %>%
   clean_names()
 
 # Load physiology data
-physio_data <- read_csv(here("data/Survey/1. survey_master_phys_data_v3.csv"),
+physio_data <- read_csv(here("data/1. survey_master_phys_data_v3.csv"),
                         show_col_types = FALSE) %>%
   clean_names()
 
@@ -224,7 +224,11 @@ survey_master <- survey_master %>%
 # Joins can create .x and .y suffixes - consolidate into single column
 if("branch_width.x" %in% names(survey_master)) {
   survey_master <- survey_master %>%
-    mutate(branch_width = coalesce(branch_width.x, branch_width.y)) %>%
+    mutate(
+      branch_width.x = as.character(branch_width.x),
+      branch_width.y = as.character(branch_width.y),
+      branch_width = coalesce(branch_width.x, branch_width.y)
+    ) %>%
     select(-matches("branch_width\\.[xy]$"))
 }
 
