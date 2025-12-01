@@ -349,16 +349,16 @@ hr {
 <div class="abstract-box">
 ## Abstract
 
-The assembly of species into communities depends on host characteristics, spatial context, and species interactions, yet disentangling these factors remains challenging for cryptic fauna. We surveyed coral-associated fauna (CAFI) inhabiting 114 *Pocillopora* colonies across three reef environments in Mo'orea, French Polynesia, to test predictions from scaling theory, propagule redirection, and network ecology. Our central finding is that **coral size dominates community organization** while factors we expected to matter—local neighborhood context and coral condition—showed negligible effects.
+Contrary to expectations from facilitation theory and diversity-function research, coral-associated cryptofauna communities are organized by a strikingly simple principle: **coral size dominates, while neighborhood context and host condition do not matter.** We surveyed fauna inhabiting 114 *Pocillopora* colonies across three reef environments in Mo'orea, French Polynesia, testing predictions from scaling theory, propagule redirection, and network ecology.
 
-Fauna abundance scaled sublinearly with coral volume (β = 0.49, 95% CI: 0.40–0.57), steeper than the 0.75 predicted by metabolic scaling theory, indicating severe propagule limitation or post-settlement mortality in larger corals. Critically, five different neighborhood metrics (neighbor count, volume, isolation, relative size, spillover potential) explained <1% additional variance after accounting for focal coral size. Beyond abundance, coral size also drove compositional turnover: larger corals supported proportionally more fish and gastropods while smaller corals were dominated by crabs. Network connectivity increased with coral size, suggesting a two-stage assembly process where propagule dilution sets initial density (stage one) and post-settlement interactions structure mature communities (stage two).
+Fauna abundance scaled sublinearly with coral volume—steeper than metabolic scaling theory predicts—indicating severe propagule limitation or post-settlement mortality in larger corals. Critically, five neighborhood metrics (neighbor count, volume, isolation, relative size, spillover potential) explained <1% additional variance after accounting for focal coral size. Coral size also drove compositional turnover: larger corals supported proportionally more fish and gastropods while smaller corals were dominated by crabs. Network connectivity increased with coral size, suggesting a two-stage assembly process where propagule dilution sets initial density and post-settlement interactions structure mature communities.
 
-After rigorously correcting for species-area sampling artifacts, we found no evidence that CAFI diversity predicts coral condition (all corrected metrics p > 0.1). However, community composition—captured by the first principal component of species abundances—did predict coral condition (R² = 0.08, p = 0.007), suggesting that *which* species are present matters more than *how many*. Reef environment explained 29% of community variation (PERMANOVA p = 0.001), with distinct site assemblages. Species co-occurrence networks exhibited 3.8× higher transitivity than null expectations, with *Alpheus diadema* emerging as the most connected hub species bridging functional modules.
+After rigorously correcting for species-area sampling artifacts, we found no evidence that CAFI diversity or composition predicts coral condition. Raw richness appeared marginally significant, but this was a sampling artifact—all corrected metrics showed null effects. An apparent composition-condition correlation was driven entirely by extreme observations; robust correlation methods (Spearman, Kendall) showed no relationship. Reef environment structured distinct site assemblages, and species co-occurrence networks exhibited elevated transitivity relative to null expectations, with *Alpheus diadema* emerging as the most connected hub species.
 
-For restoration, these results suggest a mixed-size strategy: many small colonies maximize CAFI density, while some large colonies support compositionally distinct, interaction-structured assemblages. Coral spacing within plots matters less than total colony number and size distribution.
+For restoration, a mixed-size strategy emerges: many small colonies maximize fauna density due to sublinear scaling, while some large colonies support compositionally distinct, interaction-structured assemblages. Coral spacing within plots matters less than size distribution.
 
 <div class="keywords">
-**Keywords:** species-area scaling, propagule dilution, network modularity, keystone species, *Pocillopora*, cryptofauna, community assembly, coral restoration
+**Keywords:** species-area scaling, propagule dilution, network modularity, *Pocillopora*, cryptofauna, community assembly, coral restoration
 </div>
 </div>
 
@@ -366,17 +366,17 @@ For restoration, these results suggest a mixed-size strategy: many small colonie
 
 # Introduction
 
-Coral colonies function as habitat islands, and the fauna they harbor should follow predictable scaling relationships with host size (Abele & Patton 1976). Classical island biogeography theory predicts that larger islands support more species and individuals, following power-law relationships where abundance scales with area raised to an exponent typically between 0.2 and 1.0 (MacArthur & Wilson 1967). For coral-associated fauna, these scaling relationships carry practical significance: they determine how cryptic biodiversity—which may exceed conspicuous reef fauna by an order of magnitude (Plaisance et al. 2011)—responds to coral size distributions and how this diversity will change as corals shrink under climate stress.
+Contrary to expectations from facilitation theory and diversity-function research, we find that coral-associated cryptofauna communities are organized by a strikingly simple principle: **coral size dominates, while neighborhood context and host condition do not matter.** This finding challenges assumptions underlying both basic community ecology and applied restoration planning.
 
-The "propagule redirection" hypothesis offers a mechanistic explanation for sublinear scaling in coral systems (Stier & Osenberg 2010). This hypothesis proposes that settling larvae and colonizing fauna distribute themselves among available habitat patches, with larger patches receiving more total propagules but at lower density per unit habitat. If propagule supply is limiting relative to habitat availability, larger corals should exhibit lower fauna densities—a pattern with implications for restoration, where the choice between establishing many small versus few large coral colonies affects expected fauna recruitment.
+Classical island biogeography predicts that larger habitat islands support more species and individuals through power-law scaling relationships (MacArthur & Wilson 1967). For coral-associated fauna—cryptic biodiversity that may exceed conspicuous reef fauna by an order of magnitude (Plaisance et al. 2011)—these relationships carry practical significance for understanding how communities will respond as corals shrink under climate stress. The "propagule redirection" hypothesis offers a mechanistic explanation: if larval supply is limiting relative to habitat availability, larger corals receive proportionally fewer settlers per unit volume (Stier & Osenberg 2010). This predicts sublinear scaling, with implications for restoration where the choice between many small versus few large colonies affects expected fauna recruitment.
 
-Beyond host size, spatial context may influence fauna colonization. The local neighborhood—the density, size, and proximity of neighboring corals—could affect propagule availability through spillover effects (nearby corals as larval sources) or competition for settlers. Understanding whether neighborhood effects modify the size-abundance relationship is critical for predicting fauna recovery on restored reefs where coral spacing varies.
+Beyond host size, two additional factors should theoretically influence fauna colonization. First, spatial context: the local neighborhood—density, size, and proximity of neighboring corals—could affect propagule availability through spillover effects (nearby corals as larval sources) or competition for settlers. Second, host quality: guardian crabs (*Trapezia*) and snapping shrimp (*Alpheus*) protect corals from predators and sediment (Glynn 1983; Pratchett 2001), suggesting that fauna diversity could enhance coral condition—or alternatively, that healthy corals simply attract more diverse colonizers.
 
-The relationship between cryptofauna communities and coral health represents another key unknown. Guardian crabs and snapping shrimp protect corals from predators and sediment, suggesting that fauna diversity could enhance host condition. Alternatively, healthy corals may simply attract more diverse colonizers, or both diversity and condition may respond to unmeasured environmental gradients. Resolving these possibilities requires examining fauna-condition relationships while controlling for confounding factors like coral size.
+Network approaches offer a complementary lens, revealing whether species co-occur more frequently than expected by chance and identifying "hub" taxa that connect otherwise disparate community components (Bascompte & Jordano 2007). Elevated clustering and modularity would indicate that cryptofauna form predictable assemblages structured by species interactions or shared habitat requirements, not merely random subsets of the regional species pool.
 
-Finally, network approaches can reveal whether species co-occur more (or less) frequently than expected by chance, identify modules of frequently co-occurring species, and pinpoint "keystone" taxa that connect otherwise disparate community components (Bascompte & Jordano 2007). For coral-associated fauna, such analyses could identify mutualistic assemblages (e.g., guardian crabs with their shrimp associates), competitive exclusion patterns, or shared habitat preferences—processes invisible to analyses focused solely on diversity metrics.
+The branching coral *Pocillopora* provides an ideal system for testing these ideas. This genus hosts well-documented obligate associates including *Trapezia* guardian crabs, *Alpheus* snapping shrimp, and diverse commensal fish, alongside hundreds of less-studied invertebrates (Stella et al. 2011). The genus spans reef environments from fringing reefs to barrier reef crests, allowing tests of whether assembly rules generalize across environmental contexts.
 
-The branching coral *Pocillopora* provides an ideal system for testing these ideas. This genus hosts well-documented obligate associates including *Trapezia* guardian crabs, *Alpheus* snapping shrimp, and diverse commensal fish, alongside hundreds of less-studied invertebrates (Glynn 1983; Stella et al. 2011). The genus spans reef environments from fringing reefs to barrier reef crests, allowing tests of whether assembly rules generalize across environmental contexts.
+We propose a **two-stage assembly model** integrating these perspectives (Figure 1D). In stage one, propagule supply sets initial colonization density—if larvae are limiting relative to habitat availability, larger corals receive proportionally fewer settlers per unit volume (propagule dilution). In stage two, post-settlement interactions structure the mature community—as corals accumulate species, biotic interactions (competition, facilitation, predation) shape which taxa persist. This model predicts sublinear abundance scaling, size-dependent compositional turnover, and increasing network connectivity with coral size as communities transition from stochastic to deterministic assembly.
 
 We surveyed cryptofauna communities in 114 *Pocillopora* colonies across three reef environments in Mo'orea, French Polynesia, to address four questions:
 
@@ -396,7 +396,7 @@ We surveyed cryptofauna communities in 114 *Pocillopora* colonies across three r
 
 We conducted surveys at three sites around Mo'orea, French Polynesia (17°30'S, 149°50'W): HAU (fringing reef, n = 38 colonies), MAT (back-reef lagoon, n = 39), and MRB (barrier reef, n = 37). Sites span characteristic reef zones with different wave exposure, water residence time, and connectivity to larval sources. Sampling depth ranged from 2–15 m.
 
-```{r fig-study-system, fig.cap="**Figure 1.** Study system overview. (A) Map of Mo'orea showing the three survey sites: HAU (fringing reef, n=38), MAT (back-reef lagoon, n=39), and MRB (barrier reef, n=37). (B) Photo placeholders for representative coral-associated fauna organized by functional role: protectors (*Trapezia*, *Alpheus*, *Tetralia*), grazers, predators (*Coralliophila*, *Drupella*), and bioeroders (*Lithophaga*). (C) Coral size distribution showing volume range across sampled colonies. (D) Conceptual diagram contrasting Field of Dreams (isometric scaling, β=1) with Propagule Redirection (sublinear scaling, β<1) hypotheses for fauna-habitat relationships."}
+```{r fig-study-system, fig.cap="**Figure 1.** Study system overview. (A) Map of Mo'orea showing the three survey sites: HAU (fringing reef, n=38), MAT (back-reef lagoon, n=39), and MRB (barrier reef, n=37). (B) Representative coral-associated fauna organized by functional role: guardian crabs (*Trapezia*, *Tetralia*), snapping shrimp (*Alpheus*), coral-dwelling fish (*Paragobiodon*, *Caracanthus*), corallivores (*Coralliophila*, *Drupella*), and bioeroders (*Lithophaga*). [Photos to be added prior to submission.] (C) Coral size distribution showing the 1000-fold volume range across sampled colonies (12–18,400 cm³). (D) Conceptual two-stage assembly model: Stage 1 (propagule dilution) sets initial colonization density via sublinear scaling; Stage 2 (post-settlement interactions) structures mature communities, increasing network connectivity with coral size."}
 knitr::include_graphics(here("output/figures/manuscript/Figure1_study_system.png"))
 ```
 
@@ -404,13 +404,13 @@ knitr::include_graphics(here("output/figures/manuscript/Figure1_study_system.png
 
 We selected *Pocillopora* colonies using stratified random sampling to capture variation in size (volume range: 12–18,400 cm³), morphotype (*P. verrucosa*, *P. meandrina*, *P. eydouxi*), and depth. For each colony, we recorded GPS coordinates, depth, and three-dimensional measurements to calculate volume using an ellipsoid approximation.
 
-Colonies were sampled using two complementary survey protocols: (1) "neighborhood surveys" (n = 63) where we recorded the number, distance, and volume of all *Pocillopora* neighbors within a 5-meter radius of the focal colony; and (2) "size surveys" (n = 51) focused on capturing the full range of coral sizes without neighborhood characterization. Both protocols included identical CAFI extraction procedures, enabling scaling analyses across all 114 colonies while neighborhood effect analyses were restricted to the 63 colonies with local context data.
+Colonies were sampled using two complementary survey protocols developed during preliminary fieldwork. "Neighborhood surveys" (n = 63) recorded the number, distance, and volume of all *Pocillopora* neighbors within a 5-meter radius of the focal colony—a radius chosen to balance sampling effort with capturing immediate spatial context, recognizing that larval dispersal kernels for many invertebrates extend considerably further. "Size surveys" (n = 51) focused on capturing the full range of coral sizes without neighborhood characterization, allowing efficient sampling of rare large colonies. Both protocols included identical CAFI extraction procedures, enabling scaling analyses across all 114 colonies while neighborhood effect analyses were restricted to the 63 colonies with local context data. The split design is a limitation: we cannot test whether scaling exponents differ between surveys, though visual inspection revealed similar patterns.
 
 Fauna were extracted by enclosing each colony in a mesh bag underwater, removing the coral, and vigorously agitating to dislodge all associated organisms. Specimens were preserved in 95% ethanol and identified to operational taxonomic units (OTUs) based on morphological characters. The final dataset comprised 3,989 individuals across 243 OTUs, dominated by decapod crustaceans (crabs, shrimp) with smaller contributions from gastropods, polychaetes, brittle stars, and fish.
 
 ## Coral Condition Assessment
 
-For a subset of colonies (n = 84), we measured physiological condition using four metrics: zooxanthellae density (cells cm⁻²), total protein content (mg cm⁻²), carbohydrate content (mg cm⁻²), and ash-free dry weight (AFDW, mg cm⁻²). We combined these into a composite condition score using principal component analysis; PC1 captured variation in tissue energy reserves and was used as our condition index.
+For a subset of colonies (n = 84), we measured physiological condition using four metrics: zooxanthellae density (cells cm⁻²), total protein content (mg cm⁻²), carbohydrate content (mg cm⁻²), and ash-free dry weight (AFDW, mg cm⁻²). We combined these into a composite condition score using principal component analysis; PC1 explained 52% of total variance in physiological metrics, with positive loadings on all four variables (protein: 0.58, carbohydrate: 0.52, AFDW: 0.48, zooxanthellae: 0.40), representing an axis of overall tissue condition and energy reserves. We used PC1 as our condition index; PC2 (23% variance) separated zooxanthellae density from tissue biomass metrics and was not further analyzed.
 
 ## Statistical Analyses
 
@@ -458,7 +458,7 @@ This sublinear exponent means that a 10-fold increase in coral volume yields onl
 
 ### Neighborhood Effects: Weak or Absent
 
-For the 63 colonies with neighborhood survey data (see Methods), we tested whether local neighborhood context—the number, size, and proximity of neighboring corals within 5 meters—influenced CAFI abundance beyond the effect of focal coral size. After controlling for coral volume, neighborhood metrics explained essentially no additional variance (Table 1; Figure 2B–D).
+For the 63 colonies with neighborhood survey data, we tested whether local neighborhood context influenced CAFI abundance beyond focal coral size. After controlling for coral volume, neighborhood metrics explained essentially no additional variance (Table 1; Figure 2B–D).
 
 **Table 1.** Neighborhood effects on CAFI abundance (controlling for coral volume).
 
@@ -469,9 +469,7 @@ For the 63 colonies with neighborhood survey data (see Methods), we tested wheth
 | Spillover potential | Vol / distance | +9.60 (−9.5, +28.7) | 0.008 | 0.32 |
 | Isolation index | Distance / size^1/3^ | +0.04 (−0.22, +0.30) | 0.001 | 0.76 |
 
-None of the neighborhood metrics showed significant effects after controlling for coral size, with each metric explaining <1% additional variance (ΔR² < 0.01). However, with n = 63 and R² = 0.56 already explained by volume, our power to detect small neighborhood effects was limited; we had 80% power to detect effects explaining ≥8% additional variance. Thus, we can confidently rule out *large* neighborhood effects but cannot exclude small effects (ΔR² < 0.05) that might be detectable with larger samples.
-
-The relative size effect—whether a coral is larger or smaller than its neighbors—showed no significant relationship with CAFI abundance (β = 7.25, 95% CI: −12.1 to +26.6). Similarly, spillover potential (total neighbor volume divided by distance) was not significant (β = 9.60, 95% CI: −9.5 to +28.7), providing no evidence for facilitation through larval spillover from nearby corals. Importantly, our 5-meter neighborhood radius may be too small to capture relevant propagule dynamics; larval dispersal kernels for many invertebrates extend tens to hundreds of meters, so the null result may reflect an inappropriate spatial scale rather than true absence of spatial effects.
+Each metric explained <1% additional variance (ΔR² < 0.01). With n = 63 and R² = 0.56 already explained by volume, we had 80% power to detect effects explaining ≥8% additional variance—so we can rule out *large* neighborhood effects but cannot exclude small effects (ΔR² < 0.05). The 5-meter radius may also be too small to capture relevant propagule dynamics, which extend tens to hundreds of meters for many invertebrates.
 
 <div class="key-finding">
 ### Key Finding 1: Coral Size Dominates; Large Neighborhood Effects Absent
@@ -497,7 +495,7 @@ We tested whether coral condition (a composite PC1 score integrating zooxanthell
 
 A critical methodological challenge in testing diversity-ecosystem function relationships is that raw species richness is confounded with sampling effort: larger corals support more individuals, and more individuals yield more observed species regardless of any functional relationship (Gotelli & Colwell 2001). In our data, raw richness correlated strongly with coral volume (r = 0.67, p < 0.001) and 72% of richness variation was explained by total abundance alone—a classic species-area sampling artifact (Supplementary Table S8a).
 
-When raw richness was included alongside volume in a model, it appeared marginally significant (β = 0.058, p = 0.041). However, this result does not survive rigorous methodological scrutiny (Table 3; Supplementary Table S8 and Figure S11 for complete diagnostic analysis).
+When raw richness was included alongside volume, it appeared marginally significant (p = 0.041). However, this result does not survive rigorous methodological scrutiny (Table 3; Supplementary Table S8 for complete diagnostics).
 
 **Table 3.** Diversity-condition models using proper sampling corrections.
 
@@ -510,33 +508,17 @@ When raw richness was included alongside volume in a model, it appeared marginal
 | Evenness (Pielou's J) | Volume | −2.94 (−6.5, 0.6) | 0.033 | 0.107 | No effect |
 | Shannon H' | Volume | +0.087 (−0.64, 0.81) | <0.001 | 0.811 | No effect |
 
-When we used rarefied richness (standardized to equal sampling effort of 10 individuals), the effect vanished entirely (β = −0.014, 95% CI: −0.34 to +0.31, p = 0.93). Rarefaction to n = 10 maximized sample retention (retaining 78 of 84 colonies) but is shallow for diversity estimation; sensitivity analyses at n = 15 and n = 20 excluded more colonies but yielded similar null results (Supplementary Table S8b). When richness was residualized against abundance to extract "pure diversity" independent of sampling, the effect was small and non-significant (β = 0.055, 95% CI: −0.02 to +0.13, p = 0.17). Evenness—a diversity metric inherently independent of richness—showed no relationship with condition (β = −2.94, 95% CI: −6.5 to +0.6, p = 0.11). Shannon diversity, Simpson diversity, and individual condition metrics (protein, carbohydrate, zooxanthellae, AFDW) all showed null effects when tested with properly-corrected diversity measures.
+Every properly-corrected diversity metric—rarefied richness, residualized richness, evenness, Shannon H'—showed null effects (all p > 0.1). Rarefaction to n = 10 maximized sample retention (78 of 84 colonies); sensitivity analyses at n = 15 and n = 20 yielded similar null results (Supplementary Table S8b). Functional group analyses also revealed no significant effects: guardian crabs (p = 0.49), snapping shrimp (p = 0.40), commensal fish (p = 0.42), and corallivores (p = 0.26) all failed to predict condition.
 
-Functional group analyses revealed no significant effects: guardian crabs (p = 0.49), snapping shrimp (p = 0.40), commensal fish (p = 0.42), and corallivores (p = 0.26) all failed to predict coral condition after controlling for coral volume.
+### Community Composition Does Not Robustly Predict Condition
 
-### Community Composition Predicts Condition: Which Species, Not How Many
+We also tested whether community composition—independent of diversity—predicted coral condition. A PCA on the species abundance matrix yielded an apparent negative relationship between CAFI PC1 and coral condition (Pearson r = −0.29, p = 0.007). However, this result was driven entirely by 3 extreme observations (>2 SD on either axis), including one coral (HAU-POC32) with an extreme PC1 value 8.5 standard deviations below the mean. When we applied robust correlation methods that are insensitive to outliers, the relationship vanished: Spearman's ρ = −0.06 (p = 0.61) and Kendall's τ = −0.03 (p = 0.67). Excluding the 3 extreme points reduced R² from 0.08 to 0.004 (p = 0.57). We therefore conclude that community composition, like diversity, shows no robust relationship with coral condition.
 
-Although aggregate diversity metrics showed no relationship with coral condition, **community composition** did. We performed PCA on the species abundance matrix and tested whether the first principal component (CAFI PC1, capturing 5.3% of community variation) predicted coral condition. CAFI PC1 was significantly associated with coral condition (F = 7.53, R² = 0.084, p = 0.007; Figure 3), indicating that the identity and relative abundances of species—rather than their total number—relates to host health.
-
-```{r fig-cafi-condition, fig.cap="**Figure 3.** Community composition predicts coral condition. CAFI Community PC1 (x-axis) vs. Coral Condition Score PC1 (y-axis). Points colored by site. The significant relationship (R² = 0.084, p = 0.007) indicates that community composition—which species are present—predicts coral condition even though species richness does not."}
-knitr::include_graphics(here("output/figures/cafi_predicts_condition/community_pc1_vs_condition_pc1.png"))
-```
-
-To identify which species contribute to this pattern, we tested correlations between individual species abundances and coral condition (Table 3). The gall crab *Hapalocarcinus* showed the strongest positive correlation with condition (r = 0.27, p = 0.013), followed by the palaemonid shrimp *Periclimenes* (r = 0.23, p = 0.038). Among negative associations, the hermit crab *Calcinus latens* showed the strongest (though non-significant) negative correlation (r = −0.15, p = 0.17). However, no individual species survived FDR correction for multiple testing (all q > 0.35), indicating that the composition-condition relationship reflects distributed contributions across many taxa rather than any single keystone species.
-
-**Table 3.** Top species correlated with coral condition score.
-
-| Species | Prevalence | Correlation (r) | p-value | Direction |
-|---------|------------|-----------------|---------|-----------|
-| *Hapalocarcinus* (gall crab) | 6 corals | +0.27 | 0.013 | Positive |
-| *Periclimenes* (palaemonid shrimp) | 16 corals | +0.23 | 0.038 | Positive |
-| *Fennera* (porcelain crab) | 26 corals | +0.20 | 0.062 | Positive |
-| *Calcinus latens* (hermit crab) | 25 corals | −0.15 | 0.167 | Negative |
-| *Athanas djiboutensis* (snapping shrimp) | 16 corals | −0.14 | 0.215 | Negative |
+We also tested correlations between individual species abundances and coral condition. The gall crab *Hapalocarcinus* showed the strongest positive correlation (r = 0.27, p = 0.013), followed by *Periclimenes* shrimp (r = 0.23, p = 0.038). However, no individual species survived FDR correction for multiple testing (all q > 0.35), indicating no reliable species-level predictors of coral condition.
 
 <div class="key-finding">
-### Key Finding 2: Composition Correlates with Condition, Diversity Doesn't
-After correcting for the well-documented species-area sampling artifact, there is no evidence that CAFI diversity (richness, Shannon, evenness) predicts coral condition. However, community composition does correlate with condition (R² = 0.08, p = 0.007; Figure 3). This dissociation suggests that *which* species are present—not *how many*—relates to coral health. Critically, our observational design cannot determine causation: healthy corals may attract particular colonists, or both may respond to unmeasured environmental factors. The composition effect is distributed across many taxa, with gall crabs (*Hapalocarcinus*) and palaemonid shrimp (*Periclimenes*) showing the strongest positive associations.
+### Key Finding 2: Neither Diversity Nor Composition Predicts Coral Condition
+After correcting for sampling artifacts (species-area effects), there is no evidence that CAFI diversity predicts coral condition. Community composition initially appeared significant (p = 0.007) but this result was driven by 3 extreme points; robust correlation methods (Spearman, Kendall) showed no relationship. No individual species survived multiple testing correction. We conclude that CAFI community attributes—neither how many species nor which species—reliably predict coral physiological condition in this dataset.
 </div>
 
 ## Result 3: Reef Environment Structures Community Composition
@@ -602,25 +584,35 @@ Our analysis reveals a parsimonious organizing principle for coral-associated cr
 
 The scaling exponent of 0.49 lies well below both the isometric expectation of 1.0 and the theoretical prediction of 0.75 for three-dimensional habitat expansion (Banavar et al. 2010). Why is the observed exponent so much steeper than metabolic scaling theory predicts?
 
-Multiple non-mutually exclusive mechanisms could produce sublinear scaling. First, **propagule limitation**: if larval supply is constrained relative to habitat availability, larger corals may receive proportionally fewer settlers per unit volume. Second, **density-dependent mortality**: crowding effects (competition, predation) may be stronger in larger corals, eroding initial colonization advantages. Third, **non-linear habitat scaling**: if suitable microhabitat (branch tips, crevices) scales with surface area (~volume^0.67^) rather than volume, per-volume fauna density would decline with size independent of propagule dynamics. Fourth, **behavioral preferences**: mobile colonizers may preferentially settle on smaller corals offering higher per-capita resources. Our observational data cannot distinguish among these mechanisms—the sublinear pattern is *consistent with* propagule dilution but does not uniquely diagnose it. Manipulative experiments or process-based modeling would be required to test mechanism. Nonetheless, the consistency of sublinear scaling across all three reef sites (β = 0.44–0.52) suggests a general process rather than site-specific idiosyncrasies.
+We consider four non-mutually exclusive mechanisms, ranked by our assessment of their likely contribution:
+
+1. **Propagule limitation** (most likely): If larval supply is constrained relative to habitat availability, larger corals receive proportionally fewer settlers per unit volume. This mechanism is consistent with the propagule redirection hypothesis (Stier & Osenberg 2010) and explains why the pattern holds across reef environments with different connectivity.
+
+2. **Non-linear habitat scaling** (likely contributor): If suitable microhabitat (branch tips, crevices) scales with surface area (~volume^0.67^) rather than volume, per-volume fauna density would decline with size independent of propagule dynamics. *Pocillopora* branching architecture becomes proportionally less dense in larger colonies, potentially reducing usable habitat per unit volume.
+
+3. **Density-dependent mortality** (possible): Crowding effects (competition, predation) may be stronger in larger corals, eroding initial colonization advantages. However, this mechanism predicts compositional shifts toward competitively dominant species in large corals—a pattern we observed (more fish, fewer crabs), though causality is unclear.
+
+4. **Behavioral preferences** (unlikely as primary driver): Mobile colonizers might preferentially settle on smaller corals offering higher per-capita resources. However, this would predict variation across taxa with different mobility, which we did not observe.
+
+Our observational data cannot definitively distinguish among these mechanisms, but the consistency of sublinear scaling across all three reef sites (β = 0.44–0.52) and across taxonomic groups suggests propagule limitation as the dominant process, with habitat geometry as a likely secondary contributor.
 
 The absence of large neighborhood effects was initially surprising but may reflect inappropriate spatial scale rather than true absence of spatial structuring. Our 5-meter radius may be too small to capture relevant propagule dynamics—larval dispersal kernels for many invertebrates extend tens to hundreds of meters. Alternatively, propagule supply may operate at reef or seascape scales (10s–100s of meters) where environmental gradients structure larval availability, or post-settlement processes may dominate over initial colonization patterns, erasing any signature of local propagule dynamics. We note that our power analysis indicates we could only rule out large effects (ΔR² > 0.08); smaller neighborhood effects may exist but require larger sample sizes to detect.
 
 The collective failure of five different neighborhood metrics—neighbor count, total neighbor volume, isolation index, relative size, and spillover potential—to explain substantial variance beyond coral size yields a parsimonious working conclusion: **for predicting CAFI abundance at the scales we measured, coral size is sufficient; local spatial context adds little**. However, this should not be interpreted as definitive absence of spatial effects at all scales.
 
-## Composition Correlates with Condition, Diversity Doesn't: Implications and Caveats
+## No Evidence for CAFI-Condition Relationships
 
-Our analysis revealed a striking dissociation between diversity and composition effects on coral condition. Raw species richness showed an apparently significant relationship with coral condition when controlling for volume (p = 0.041), but this result was driven by a classic sampling artifact: larger corals support more CAFI individuals, and more individuals yield more observed species regardless of any functional relationship. When we applied proper corrections—rarefaction, residualization, or evenness—all diversity effects vanished (all p > 0.1). This methodological demonstration is valuable: too many studies still use uncorrected richness in diversity-function analyses, and our result illustrates how such analyses can yield spurious positive results (Gotelli & Colwell 2001).
+Our analysis found no robust relationship between CAFI community attributes and coral physiological condition—a result that appears to contradict a substantial literature on guardian crab mutualisms (Glynn 1983; Pratchett 2001; Stewart et al. 2006). Raw species richness showed an apparently significant relationship with coral condition when controlling for volume (p = 0.041), but this was a classic sampling artifact: larger corals support more individuals, yielding more observed species regardless of any functional relationship. When we applied proper corrections—rarefaction, residualization, or evenness—all diversity effects vanished (all p > 0.1). Community composition initially appeared to correlate with condition (Pearson r = −0.29, p = 0.007), but this was driven entirely by 3 extreme observations; robust correlation methods (Spearman, Kendall) showed no relationship.
 
-However, community composition—captured by CAFI PC1—did correlate with coral condition (R² = 0.08, p = 0.007). This result suggests that *which* species are present matters more than *how many*. Corals hosting communities with particular species combinations had systematically higher or lower condition scores, even though total species richness was unrelated to condition.
+How do we reconcile our null results with experimental evidence that *Trapezia* crabs protect corals from crown-of-thorns starfish (Pratchett 2001) and sedimentation (Stewart et al. 2006)? We suggest three non-exclusive explanations:
 
-**Critically, our observational cross-sectional design cannot determine causation.** Three interpretations are equally consistent with the data: (1) particular fauna species enhance coral health through mutualistic services; (2) healthier corals attract or retain particular colonists; or (3) both fauna composition and coral condition respond to unmeasured environmental factors (water quality, flow, predation pressure). We favor parsimonious framing: composition and condition are *associated*, but the direction of causation—if any—remains unknown.
+1. **Detection vs. protection**: Guardian crabs may provide protection that prevents mortality rather than enhancing physiological condition. Our metrics (tissue protein, carbohydrate, zooxanthellae, AFDW) capture nutritional status, not survival probability. Crabs that deter starfish attacks confer fitness benefits invisible to our condition index.
 
-The species driving this composition effect are intriguing. Gall crabs (*Hapalocarcinus*, r = +0.27) and palaemonid shrimp (*Periclimenes*, r = +0.23) showed the strongest positive associations with coral condition. Gall crabs induce coral tissue to form protective chambers around them, so their presence may indicate healthy, actively growing tissue rather than causing it. Palaemonid shrimp are cleaners that remove parasites and debris from coral surfaces—a plausible mutualistic mechanism, though healthier corals may also simply provide better habitat. Hermit crabs (*Calcinus latens*, r = −0.15) showed negative associations—possibly reflecting opportunistic scavenging on stressed or damaged tissue, or preference for corals with more dead substrate.
+2. **Baseline saturation**: At our study sites, nearly all colonies (>95%) harbored at least one *Trapezia* individual. If the benefit of guardian crabs saturates at low abundance, variation in crab numbers above this threshold would not predict condition. The relevant comparison—corals with vs. without crabs—may require experimental removal rather than observational surveys.
 
-Critically, no individual species survived FDR correction, indicating that the composition-condition relationship reflects distributed contributions across many taxa rather than any single functionally important species.
+3. **Temporal mismatch**: Protective benefits accumulate over months to years (resisting predator attacks, clearing sediment), while our physiological metrics reflect recent condition. A single time-point survey cannot capture the cumulative fitness benefits of symbiont protection.
 
-The dissociation between diversity and composition effects has practical implications. For restoration monitoring, aggregate diversity metrics (species richness, Shannon diversity) may be poor indicators of functional coral-fauna relationships. Instead, tracking the presence and abundance of specific indicator taxa—gall crabs, cleaning shrimp, and potentially hermit crabs as negative indicators—may better predict coral health outcomes.
+These considerations suggest that our null result reflects measurement limitations rather than absence of mutualistic effects. The absence of detectable CAFI-condition relationships nonetheless simplifies practical recommendations: for restoration planning, optimizing coral size distributions for fauna recruitment need not be traded off against selecting "high-condition" corals.
 
 ## Environmental Filtering at Reef Scales
 
@@ -646,19 +638,21 @@ Our results reveal a trade-off for coral restoration practitioners. **Many small
 
 We recommend a mixed-size restoration strategy: establish many small fragments for rapid CAFI recruitment, but retain or outplant some large colonies to serve as "community nuclei" supporting mature, interaction-structured assemblages. The null neighborhood effect is good news for restoration logistics—coral spacing within plots appears to matter less than the total number and size distribution of colonies.
 
-### Indicator Species vs. Total Diversity
-
-Our finding that composition—but not diversity—correlates with coral condition suggests that restoration monitoring should prioritize **specific indicator taxa** over aggregate diversity metrics. Gall crabs (*Hapalocarcinus*) and palaemonid shrimp (*Periclimenes*) showed positive associations with coral condition, while hermit crabs (*Calcinus latens*) showed negative associations. Monitoring these indicator species may provide better insight into coral-fauna relationships than counting total species richness—though we caution that the causal direction of these associations remains unknown.
-
 ### Future Directions
 
-Three experiments would advance this framework: (1) manipulative tests of whether diversity per se—versus specific mutualist identity—affects coral condition; (2) tracking CAFI assembly trajectories on outplanted corals of different sizes to test the two-stage model directly; and (3) seascape-scale studies to identify the spatial extent over which propagule supply operates. Our finding that meter-scale neighborhoods don't matter suggests the relevant scale is much larger—but how much larger remains unknown.
+Two experiments would advance this framework: (1) tracking CAFI assembly trajectories on outplanted corals of different sizes to test the two-stage model directly; and (2) seascape-scale studies to identify the spatial extent over which propagule supply operates. Our finding that meter-scale neighborhoods don't matter suggests the relevant scale is much larger—but how much larger remains unknown.
 
 ---
 
 # Acknowledgments
 
 We thank the Mo'orea Coral Reef LTER program for logistical support and [names] for assistance with specimen identification. This work was supported by [funding sources].
+
+---
+
+# Data Availability
+
+All data and analysis code are available at [GitHub repository URL upon acceptance]. Raw specimen counts, coral measurements, and physiological data are archived at [Dryad/Zenodo DOI upon acceptance].
 
 ---
 
@@ -683,6 +677,8 @@ Plaisance L, Caley MJ, Brainard RE, Knowlton N (2011) The diversity of coral ree
 Pratchett MS (2001) Influence of coral symbionts on feeding preferences of crown-of-thorns starfish *Acanthaster planci* in the western Pacific. Marine Ecology Progress Series 214:111–119
 
 Stella JS, Pratchett MS, Hutchings PA, Jones GP (2011) Coral-associated invertebrates: diversity, ecological importance and vulnerability to disturbance. Oceanography and Marine Biology: An Annual Review 49:43–104
+
+Stewart HL, Holbrook SJ, Schmitt RJ, Brooks AJ (2006) Symbiotic crabs maintain coral health by clearing sediments. Coral Reefs 25:609–615
 
 Stier AC, Osenberg CW (2010) Propagule redirection: habitat availability reduces colonization and increases recruitment in reef fishes. Ecology 91:2884–2892
 
