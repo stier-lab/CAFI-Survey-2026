@@ -1,0 +1,234 @@
+taxon_input,accepted_name,aphia_id,rank,pocillopora_association,functional_role_str,max_length_final_mm,CommonLength,max_length_source,depth_min_final,depth_max_final,depth_source,trophic_level,trophic_se,Vulnerability,data_source,SpecCode,n_obis_records,n_sources
+Actaeodes hirsutissimus,Actaeodes hirsutissimus,209051,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Alpheopsis aequalis,Alpheopsis aequalis,220235,species,facultative,commensal; bioeroder,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Alpheus clypeatus,Alpheus clypeatus,210529,species,facultative,commensal; bioeroder,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Alpheus collumianus,Alpheus collumianus,210504,species,facultative,commensal; bioeroder,NA,NA,other,NA,3,OBIS,NA,NA,NA,NA,NA,1,2
+Alpheus diadema,Alpheus diadema,210518,species,facultative,commensal; bioeroder,NA,NA,other,3,5,OBIS,NA,NA,NA,NA,NA,1,2
+Alpheus dolerus,Alpheus dolerus,514864,species,facultative,commensal; bioeroder,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Alpheus gracilipes,Alpheus gracilipes,210514,species,facultative,commensal; bioeroder,NA,NA,other,NA,2,OBIS,NA,NA,NA,NA,NA,1,2
+Alpheus lottini,Alpheus lottini,210544,species,facultative,commensal; bioeroder,NA,NA,other,1,8,OBIS,NA,NA,NA,NA,NA,2,2
+Alpheus obesomanus,Alpheus obesomanus,210535,species,facultative,commensal; bioeroder,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Alpheus pachychirus,Alpheus pachychirus,210547,species,facultative,commensal; bioeroder,NA,NA,other,0.3,24,OBIS,NA,NA,NA,NA,NA,2,2
+Alpheus paracrinitus,Alpheus paracrinitus,210522,species,facultative,commensal; bioeroder,NA,NA,other,1.5,17,OBIS,NA,NA,NA,NA,NA,4,2
+Alpheus parvirostris,Alpheus parvirostris,210506,species,facultative,commensal; bioeroder,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Alpheus roseodigitalis,Alpheus roseodigitalis,514959,species,facultative,commensal; bioeroder,NA,NA,other,0,0,OBIS,NA,NA,NA,NA,NA,1,2
+Alpheus sizou,Alpheus sizou,514966,species,facultative,commensal; bioeroder,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Alpheus staphylinus,Alpheus staphylinus,514973,species,facultative,commensal; bioeroder,NA,NA,other,0,3,OBIS,NA,NA,NA,NA,NA,1,2
+Alpheus strenuus,Alpheus strenuus,210517,species,facultative,commensal; bioeroder,NA,NA,other,0.5,24.3,OBIS,NA,NA,NA,NA,NA,2,2
+Amphipholis squamata,Amphipholis squamata,125064,species,unknown,unknown,NA,NA,other,0,378,OBIS,NA,NA,NA,NA,NA,9,2
+Anarithma metula,Anarithma metula,594417,species,unknown,unknown,NA,NA,other,62,111,OBIS,NA,NA,NA,NA,NA,4,2
+Antennatus tuberosus,Antennatus tuberosus,217855,species,unknown,unknown,90,NA,FishBase/SeaLifeBase,0,27.72,OBIS,NA,NA,10,FishBase,11150,3,2
+Apataxia cerithiiformis,Apataxia cerithiiformis,871015,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Arete indicus,Arete indicus,221011,species,facultative,commensal; bioeroder,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Astralium confragosum,Astralium confragosum,581743,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Athanas areteformis,Athanas areteformis,210463,species,facultative,commensal; bioeroder,NA,NA,other,2,NA,OBIS,NA,NA,NA,NA,NA,1,2
+Athanas djiboutensis,Athanas djiboutensis,210466,species,facultative,commensal; bioeroder,NA,NA,other,0,0,OBIS,NA,NA,NA,NA,NA,2,2
+Athanas marshallensis,Athanas marshallensis,210468,species,facultative,commensal; bioeroder,NA,NA,other,0,18,OBIS,NA,NA,NA,NA,NA,5,2
+Bittium glareosum,Bittium glareosum,207905,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Bittium impendens,Bittium impendens,473076,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Breviturma dentata,Breviturma dentata,1214745,species,unknown,unknown,NA,NA,other,0,15,OBIS,NA,NA,NA,NA,NA,9,2
+Breviturma pica,Breviturma pica,1306674,species,unknown,unknown,NA,NA,other,2,14,OBIS,NA,NA,NA,NA,NA,9,2
+Bulla orientalis,Bulla orientalis,510402,species,unknown,unknown,NA,NA,other,1.5,1.5,OBIS,NA,NA,NA,NA,NA,1,2
+Caducifer decapitatus,Caducifer decapitatus,490878,species,unknown,unknown,NA,NA,other,22,46,OBIS,NA,NA,NA,NA,NA,3,2
+Calcinus gouti,Calcinus gouti,367437,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Calcinus guamensis,Calcinus guamensis,367438,species,unknown,unknown,NA,NA,other,15,15,OBIS,NA,NA,NA,NA,NA,2,2
+Calcinus laevimanus,Calcinus laevimanus,208669,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Calcinus latens,Calcinus latens,208677,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Calcinus morgani,Calcinus morgani,367449,species,unknown,unknown,NA,NA,other,2,13,OBIS,NA,NA,NA,NA,NA,3,2
+Calcinus nitidus,Calcinus nitidus,208675,species,unknown,unknown,NA,NA,other,0,10,OBIS,NA,NA,NA,NA,NA,2,2
+Calcinus seurati,Calcinus seurati,208674,species,unknown,unknown,NA,NA,other,0,16,OBIS,NA,NA,NA,NA,NA,2,2
+Caracanthus maculatus,Caracanthus maculatus,220364,species,facultative,predator,50,NA,FishBase/SeaLifeBase,0,20.7,OBIS,NA,NA,10,FishBase,7873,6,2
+Carpilius convexus,Carpilius convexus,209150,species,unknown,unknown,NA,NA,other,0,6.3,OBIS,NA,NA,NA,NA,NA,1,2
+Cerithium nesioticum,Cerithium nesioticum,139061,species,unknown,unknown,NA,NA,other,0,1,OBIS,NA,NA,NA,NA,NA,1,2
+Cerithium punctatum,Cerithium punctatum,216677,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Cerithium zebrum,Cerithium zebrum,216673,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Chlorocurtis jactans,Chlorocurtis jactans,515421,species,facultative,unknown,NA,NA,other,21,NA,OBIS,NA,NA,NA,NA,NA,1,2
+Chlorodiella barbata,Chlorodiella barbata,209139,species,facultative,unknown,NA,NA,other,0.5,1,OBIS,NA,NA,NA,NA,NA,2,2
+Chlorodiella cytherea,Chlorodiella cytherea,209138,species,facultative,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Chlorodiella laevissima,Chlorodiella laevissima,209137,species,facultative,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Chromodoris aspersa,Chromodoris aspersa,558319,species,unknown,unknown,NA,NA,other,0,15,OBIS,NA,NA,NA,NA,NA,7,2
+Chrysiptera brownriggii,Chrysiptera brownriggii,276827,species,unknown,unknown,80,NA,FishBase/SeaLifeBase,0,7.4,OBIS,NA,NA,10,FishBase,5697,7,2
+Ciliopagurus strigatus,Ciliopagurus strigatus,246257,species,unknown,unknown,NA,NA,other,2,30,OBIS,NA,NA,NA,NA,NA,3,2
+Conus lividus,Conus lividus,215541,species,unknown,unknown,NA,NA,other,0,32,OBIS,NA,NA,NA,NA,NA,2,2
+Coralliogalathea humilis,Coralliogalathea humilis,392201,species,facultative,corallivore; commensal,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Crepidula fornicata,Crepidula fornicata,138963,species,unknown,unknown,NA,NA,other,0,20,OBIS,NA,NA,NA,NA,NA,6,2
+Cyclodius nitidus,Cyclodius nitidus,444088,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Cymo quadrilobatus,Cymo quadrilobatus,208972,species,obligate,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Daira perlata,Daira perlata,107426,species,unknown,unknown,NA,NA,other,0.5,0.5,OBIS,NA,NA,NA,NA,NA,1,2
+Dascyllus flavicaudus,Dascyllus flavicaudus,278450,species,unknown,unknown,120,NA,FishBase/SeaLifeBase,3,15,OBIS,NA,NA,10,FishBase,11972,10,2
+Dendrodoris nigra,Dendrodoris nigra,139519,species,unknown,unknown,NA,NA,other,0,4,OBIS,NA,NA,NA,NA,NA,2,2
+Diala albugo,Diala albugo,547187,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Domecia glabra,Domecia glabra,209147,species,obligate,unknown,NA,NA,other,1,5,OBIS,NA,NA,NA,NA,NA,1,2
+Domecia hispida,Domecia hispida,209146,species,obligate,unknown,NA,NA,other,2,8,OBIS,NA,NA,NA,NA,NA,1,2
+Enchelyurus ater,Enchelyurus ater,276882,species,unknown,unknown,55,NA,FishBase/SeaLifeBase,0,6.1,OBIS,NA,NA,10,FishBase,13753,1,2
+Epigrapsus politus,Epigrapsus politus,NA,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,1
+Euplica varians,Euplica varians,511782,species,unknown,unknown,NA,NA,other,1,1,OBIS,NA,NA,NA,NA,NA,1,2
+Galathea mauritiana,Galathea mauritiana,210093,species,facultative,commensal; filter_feeder,NA,NA,other,11,11,OBIS,NA,NA,NA,NA,NA,1,2
+Galathea pilosa,Galathea pilosa,392250,species,facultative,commensal; filter_feeder,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Galathea spinosorostris,Galathea spinosorostris,392258,species,facultative,commensal; filter_feeder,NA,NA,other,0,10,OBIS,NA,NA,NA,NA,NA,1,2
+Galeropsis monodonta,Galeropsis monodonta,724109,species,unknown,unknown,NA,NA,other,1,19,OBIS,NA,NA,NA,NA,NA,6,2
+Garthiella aberrans,Garthiella aberrans,444091,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Gobiodon unicolor,Gobiodon unicolor,276935,species,obligate,commensal; mucus_feeder,27.999999523162842,NA,FishBase/SeaLifeBase,4,4.5,OBIS,NA,NA,10,FishBase,59869,1,2
+Goniosupradens obtusifrons,Goniosupradens obtusifrons,1358824,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Gonodactylellus espinosus,Gonodactylellus espinosus,408908,species,unknown,unknown,NA,NA,other,0,12.2,OBIS,NA,NA,NA,NA,NA,5,2
+Hargeria rapax,Hargeria rapax,247538,species,unknown,unknown,NA,NA,other,0.4,4,OBIS,NA,NA,NA,NA,NA,9,2
+Harpiliopsis beaupresii,Harpiliopsis beaupresii,220132,species,facultative,commensal,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Harpiliopsis depressa,Harpiliopsis depressa,220131,species,facultative,commensal,NA,NA,other,1,21,OBIS,NA,NA,NA,NA,NA,4,2
+Harpiliopsis spinigera,Harpiliopsis spinigera,220130,species,facultative,commensal,NA,NA,other,2,12,OBIS,NA,NA,NA,NA,NA,4,2
+Hemilienardia malleti,Hemilienardia malleti,217103,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Imbricariopsis punctata,Imbricariopsis punctata,1061679,species,unknown,unknown,NA,NA,other,1,2,OBIS,NA,NA,NA,NA,NA,1,2
+Jacforus cavatus,Jacforus cavatus,444268,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Labroides dimidiatus,Labroides dimidiatus,219014,species,unknown,unknown,140,NA,FishBase/SeaLifeBase,1.8,17.3,OBIS,NA,NA,10,FishBase,5459,9,2
+Liocarpilodes integerrimus,Liocarpilodes integerrimus,209142,species,unknown,unknown,NA,NA,other,2,10,OBIS,NA,NA,NA,NA,NA,1,2
+Liomera bella,Liomera bella,208982,species,facultative,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Liomera tristis,Liomera tristis,208992,species,facultative,unknown,NA,NA,other,28,28,OBIS,NA,NA,NA,NA,NA,1,2
+Lophocochlias minutissimus,Lophocochlias minutissimus,730993,species,unknown,unknown,NA,NA,other,4,350,OBIS,NA,NA,NA,NA,NA,8,2
+Lophozozymus anaglyptus,Lophozozymus anaglyptus,444376,species,unknown,unknown,NA,NA,other,0,7,OBIS,NA,NA,NA,NA,NA,2,2
+Lovellona atramentosa,Lovellona atramentosa,428917,species,unknown,unknown,NA,NA,other,0,150,OBIS,NA,NA,NA,NA,NA,4,2
+Luniella pugil,Luniella pugil,881754,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Luria isabella,Luria isabella,216862,species,unknown,unknown,NA,NA,other,2,38,OBIS,NA,NA,NA,NA,NA,4,2
+Macrophiothrix longipeda,Macrophiothrix longipeda,213195,species,unknown,unknown,NA,NA,other,30.4,30.4,OBIS,NA,NA,NA,NA,NA,1,2
+Macteola interrupta,Macteola interrupta,434315,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Mitrella moleculina,Mitrella moleculina,511534,species,unknown,unknown,NA,NA,other,7,15,OBIS,NA,NA,NA,NA,NA,2,2
+Morula uva,Morula uva,600713,species,unknown,unknown,NA,NA,other,0,32,OBIS,NA,NA,NA,NA,NA,6,2
+Morula zebrina,Morula zebrina,744853,species,unknown,unknown,NA,NA,other,2,25,OBIS,NA,NA,NA,NA,NA,6,2
+Neocirrhites armatus,Neocirrhites armatus,281678,species,unknown,unknown,90,NA,FishBase/SeaLifeBase,7.3,19,OBIS,NA,NA,10,FishBase,5832,9,2
+Onycocaris amakusensis,Onycocaris amakusensis,208746,species,facultative,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Ophiactis savignyi,Ophiactis savignyi,125122,species,unknown,unknown,NA,NA,other,1,550,OBIS,NA,NA,NA,NA,NA,7,2
+Ophiocoma erinaceus,Ophiocoma erinaceus,212371,species,facultative,detritivore; scavenger,NA,NA,other,10,25.5,OBIS,NA,NA,NA,NA,NA,5,2
+Ophiocoma schoenleinii,Ophiocoma schoenleinii,212372,species,facultative,detritivore; scavenger,NA,NA,other,2,16.5,OBIS,NA,NA,NA,NA,NA,5,2
+Ophiocomella sexradia,Ophiocomella sexradia,213452,species,unknown,unknown,NA,NA,other,0.1,1555,OBIS,NA,NA,NA,NA,NA,4,2
+Ophioconis permixta,Ophioconis permixta,238160,species,unknown,unknown,NA,NA,other,12,190,OBIS,NA,NA,NA,NA,NA,7,2
+Ophiomastix elegans,Ophiomastix elegans,1306667,species,facultative,detritivore; scavenger,NA,NA,other,2,2.5,OBIS,NA,NA,NA,NA,NA,2,2
+Pagurixus nomurai,Pagurixus nomurai,366635,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Pagurixus ruber,Pagurixus ruber,366640,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Palaemon concinnus,Palaemon concinnus,220149,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Palapedia serenei,Palapedia serenei,444186,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Paracirrhites arcatus,Paracirrhites arcatus,218866,species,facultative,predator,200,NA,FishBase/SeaLifeBase,0.3,24.7,OBIS,NA,NA,10,FishBase,5835,10,2
+Paractaea rufopunctata,Paractaea rufopunctata,209046,species,unknown,unknown,NA,NA,other,1,220,OBIS,NA,NA,NA,NA,NA,4,2
+Paragobiodon lacunicolus,Paragobiodon lacunicolus,219536,species,obligate,commensal; mucus_feeder,30,NA,FishBase/SeaLifeBase,NA,1,OBIS,NA,NA,10,FishBase,22476,1,2
+Paragobiodon modestus,Paragobiodon modestus,219538,species,obligate,commensal; mucus_feeder,35,NA,FishBase/SeaLifeBase,NA,NA,none,NA,NA,10,FishBase,22477,0,2
+Parelasmopus suensis,Parelasmopus suensis,534810,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Pascula muricata,Pascula muricata,408071,species,unknown,unknown,NA,NA,other,0,80,OBIS,NA,NA,NA,NA,NA,10,2
+Periclimenaeus tridentatus,Periclimenaeus tridentatus,220170,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Periclimenes watamuae,Periclimenes watamuae,210617,species,facultative,unknown,NA,NA,other,1,1,OBIS,NA,NA,NA,NA,NA,1,2
+Perinia tumida,Perinia tumida,217318,species,facultative,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Peristernia nassatula,Peristernia nassatula,208048,species,unknown,unknown,NA,NA,other,0,1,OBIS,NA,NA,NA,NA,NA,1,2
+Phylladiorhynchus integrirostris,Phylladiorhynchus integrirostris,392678,species,facultative,commensal; filter_feeder,NA,NA,other,10,10,OBIS,NA,NA,NA,NA,NA,1,2
+Pollia wagneri,Pollia wagneri,217064,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Psaumis cavipes,Psaumis cavipes,209048,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Pseudobiceros damawan,Pseudobiceros damawan,878949,species,unknown,unknown,NA,NA,other,0,0,OBIS,NA,NA,NA,NA,NA,1,2
+Pseudocheilinus hexataenia,Pseudocheilinus hexataenia,208915,species,unknown,unknown,100,NA,FishBase/SeaLifeBase,0,35,OBIS,NA,NA,10,FishBase,5617,9,2
+Pseudoliomera speciosa,Pseudoliomera speciosa,209016,species,facultative,unknown,NA,NA,other,2,14,OBIS,NA,NA,NA,NA,NA,5,2
+Pseudoliomera variolosa,Pseudoliomera variolosa,209010,species,facultative,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Purpuradusta fimbriata,Purpuradusta fimbriata,390567,species,unknown,unknown,NA,NA,other,50,50,OBIS,NA,NA,NA,NA,NA,1,2
+Quadrimaera quadrimana,Quadrimaera quadrimana,421523,species,unknown,unknown,NA,NA,other,0,9,OBIS,NA,NA,NA,NA,NA,2,2
+Raoulserenea ornata,Raoulserenea ornata,409008,species,unknown,unknown,NA,NA,other,6,12,OBIS,NA,NA,NA,NA,NA,1,2
+Rissoina ambigua,Rissoina ambigua,216954,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Rissoina heronensis,Rissoina heronensis,833610,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Rugathanas borradailei,Rugathanas borradailei,515086,species,facultative,commensal; bioeroder,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Saron marmoratus,Saron marmoratus,210450,species,facultative,unknown,NA,NA,other,2,12,OBIS,NA,NA,NA,NA,NA,4,2
+Saron neglectus,Saron neglectus,210451,species,facultative,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Stomatella auricula,Stomatella auricula,527557,species,unknown,unknown,NA,NA,other,1,2,OBIS,NA,NA,NA,NA,NA,2,2
+Stomatolina rubra,Stomatolina rubra,213528,species,unknown,unknown,NA,NA,other,50,52,OBIS,NA,NA,NA,NA,NA,3,2
+Strigatella assimilis,Strigatella assimilis,890213,species,unknown,unknown,NA,NA,other,0,1,OBIS,NA,NA,NA,NA,NA,1,2
+Synalpheus charon,Synalpheus charon,210494,species,facultative,commensal; bioeroder,NA,NA,other,4,15,OBIS,NA,NA,NA,NA,NA,2,2
+Tetralia ocucaerulea,Tetralia ocucaerulea,443860,species,unknown,unknown,NA,NA,other,0,40,OBIS,NA,NA,NA,NA,NA,1,2
+Thalamita coeruleipes,Thalamita coeruleipes,208876,species,facultative,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Thalamita pseudopelsarti,Thalamita pseudopelsarti,387555,species,facultative,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Thalassoma hardwicke,Thalassoma hardwicke,212217,species,unknown,unknown,250,15,FishBase/SeaLifeBase,2.3,11,OBIS,NA,NA,15.61,FishBase,5643,9,2
+Thinora maldivensis,Thinora maldivensis,515341,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Trapezia areolata,Trapezia areolata,443874,species,obligate,mutualist/defender; grazer/herbivore,NA,NA,other,50,90,OBIS,NA,NA,NA,NA,NA,1,2
+Trapezia bella,Trapezia bella,210185,species,obligate,mutualist/defender; grazer/herbivore,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Trapezia bidentata,Trapezia bidentata,443875,species,obligate,mutualist/defender; grazer/herbivore,NA,NA,other,0,25,OBIS,NA,NA,NA,NA,NA,2,2
+Trapezia flavopunctata,Trapezia flavopunctata,210177,species,obligate,mutualist/defender; grazer/herbivore,NA,NA,other,3,16,OBIS,NA,NA,NA,NA,NA,7,2
+Trapezia guttata,Trapezia guttata,210175,species,obligate,mutualist/defender; grazer/herbivore,NA,NA,other,27,40,OBIS,NA,NA,NA,NA,NA,3,2
+Trapezia punctimanus,Trapezia punctimanus,443883,species,obligate,mutualist/defender; grazer/herbivore,NA,NA,other,30,390,OBIS,NA,NA,NA,NA,NA,5,2
+Trapezia rufopunctata,Trapezia rufopunctata,210187,species,obligate,mutualist/defender; grazer/herbivore,NA,NA,other,3,13,OBIS,NA,NA,NA,NA,NA,6,2
+Trapezia serenei,Trapezia serenei,443886,species,obligate,mutualist/defender; grazer/herbivore,NA,NA,other,12,NA,OBIS,NA,NA,NA,NA,NA,1,2
+Trapezia speciosa,Trapezia speciosa,210184,species,obligate,mutualist/defender; grazer/herbivore,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Trapezia tigrina,Trapezia tigrina,210186,species,obligate,mutualist/defender; grazer/herbivore,NA,NA,other,1,5,OBIS,NA,NA,NA,NA,NA,1,2
+Vexillum tusum,Vexillum tusum,758960,species,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Xanthias canaliculatus,Xanthias canaliculatus,209094,species,facultative,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Xanthias lamarckii,Xanthias lamarckii,444335,species,facultative,unknown,NA,NA,other,1,1,OBIS,NA,NA,NA,NA,NA,1,2
+Xanthias latifrons,Xanthias latifrons,209103,species,facultative,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Alpheus,Alpheus,106978,genus,facultative,commensal; bioeroder,NA,NA,other,0,1.81,OBIS,NA,NA,NA,NA,NA,3,2
+Ampithoe,Ampithoe,101459,genus,unknown,unknown,NA,NA,other,0,60.3,OBIS,NA,NA,NA,NA,NA,2,2
+Axiopsis,Axiopsis,246229,genus,unknown,unknown,NA,NA,other,6,61.3,OBIS,NA,NA,NA,NA,NA,4,2
+Calcinus,Calcinus,106840,genus,unknown,unknown,NA,NA,other,1,16,OBIS,NA,NA,NA,NA,NA,3,2
+Cerithium,Cerithium,137760,genus,unknown,unknown,NA,NA,other,0,2,OBIS,NA,NA,NA,NA,NA,2,2
+Cherusius,Cherusius,881699,genus,unknown,unknown,NA,NA,other,0,3,OBIS,NA,NA,NA,NA,NA,1,2
+Chlorodiella,Chlorodiella,205384,genus,facultative,unknown,NA,NA,other,13,15,OBIS,NA,NA,NA,NA,NA,1,2
+Clathurella,Clathurella,205792,genus,unknown,unknown,NA,NA,other,134,460,OBIS,NA,NA,NA,NA,NA,2,2
+Collonia,Collonia,225659,genus,unknown,unknown,NA,NA,other,353,368,OBIS,NA,NA,NA,NA,NA,1,2
+Cuapetes,Cuapetes,513994,genus,facultative,unknown,NA,NA,other,17,71,OBIS,NA,NA,NA,NA,NA,2,2
+Diodora,Diodora,138011,genus,unknown,unknown,NA,NA,other,0,16,OBIS,NA,NA,NA,NA,NA,3,2
+Discias,Discias,240676,genus,unknown,unknown,NA,NA,other,2,100,OBIS,NA,NA,NA,NA,NA,3,2
+Elasmopus,Elasmopus,101671,genus,unknown,unknown,NA,NA,other,0.44,38,OBIS,NA,NA,NA,NA,NA,5,2
+Eunice,Eunice,129278,genus,facultative,predator; scavenger,NA,NA,other,17,174,OBIS,NA,NA,NA,NA,NA,5,2
+Eviota,Eviota,205965,genus,facultative,commensal,NA,NA,other,0,3.66,OBIS,NA,NA,NA,NA,NA,1,2
+Fennera,Fennera,206310,genus,obligate,commensal,NA,NA,other,2,36.58,OBIS,NA,NA,NA,NA,NA,6,2
+Gammaropsis,Gammaropsis,101558,genus,unknown,unknown,NA,NA,other,0,120,OBIS,NA,NA,NA,NA,NA,4,2
+Hapalocarcinus,Hapalocarcinus,205812,genus,unknown,unknown,NA,NA,other,6,25,OBIS,NA,NA,NA,NA,NA,2,2
+Harpiliopsis,Harpiliopsis,204789,genus,facultative,commensal,NA,NA,other,1,8,OBIS,NA,NA,NA,NA,NA,2,2
+Hauchiella,Hauchiella,152388,genus,unknown,unknown,NA,NA,other,2,335,OBIS,NA,NA,NA,NA,NA,10,2
+Hesione,Hesione,129308,genus,unknown,unknown,NA,NA,other,3,7.6,OBIS,NA,NA,NA,NA,NA,2,2
+Iphione,Iphione,206125,genus,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Leocrates,Leocrates,129312,genus,unknown,unknown,NA,NA,other,50,1000,OBIS,NA,NA,NA,NA,NA,3,2
+Liomera,Liomera,205014,genus,facultative,unknown,NA,NA,other,37,37,OBIS,NA,NA,NA,NA,NA,1,2
+Lysidice,Lysidice,129280,genus,unknown,unknown,NA,NA,other,0,99,OBIS,NA,NA,NA,NA,NA,5,2
+Maera,Maera,101675,genus,unknown,unknown,NA,NA,other,8,117,OBIS,NA,NA,NA,NA,NA,5,2
+Microprosthema,Microprosthema,205426,genus,unknown,unknown,NA,NA,other,0.5,9,OBIS,NA,NA,NA,NA,NA,4,2
+Nikoides,Nikoides,204120,genus,unknown,unknown,NA,NA,other,17,55,OBIS,NA,NA,NA,NA,NA,2,2
+Notopygos,Notopygos,129190,genus,unknown,unknown,NA,NA,other,0,355,OBIS,NA,NA,NA,NA,NA,6,2
+Notospermus,Notospermus,122375,genus,unknown,unknown,NA,NA,other,18,30,OBIS,NA,NA,NA,NA,NA,1,2
+Ophiocoma,Ophiocoma,123592,genus,facultative,detritivore; scavenger,NA,NA,other,7,16,OBIS,NA,NA,NA,NA,NA,3,2
+Ophiozonella,Ophiozonella,123573,genus,unknown,unknown,NA,NA,other,179,1518,OBIS,NA,NA,NA,NA,NA,10,2
+Oreotlos,Oreotlos,439441,genus,unknown,unknown,NA,NA,other,50,97,OBIS,NA,NA,NA,NA,NA,4,2
+Pagurixus,Pagurixus,204996,genus,unknown,unknown,NA,NA,other,9,95,OBIS,NA,NA,NA,NA,NA,2,2
+Paragrubia,Paragrubia,205000,genus,unknown,unknown,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Pascula,Pascula,205373,genus,unknown,unknown,NA,NA,other,0,25,OBIS,NA,NA,NA,NA,NA,5,2
+Periclimenaeus,Periclimenaeus,205820,genus,unknown,unknown,NA,NA,other,33,33,OBIS,NA,NA,NA,NA,NA,2,2
+Periclimenes,Periclimenes,107035,genus,facultative,unknown,NA,NA,other,0,445,OBIS,NA,NA,NA,NA,NA,6,2
+Prionalpheus,Prionalpheus,514039,genus,facultative,commensal; bioeroder,NA,NA,other,NA,NA,none,NA,NA,NA,NA,NA,0,2
+Rissoina,Rissoina,138457,genus,unknown,unknown,NA,NA,other,3,4,OBIS,NA,NA,NA,NA,NA,1,2
+Scorpaenodes,Scorpaenodes,126172,genus,unknown,unknown,NA,NA,other,1,3.5,OBIS,NA,NA,NA,NA,NA,2,2
+Trivirostra,Trivirostra,206759,genus,unknown,unknown,NA,NA,other,5,304,OBIS,NA,NA,NA,NA,NA,4,2
+Unciola,Unciola,101474,genus,unknown,unknown,NA,NA,other,36,1276,OBIS,NA,NA,NA,NA,NA,8,2
+Vexillum,Vexillum,137846,genus,unknown,unknown,NA,NA,other,0,5,OBIS,NA,NA,NA,NA,NA,2,2
+Zafra,Zafra,182802,genus,unknown,unknown,NA,NA,other,4,25,OBIS,NA,NA,NA,NA,NA,3,2
+Alpheidae,Alpheidae,106776,family,facultative,commensal; bioeroder,NA,NA,other,0,59,OBIS,NA,NA,NA,NA,NA,3,2
+Amphinomidae,Amphinomidae,960,family,unknown,unknown,NA,NA,other,0,339,OBIS,NA,NA,NA,NA,NA,10,2
+Axiidae,Axiidae,106798,family,unknown,unknown,NA,NA,other,0,640,OBIS,NA,NA,NA,NA,NA,4,2
+Capitellidae,Capitellidae,921,family,unknown,unknown,NA,NA,other,0,1011,OBIS,NA,NA,NA,NA,NA,7,2
+Columbellidae,Columbellidae,23009,family,unknown,unknown,NA,NA,other,0,130,OBIS,NA,NA,NA,NA,NA,5,2
+Cypraeidae,Cypraeidae,23022,family,unknown,unknown,NA,NA,other,4.6,15.5,OBIS,NA,NA,NA,NA,NA,8,2
+Diogenidae,Diogenidae,106736,family,unknown,unknown,NA,NA,other,-1,12,OBIS,NA,NA,NA,NA,NA,5,2
+Eunicidae,Eunicidae,966,family,unknown,unknown,NA,NA,other,0,91,OBIS,NA,NA,NA,NA,NA,5,2
+Galatheidae,Galatheidae,106733,family,unknown,unknown,NA,NA,other,10,5774,OBIS,NA,NA,NA,NA,NA,8,2
+Glyceridae,Glyceridae,952,family,unknown,unknown,NA,NA,other,51.7,155,OBIS,NA,NA,NA,NA,NA,4,2
+Gobiidae,Gobiidae,125537,family,facultative,commensal,NA,NA,other,4,59,OBIS,NA,NA,NA,NA,NA,6,2
+Hesionidae,Hesionidae,946,family,unknown,unknown,NA,NA,other,0,2774,OBIS,NA,NA,NA,NA,NA,5,2
+Hippolytidae,Hippolytidae,106777,family,unknown,unknown,NA,NA,other,0,37,OBIS,NA,NA,NA,NA,NA,10,2
+Hipponicidae,Hipponicidae,23057,family,unknown,unknown,NA,NA,other,-0.73,0,OBIS,NA,NA,NA,NA,NA,2,2
+Labridae,Labridae,125541,family,unknown,unknown,NA,NA,other,3,61.9,OBIS,NA,NA,NA,NA,NA,9,2
+Leucothoidae,Leucothoidae,101393,family,unknown,unknown,NA,NA,other,55,122,OBIS,NA,NA,NA,NA,NA,2,2
+Majidae,Majidae,106760,family,unknown,unknown,NA,NA,other,3,277,OBIS,NA,NA,NA,NA,NA,4,2
+Marginellidae,Marginellidae,23025,family,unknown,unknown,NA,NA,other,0.3000000119,85,OBIS,NA,NA,NA,NA,NA,3,2
+Melitidae,Melitidae,101397,family,unknown,unknown,NA,NA,other,0,61,OBIS,NA,NA,NA,NA,NA,5,2
+Muricidae,Muricidae,148,family,unknown,unknown,NA,NA,other,5.2,296,OBIS,NA,NA,NA,NA,NA,3,2
+Nereididae,Nereididae,22496,family,unknown,unknown,NA,NA,other,0,117,OBIS,NA,NA,NA,NA,NA,5,2
+Opheliidae,Opheliidae,924,family,unknown,unknown,NA,NA,other,7,446,OBIS,NA,NA,NA,NA,NA,6,2
+Paguridae,Paguridae,106738,family,unknown,unknown,NA,NA,other,4.9,106,OBIS,NA,NA,NA,NA,NA,6,2
+Palaemonidae,Palaemonidae,106788,family,unknown,unknown,NA,NA,other,0,45,OBIS,NA,NA,NA,NA,NA,6,2
+Phyllodocidae,Phyllodocidae,931,family,unknown,unknown,NA,NA,other,4,291,OBIS,NA,NA,NA,NA,NA,6,2
+Pilumnidae,Pilumnidae,106766,family,unknown,unknown,NA,NA,other,22,33,OBIS,NA,NA,NA,NA,NA,4,2
+Polynoidae,Polynoidae,939,family,unknown,unknown,NA,NA,other,5,117.99,OBIS,NA,NA,NA,NA,NA,8,2
+Spionidae,Spionidae,913,family,unknown,unknown,NA,NA,other,0,117,OBIS,NA,NA,NA,NA,NA,7,2
+Syllidae,Syllidae,948,family,unknown,unknown,NA,NA,other,10,2273,OBIS,NA,NA,NA,NA,NA,8,2
+Terebellidae,Terebellidae,982,family,unknown,unknown,NA,NA,other,-1,357,OBIS,NA,NA,NA,NA,NA,7,2
+Triphoridae,Triphoridae,131,family,unknown,unknown,NA,NA,other,10,11,OBIS,NA,NA,NA,NA,NA,2,2
+Trochidae,Trochidae,443,family,unknown,unknown,NA,NA,other,-1.62,35.7,OBIS,NA,NA,NA,NA,NA,5,2
+Xanthidae,Xanthidae,106769,family,unknown,unknown,NA,NA,other,36.58,327,OBIS,NA,NA,NA,NA,NA,2,2
+Coralliophilinae,Coralliophilinae,411789,subfamily,unknown,unknown,NA,NA,other,1,255,OBIS,NA,NA,NA,NA,NA,7,2
+Ophiolepis cincta cincta,Ophiolepis cincta cincta,224123,subspecies,unknown,unknown,NA,NA,other,1,25,OBIS,NA,NA,NA,NA,NA,6,2

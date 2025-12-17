@@ -1,277 +1,280 @@
-# CAFI Survey Analysis 2026
+# CAFI Survey Analysis
 
-**Nonlinear scaling and neighborhood effects structure coral-associated fauna communities**
+**Landscape characteristics structure coral-associated fauna communities and their effects on coral condition**
 
-Analysis pipeline and manuscript for investigating how coral habitat attributes drive variation in coral-associated fauna (CAFI) density and community structure in Mo'orea, French Polynesia.
+Mo'orea, French Polynesia | Summer 2019 | *Pocillopora* corals
 
-## Overview
+---
 
-This repository contains the complete analysis pipeline for a manuscript investigating the ecological and physical factors determining CAFI community structure in *Pocillopora* corals. The work tests predictions from propagule redirection theory and marine landscape ecology.
+## What This Project Is
 
-### Theoretical Background
+This repository contains a complete R analysis pipeline for a coral reef ecology manuscript. We surveyed 114 *Pocillopora* coral colonies across 3 reef sites and catalogued ~4,000 individual coral-associated fauna (CAFI) spanning 87 species. The analysis tests how coral size and neighborhood context shape CAFI community assembly, and whether CAFI communities in turn affect coral physiological condition.
 
-A critical but underappreciated pattern in marine landscape ecology is that occupant *abundance* scales nonlinearly with habitat amount, which causes occupant *density* (per unit habitat) to decrease as habitat increases. This pattern arises through **propagule redirection**—larvae settling to habitat landscapes distribute among available patches based on chemical cue strength, so isolated habitats receive disproportionately more settlers per unit area than clustered habitats.
+**Key question**: Do landscape characteristics (coral size, local density) drive CAFI community structure, and do CAFI provide measurable benefits to their host corals?
 
-Three key habitat attributes drive these density patterns:
-
-1. **Habitat Amount**: Areas with more coral → higher abundance but *lower density*
-2. **Habitat Size**: Larger corals → more CAFI but at *lower density*
-3. **Habitat Proximity**: Isolated corals → *higher* CAFI density
-
-These patterns have profound implications because CAFI affect coral growth and survival—beneficially through predator defense and sediment removal, or detrimentally through tissue consumption. Habitat-driven variation in CAFI density should therefore feed back to alter coral dynamics and landscape patterns.
-
-### Study Summary
-
-- **Location**: Mo'orea, French Polynesia (3 reef sites: HAU, MAT, MRB)
-- **Host Coral**: *Pocillopora* spp.
-- **Survey Date**: Summer 2019
-- **Sample Size**: 114 coral colonies, 12,834 CAFI individuals, 87 species
-- **Coordinates**: GPS positions enable meter-scale neighborhood analysis
-
-### Important Analysis Note
-
-**Morphotype Excluded from Analysis**: Initial analyses included coral morphotype (*P. verrucosa* vs *P. meandrina*) as a potential predictor. However, morphotype was found to be a weak and non-significant predictor of CAFI community patterns compared to other factors like coral size, site, and branch architecture. To focus on the most ecologically meaningful predictors and avoid overfitting, morphotype has been excluded from all final analyses and figures. This decision improves model parsimony and focuses attention on the habitat attributes that genuinely structure CAFI communities.
-
-## Research Questions & Hypotheses
-
-### Central Questions
-
-1. How do coral attributes (amount, size, proximity) determine CAFI community composition and density?
-2. What are the scaling relationships between coral size and CAFI abundance?
-3. How do meter-scale neighborhood effects influence CAFI communities?
-4. Do CAFI density patterns relate to coral physiological condition?
-
-### Hypotheses
-
-| Hypothesis | Prediction |
-|------------|------------|
-| H1 (Site effects) | CAFI community composition differs among reef sites due to variation in coral landscapes and environmental conditions |
-| H2 (Size scaling) | CAFI abundance scales with coral volume following a power-law with exponent < 1, indicating larger corals have lower CAFI densities |
-| H3 (Neighborhood effects) | CAFI abundance varies with local coral density and proximity, reflecting propagule redirection and spillover effects |
-| H4 (Condition relationships) | Coral physiological condition positively predicts CAFI diversity, consistent with bidirectional coral-CAFI interactions |
-| H5 (Network structure) | CAFI co-occurrence networks exhibit non-random modular structure with identifiable keystone species |
-
-## Repository Structure
-
-```
-CAFI-Survey-2026/
-├── agents/                 # Python research workflow agents
-│   ├── all_agents.py       # 8 specialized research agents
-│   ├── orchestrator_agent.py
-│   └── research_prd_agent.py
-│
-├── data/                   # Raw input data
-│   ├── survey_cafi_data_w_taxonomy_summer2019_v5.csv
-│   ├── survey_coral_characteristics_merged_v2.csv
-│   ├── survey_master_phys_data_v3.csv
-│   └── README_*.xlsx       # Metadata documentation
-│
-├── scripts/                # R analysis pipeline (17 numbered scripts)
-│   ├── 00_load_libraries.R
-│   ├── 01_load_clean_data.R
-│   ├── 02_community_composition.R
-│   ├── ...
-│   ├── 14_local_neighborhood_effects.R  # Meter-scale neighborhood analysis
-│   └── run_all_survey_analyses.R
-│
-├── output/                 # Generated results
-│   ├── figures/            # PNG visualizations (300 dpi)
-│   │   ├── neighborhood_effects/
-│   │   └── ...
-│   ├── tables/             # CSV statistical results
-│   ├── objects/            # RDS R data objects
-│   ├── manuscript/         # MEPS-formatted manuscript
-│   └── reports/            # Documentation and summaries
-│
-├── docs/                   # Project documentation
-│   └── PRD.md              # Product Requirements Document
-│
-└── README.md
-```
-
-## Key Analyses
-
-### 1. Volume-Abundance Scaling
-
-Test whether CAFI abundance scales nonlinearly with coral size:
-
-- **Power-law model**: log(Abundance) ~ log(Volume)
-- **Expected exponent**: ~0.75 for 3D habitat (if < 1, density decreases with size)
-- **GLMM**: Site random effects, branch architecture fixed effect
-
-### 2. Local Neighborhood Effects
-
-Quantify meter-scale spatial context effects:
-
-- **Neighbor density**: Number of corals within 5m radius
-- **Neighbor volume**: Total habitat in local neighborhood
-- **Isolation index**: Mean distance to nearest neighbors
-- **Relative size**: Focal coral size relative to neighbors
-- **Spillover potential**: Colonist supply from nearby corals
-
-### 3. Coral Condition Relationships
-
-Link CAFI patterns to coral physiological metrics:
-
-- **Condition score**: Integrated PC1 of protein, carbohydrate, zooxanthellae, chlorophyll
-- **Model**: Diversity ~ Condition + Volume + Branch Width + (1|Site)
-
-### 4. Community Structure
-
-- **PERMANOVA**: Test site, depth, branch architecture effects on composition
-- **NMDS ordination**: Visualize community patterns
-- **Network analysis**: Co-occurrence patterns and modularity (Q = 0.42)
+---
 
 ## Quick Start
 
 ### Prerequisites
 
-**R packages** (installed automatically by `00_load_libraries.R`):
+R 4.0+ with these packages (auto-installed by setup script):
+- tidyverse, vegan, lme4, lmerTest, glmmTMB
+- sf, geosphere, ggplot2, patchwork, viridis
 
-- Core: `tidyverse`, `here`, `readxl`, `janitor`
-- Statistics: `vegan`, `lme4`, `lmerTest`, `glmmTMB`, `mgcv`
-- Spatial: `sf`, `sp`, `geosphere`, `ape`
-- Visualization: `ggplot2`, `patchwork`, `viridis`
-
-**Python packages** (for research agents):
-
-```bash
-pip install anthropic pyyaml python-dotenv
-```
-
-### Running the Analysis
-
-**Full pipeline:**
+### Run the Full Analysis
 
 ```r
-source("scripts/run_all_survey_analyses.R")
-source("scripts/run_all_comprehensive_analyses.R")
+# From R console in project root:
+source("scripts/run_pipeline.R")
 ```
 
-**Key individual analyses:**
+This runs the complete pipeline (~5-10 min) and generates:
+- Manuscript figures in `output/figures/manuscript/`
+- Exploratory figures in `output/figures/`
+- Statistical tables in `output/tables/`
+- Processed data objects in `output/objects/`
+
+### Run Individual Scripts
 
 ```r
-source("scripts/00_load_libraries.R")
+# 1. Load setup (required first)
+source("scripts/00_setup.R")
+
+# 2. Load and clean data (required second)
 source("scripts/01_load_clean_data.R")
-source("scripts/05_coral_cafi_relationships.R")  # Scaling relationships
-source("scripts/14_local_neighborhood_effects.R") # Neighborhood analysis
+
+# 3. Run specific analysis
+source("scripts/04_scaling_relationships.R")  # Fig 2: Size-abundance scaling
+source("scripts/06_network_analysis.R")       # Fig 4: Networks
+source("scripts/08_cafi_condition_feedbacks.R") # Fig 6: Feedbacks
 ```
-
-**Generate manuscript:**
-
-```r
-rmarkdown::render("output/manuscript/MANUSCRIPT.Rmd")
-```
-
-## Key Findings
-
-### Scaling Relationships (H2 supported)
-
-- Power-law exponent = 0.81 ± 0.12 (95% CI: 0.58–1.04)
-- Not significantly different from 0.75 theoretical prediction
-- Confirms that CAFI *density* decreases with coral size
-- Wide-branching corals support 34% higher abundance than tight-branching
-
-### Neighborhood Effects (H3 partially supported)
-
-- **Neighbor density**: Positive effect on CAFI abundance (facilitation/spillover)
-- **Neighbor volume**: Marginal positive effect (p = 0.068)
-- **Isolation**: No significant effect at meter scales (p = 0.96)
-- **Relative size**: Larger-than-neighbors corals support more CAFI
-
-The positive neighbor density effect suggests spillover/facilitation may counteract propagule dilution at local scales.
-
-### Spatial Structure
-
-- Significant positive spatial autocorrelation (Moran's I = 0.23, p < 0.001)
-- Strongest clustering at 10–50 m scales
-- Crabs: I = 0.31 (strongest); Fish: I = 0.08 (not significant)
-
-### Condition Relationships (H4 supported)
-
-- Coral condition positively predicts CAFI diversity (β = 0.19, p < 0.01)
-- Effect independent of coral size
-- Suggests bidirectional coral-CAFI interactions
-
-## Implications
-
-### For Theory
-
-- Scaling exponent supports propagule redirection predictions
-- Positive neighbor effects suggest facilitation at fine scales
-- Results inform models of coral-CAFI dynamics
-
-### For Conservation
-
-- Maintain coral populations with diverse size structures
-- Coral density within patches may matter more than spacing
-- Branch architecture influences CAFI more than putative species ID
-
-### Data Notes
-
-1. **Pocillopora taxonomy**: Species cannot be reliably distinguished morphologically. We focus on measurable architectural traits (branch width).
-
-2. **OTU approach**: CAFI are field-identified morphological OTUs, not genetically confirmed species.
-
-3. **Physiology subset**: Not all corals have physiological measurements.
-
-4. **Position correction**: Sampling position on branches correlates with colony size (r = 0.565). We address this confound by regressing each physiological trait on stump length and using residuals as position-corrected values. The condition score (PC1 of corrected traits) shows minimal correlation with colony volume (|r| < 0.10).
-
-## Sites
-
-| Code | Name | Environment | N Corals |
-|------|------|-------------|----------|
-| HAU | Hauru | Fringing reef (north shore) | 68 |
-| MAT | Maatea | Lagoon (back reef) | 68 |
-| MRB | Moorea Barrier Reef | Barrier reef (outer) | 68 |
-
-## Output Summary
-
-| Type | Count | Description |
-|------|-------|-------------|
-| Figures | 114+ | PNG visualizations (300 dpi) |
-| Tables | 77+ | CSV statistical results |
-| R Objects | 11 | RDS datasets and models |
-| Manuscript | 1 | MEPS-formatted publication |
-
-## Research Workflow Agents
-
-The `agents/` directory contains Python-based research workflow agents using Claude:
-
-| Agent | Purpose |
-|-------|---------|
-| Research PRD | Structured problem definition |
-| Literature | Gap analysis & synthesis |
-| Data QA | Quality assessment |
-| EDA | Exploratory analysis |
-| Modeling | Statistical planning |
-| Figure Factory | Visualization design |
-| Scientific Writer | Manuscript sections |
-
-## Citation
-
-If you use this analysis pipeline or data, please cite:
-
-```
-Stier AC, et al. (2026). Nonlinear scaling and neighborhood effects
-structure coral-associated fauna communities in Mo'orea, French Polynesia.
-Marine Ecology Progress Series [submitted].
-```
-
-## Funding
-
-This research was supported by the National Science Foundation.
-
-## License
-
-This project is licensed under the MIT License.
-
-## Contact
-
-- **Lab**: Stier Lab, Department of Ecology, Evolution, and Marine Biology, UC Santa Barbara
-- **Corresponding author**: Adrian Stier (astier@ucsb.edu)
-- **Issues**: [GitHub Issues](https://github.com/stier-lab/CAFI-Survey-2026/issues)
 
 ---
 
-*Analysis pipeline for manuscript submitted to Marine Ecology Progress Series*
+## Repository Structure
+
+```
+CAFI-Survey-2026/
+├── data/                          # Raw data files
+│   ├── survey_cafi_data_*.csv     # CAFI specimen records (3,989 rows)
+│   ├── survey_coral_*.csv         # Coral colony attributes (114 rows)
+│   ├── survey_master_phys_*.csv   # Physiology measurements (108 rows)
+│   ├── traits/                    # CAFI trait database
+│   ├── gis/                       # Mo'orea shapefiles for maps
+│   └── README.md                  # DATA DOCUMENTATION (start here)
+│
+├── scripts/                       # R analysis scripts (see below)
+│   ├── 00_setup.R                 # Setup, packages, paths, theme
+│   ├── 01_load_clean_data.R       # Data loading and cleaning
+│   ├── 02-09_*.R                  # Core analyses + manuscript figures
+│   ├── 10-13_*.R                  # Supplementary analyses
+│   ├── run_pipeline.R             # Pipeline orchestrator
+│   └── archive/                   # Deprecated scripts (reference only)
+│
+├── output/                        # Generated outputs
+│   ├── figures/manuscript/        # Publication figures (Fig 2-6)
+│   ├── figures/                   # Exploratory figures by analysis
+│   ├── tables/                    # CSV statistical results
+│   └── objects/                   # RDS R data objects
+│
+└── docs/                          # Documentation
+    ├── KEY_RESULTS_SUMMARY.md     # Main findings
+    ├── ANALYSIS_METHODS_SUMMARY.md # Detailed methods
+    └── PRD.md                     # Product requirements
+```
+
+---
+
+## Analysis Pipeline
+
+### Script Overview
+
+| Script | Purpose | Manuscript Figure |
+|--------|---------|-------------------|
+| `00_setup.R` | Load packages, configure paths, define theme | — |
+| `01_load_clean_data.R` | Load CSVs, clean data, create RDS objects | — |
+| `02_community_composition.R` | Taxonomic summaries, PERMANOVA | — |
+| `03_diversity_analysis.R` | Alpha/beta diversity, NMDS | Fig 4 (ordination) |
+| `04_scaling_relationships.R` | Size-abundance power-law scaling | **Fig 2** |
+| `05_coral_condition.R` | Position-corrected condition scores | **Fig 5** |
+| `06_network_analysis.R` | Co-occurrence networks, modularity | **Fig 4** (networks) |
+| `07_neighborhood_effects.R` | Meter-scale neighborhood effects | **Fig 6** (partial) |
+| `08_cafi_condition_feedbacks.R` | CAFI -> coral condition | **Fig 6** |
+| `09_functional_groups.R` | Trapezia, fish, corallivore patterns | **Fig 3** |
+| `10_spatial_patterns.R` | Maps, spatial extent | Supplementary |
+| `11_size_biomass_scaling.R` | CAFI body size distributions | Supplementary |
+| `12_machine_learning.R` | Random Forest predictions | Supplementary |
+| `13_spatial_autocorrelation.R` | Moran's I, spatial regression | Supplementary |
+
+### Dependency Chain
+
+```
+00_setup.R
+    ↓
+01_load_clean_data.R
+    ↓
+┌───┴───────────────────────────────────┐
+│  02_community_composition.R           │
+│  03_diversity_analysis.R     → Fig 4  │
+│  04_scaling_relationships.R  → Fig 2  │
+│  05_coral_condition.R        → Fig 5  │
+│  06_network_analysis.R       → Fig 4  │
+│  07_neighborhood_effects.R   → Fig 6  │
+│  08_cafi_condition_feedbacks.R → Fig 6│
+│  09_functional_groups.R      → Fig 3  │
+└───────────────────────────────────────┘
+```
+
+---
+
+## Data Overview
+
+| Dataset | File | Records | Key Variables |
+|---------|------|---------|---------------|
+| CAFI specimens | `survey_cafi_data_w_taxonomy_summer2019_v5.csv` | 3,989 | coral_id, type, genus, species, size_mm |
+| Coral colonies | `survey_coral_characteristics_merged_v2.csv` | 114 | coral_id, lat/long, volume, branch_width, neighbor metrics |
+| Physiology | `survey_master_phys_data_v3.csv` | 108 | coral_id, protein, carbs, zoox_density, afdw |
+
+**Join key**: All datasets link via `coral_id` (format: "SITE-POC##", e.g., "HAU-POC29")
+
+**Full data documentation**: See [data/README.md](data/README.md)
+
+---
+
+## Key Research Questions
+
+### 1. How does coral size affect CAFI abundance? (Fig 2)
+
+The relationship between coral size (V) and CAFI abundance (N) follows a power law: **N = a × V^β**
+
+Three competing hypotheses:
+
+| Hypothesis | Scaling | Mechanism |
+|------------|---------|-----------|
+| **Field of Dreams** | β = 1 | Abundance proportional to size; passive habitat filling |
+| **Propagule Redistribution** | β < 1 | Larger corals "dilute" settlers; per-capita density decreases |
+| **Super-linear** | β > 1 | Larger corals disproportionately attractive; aggregation |
+
+**Key Results**:
+- **Total abundance**: β = 1.20 (super-linear) — larger corals harbor more per unit volume
+- **Species richness**: β = 0.81 (redistribution) — diversity saturates in larger corals
+- **Individual species**: Most show β ≈ 1 (Field of Dreams) — proportional scaling
+
+See `output/reports/SCALING_ANALYSIS.html` for comprehensive analysis.
+
+### 2. Do CAFI functional groups affect coral condition? (Figs 3, 6)
+
+| Functional Group | Taxa | Expected Effect |
+|-----------------|------|-----------------|
+| Mutualist defenders | *Trapezia*, *Tetralia* crabs | Positive |
+| Nutrient providers | *Paragobiodon*, *Caracanthus* fish | Positive |
+| Corallivores | *Drupella*, *Coralliophila* snails | Negative |
+
+**Result**: Defender abundance correlates with higher condition; corallivores with lower.
+
+### 3. Do local neighborhoods affect CAFI? (Figs 4, 6)
+
+**Result**: Neighbor density has weak positive effect; coral size dominates.
+
+---
+
+## Study Sites
+
+| Code | Name | Environment | N |
+|------|------|-------------|---|
+| HAU | Hauru | Fringing reef, north shore | 38 |
+| MAT | Maatea | Lagoon, back reef | 38 |
+| MRB | Barrier Reef | Outer barrier, oceanic | 38 |
+
+**Location**: Mo'orea, French Polynesia (17°30'S, 149°50'W)
+
+---
+
+## Working with Pre-computed Objects
+
+After running `01_load_clean_data.R`, these RDS files are available:
+
+```r
+# Load pre-computed objects
+coral_master <- readRDS("output/objects/coral_master.rds")       # Main merged dataset
+cafi_clean <- readRDS("output/objects/cafi_clean.rds")           # Clean CAFI records
+community_matrix <- readRDS("output/objects/community_matrix.rds") # Coral x OTU matrix
+condition_scores <- readRDS("output/objects/condition_scores.rds") # Condition PC1
+functional_summary <- readRDS("output/objects/functional_summary.rds") # By functional group
+```
+
+---
+
+## Key Outputs
+
+### Manuscript Figures (`output/figures/manuscript/`)
+
+| Figure | Content | Script |
+|--------|---------|--------|
+| Fig 2 | Size-abundance-richness scaling | `04_scaling_relationships.R` |
+| Fig 3 | Functional group responses | `09_functional_groups.R` |
+| Fig 4 | NMDS ordination + networks | `03_diversity_analysis.R`, `06_network_analysis.R` |
+| Fig 5 | Condition vs landscape | `05_coral_condition.R` |
+| Fig 6 | CAFI-condition feedbacks | `07_neighborhood_effects.R`, `08_cafi_condition_feedbacks.R` |
+
+### Statistical Tables (`output/tables/`)
+
+Key output files:
+- `scaling_model_results.csv` - Size-abundance coefficients
+- `permanova_results.csv` - Community composition tests
+- `network_metrics.csv` - Modularity, centrality
+- `condition_model_results.csv` - Condition predictors
+
+---
+
+## Important Notes
+
+### Data Quirks
+
+1. **Site extraction**: The `site` column in CAFI data is sometimes blank. Extract from `coral_id` prefix (HAU, MAT, MRB).
+
+2. **Volume**: Use `volume_field` (field estimate) since `volume_lab` is often missing.
+
+3. **Position correction**: Physiology metrics require position correction—sampling position correlates with colony size. Scripts handle this automatically.
+
+4. **Taxonomy**: CAFI are morphological OTUs, not genetically confirmed species.
+
+### Finding Manuscript Figure Code
+
+Each script that generates manuscript figures has a clear marker:
+
+```r
+# >>> MANUSCRIPT FIGURE X <<<
+```
+
+Search for this pattern to quickly find publication figure code.
+
+---
+
+## Citation
+
+```
+Stier AC, et al. (2026). Landscape characteristics structure coral-associated
+fauna communities and their effects on coral condition in Mo'orea, French Polynesia.
+Marine Ecology Progress Series [submitted].
+```
+
+---
+
+## Contact
+
+**PI**: Adrian Stier
+**Email**: astier@ucsb.edu
+**Lab**: Stier Lab, UC Santa Barbara
+**Website**: https://stierlab.com
+
+---
+
+## License
+
+MIT License
+
+---
+
+*Last updated: December 2025*

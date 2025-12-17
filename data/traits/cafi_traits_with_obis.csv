@@ -1,0 +1,234 @@
+taxon_input,accepted_name,aphia_id,rank,taxon_status,functional_role_str,pocillopora_association,max_length_mm,depth_min_m,depth_max_m,n_obis_records,range_summary,n_sources,notes
+Actaeodes hirsutissimus,Actaeodes hirsutissimus,209051.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Alpheopsis aequalis,Alpheopsis aequalis,220235.0,species,accepted,commensal; bioeroder,facultative,,,,0,unknown,2, OBIS queried; no depth data available.
+Alpheus clypeatus,Alpheus clypeatus,210529.0,species,accepted,commensal; bioeroder,facultative,,,,0,unknown,2, OBIS queried; no depth data available.
+Alpheus collumianus,Alpheus collumianus,210504.0,species,accepted,commensal; bioeroder,facultative,,,3.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Alpheus diadema,Alpheus diadema,210518.0,species,accepted,commensal; bioeroder,facultative,,3.0,5.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Alpheus dolerus,Alpheus dolerus,514864.0,species,accepted,commensal; bioeroder,facultative,,,,0,unknown,2, OBIS queried; no depth data available.
+Alpheus gracilipes,Alpheus gracilipes,210514.0,species,accepted,commensal; bioeroder,facultative,,,2.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Alpheus lottini,Alpheus lottini,210544.0,species,accepted,commensal; bioeroder,facultative,,1.0,8.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Alpheus obesomanus,Alpheus obesomanus,210535.0,species,accepted,commensal; bioeroder,facultative,,,,0,unknown,2, OBIS queried; no depth data available.
+Alpheus pachychirus,Alpheus pachychirus,210547.0,species,accepted,commensal; bioeroder,facultative,,0.3,24.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Alpheus paracrinitus,Alpheus paracrinitus,210522.0,species,accepted,commensal; bioeroder,facultative,,1.5,17.0,4,unknown,2, Depth from OBIS (4 occurrence records).
+Alpheus parvirostris,Alpheus parvirostris,210506.0,species,accepted,commensal; bioeroder,facultative,,,,0,unknown,2, OBIS queried; no depth data available.
+Alpheus roseodigitalis,Alpheus roseodigitalis,514959.0,species,accepted,commensal; bioeroder,facultative,,0.0,0.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Alpheus sizou,Alpheus sizou,514966.0,species,accepted,commensal; bioeroder,facultative,,,,0,unknown,2, OBIS queried; no depth data available.
+Alpheus staphylinus,Alpheus staphylinus,514973.0,species,accepted,commensal; bioeroder,facultative,,0.0,3.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Alpheus strenuus,Alpheus strenuus,210517.0,species,accepted,commensal; bioeroder,facultative,,0.5,24.3,2,unknown,2, Depth from OBIS (2 occurrence records).
+Amphipholis squamata,Amphipholis squamata,125064.0,species,accepted,unknown,unknown,,0.0,378.0,9,unknown,2, Depth from OBIS (9 occurrence records).
+Anarithma metula,Anarithma metula,594417.0,species,accepted,unknown,unknown,,62.0,111.0,4,unknown,2, Depth from OBIS (4 occurrence records).
+Antennatus tuberosus,Antennatus tuberosus,217855.0,species,accepted,unknown,unknown,,0.0,27.72,3,unknown,2, Depth from OBIS (3 occurrence records).
+Apataxia cerithiiformis,Apataxia cerithiiformis,871015.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Arete indicus,Arete indicus,221011.0,species,accepted,commensal; bioeroder,facultative,,,,0,unknown,2, OBIS queried; no depth data available.
+Astralium confragosum,Astralium confragosum,581743.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Athanas areteformis,Athanas areteformis,210463.0,species,accepted,commensal; bioeroder,facultative,,2.0,,1,unknown,2, Depth from OBIS (1 occurrence records).
+Athanas djiboutensis,Athanas djiboutensis,210466.0,species,accepted,commensal; bioeroder,facultative,,0.0,0.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Athanas marshallensis,Athanas marshallensis,210468.0,species,accepted,commensal; bioeroder,facultative,,0.0,18.0,5,unknown,2, Depth from OBIS (5 occurrence records).
+Bittium glareosum,Bittium glareosum,207905.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Bittium impendens,Bittium impendens,473076.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Breviturma dentata,Breviturma dentata,1214745.0,species,accepted,unknown,unknown,,0.0,15.0,9,unknown,2, Depth from OBIS (9 occurrence records).
+Breviturma pica,Breviturma pica,1306674.0,species,accepted,unknown,unknown,,2.0,14.0,9,unknown,2, Depth from OBIS (9 occurrence records).
+Bulla orientalis,Bulla orientalis,510402.0,species,accepted,unknown,unknown,,1.5,1.5,1,unknown,2, Depth from OBIS (1 occurrence records).
+Caducifer decapitatus,Caducifer decapitatus,490878.0,species,accepted,unknown,unknown,,22.0,46.0,3,unknown,2, Depth from OBIS (3 occurrence records).
+Calcinus gouti,Calcinus gouti,367437.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Calcinus guamensis,Calcinus guamensis,367438.0,species,accepted,unknown,unknown,,15.0,15.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Calcinus laevimanus,Calcinus laevimanus,208669.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Calcinus latens,Calcinus latens,208677.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Calcinus morgani,Calcinus morgani,367449.0,species,accepted,unknown,unknown,,2.0,13.0,3,unknown,2, Depth from OBIS (3 occurrence records).
+Calcinus nitidus,Calcinus nitidus,208675.0,species,accepted,unknown,unknown,,0.0,10.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Calcinus seurati,Calcinus seurati,208674.0,species,accepted,unknown,unknown,,0.0,16.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Caracanthus maculatus,Caracanthus maculatus,220364.0,species,accepted,predator,facultative,,0.0,20.7,6,unknown,2, Depth from OBIS (6 occurrence records).
+Carpilius convexus,Carpilius convexus,209150.0,species,accepted,unknown,unknown,,0.0,6.3,1,unknown,2, Depth from OBIS (1 occurrence records).
+Cerithium nesioticum,Cerithium nesioticum,139061.0,species,accepted,unknown,unknown,,0.0,1.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Cerithium punctatum,Cerithium punctatum,216677.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Cerithium zebrum,Cerithium zebrum,216673.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Chlorocurtis jactans,Chlorocurtis jactans,515421.0,species,accepted,unknown,facultative,,21.0,,1,unknown,2, Association inferred from genus-level reference data. Depth from OBIS (1 occurrence records).
+Chlorodiella barbata,Chlorodiella barbata,209139.0,species,accepted,unknown,facultative,,0.5,1.0,2,unknown,2, Association inferred from genus-level reference data. Depth from OBIS (2 occurrence records).
+Chlorodiella cytherea,Chlorodiella cytherea,209138.0,species,accepted,unknown,facultative,,,,0,unknown,2, Association inferred from genus-level reference data. OBIS queried; no depth data available.
+Chlorodiella laevissima,Chlorodiella laevissima,209137.0,species,accepted,unknown,facultative,,,,0,unknown,2, Association inferred from genus-level reference data. OBIS queried; no depth data available.
+Chromodoris aspersa,Chromodoris aspersa,558319.0,species,accepted,unknown,unknown,,0.0,15.0,7,unknown,2, Depth from OBIS (7 occurrence records).
+Chrysiptera brownriggii,Chrysiptera brownriggii,276827.0,species,accepted,unknown,unknown,,0.0,7.4,7,unknown,2, Depth from OBIS (7 occurrence records).
+Ciliopagurus strigatus,Ciliopagurus strigatus,246257.0,species,accepted,unknown,unknown,,2.0,30.0,3,unknown,2, Depth from OBIS (3 occurrence records).
+Conus lividus,Conus lividus,215541.0,species,accepted,unknown,unknown,,0.0,32.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Coralliogalathea humilis,Coralliogalathea humilis,392201.0,species,accepted,corallivore; commensal,facultative,,,,0,unknown,2, OBIS queried; no depth data available.
+Crepidula fornicata,Crepidula fornicata,138963.0,species,accepted,unknown,unknown,,0.0,20.0,6,unknown,2, Depth from OBIS (6 occurrence records).
+Cyclodius nitidus,Cyclodius nitidus,444088.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Cymo quadrilobatus,Cymo quadrilobatus,208972.0,species,accepted,unknown,obligate,,,,0,unknown,2, Association inferred from genus-level reference data. OBIS queried; no depth data available.
+Daira perlata,Daira perlata,107426.0,species,accepted,unknown,unknown,,0.5,0.5,1,unknown,2, Depth from OBIS (1 occurrence records).
+Dascyllus flavicaudus,Dascyllus flavicaudus,278450.0,species,accepted,unknown,unknown,,3.0,15.0,10,unknown,2, Depth from OBIS (10 occurrence records).
+Dendrodoris nigra,Dendrodoris nigra,139519.0,species,accepted,unknown,unknown,,0.0,4.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Diala albugo,Diala albugo,547187.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Domecia glabra,Domecia glabra,209147.0,species,accepted,unknown,obligate,,1.0,5.0,1,unknown,2, Association inferred from genus-level reference data. Depth from OBIS (1 occurrence records).
+Domecia hispida,Domecia hispida,209146.0,species,accepted,unknown,obligate,,2.0,8.0,1,unknown,2, Association inferred from genus-level reference data. Depth from OBIS (1 occurrence records).
+Enchelyurus ater,Enchelyurus ater,276882.0,species,accepted,unknown,unknown,,0.0,6.1,1,unknown,2, Depth from OBIS (1 occurrence records).
+Epigrapsus politus,Epigrapsus politus,,species,unresolved,unknown,unknown,,,,0,unknown,1,WoRMS match failed for Epigrapsus politus.  OBIS queried; no depth data available.
+Euplica varians,Euplica varians,511782.0,species,accepted,unknown,unknown,,1.0,1.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Galathea mauritiana,Galathea mauritiana,210093.0,species,accepted,commensal; filter_feeder,facultative,,11.0,11.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Galathea pilosa,Galathea pilosa,392250.0,species,accepted,commensal; filter_feeder,facultative,,,,0,unknown,2, OBIS queried; no depth data available.
+Galathea spinosorostris,Galathea spinosorostris,392258.0,species,accepted,commensal; filter_feeder,facultative,,0.0,10.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Galeropsis monodonta,Galeropsis monodonta,724109.0,species,accepted,unknown,unknown,,1.0,19.0,6,unknown,2, Depth from OBIS (6 occurrence records).
+Garthiella aberrans,Garthiella aberrans,444091.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Gobiodon unicolor,Gobiodon unicolor,276935.0,species,accepted,commensal; mucus_feeder,obligate,,4.0,4.5,1,unknown,2, Depth from OBIS (1 occurrence records).
+Goniosupradens obtusifrons,Goniosupradens obtusifrons,1358824.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Gonodactylellus espinosus,Gonodactylellus espinosus,408908.0,species,accepted,unknown,unknown,,0.0,12.2,5,unknown,2, Depth from OBIS (5 occurrence records).
+Hargeria rapax,Hargeria rapax,247538.0,species,accepted,unknown,unknown,,0.4,4.0,9,unknown,2, Depth from OBIS (9 occurrence records).
+Harpiliopsis beaupresii,Harpiliopsis beaupresii,220132.0,species,accepted,commensal,facultative,,,,0,unknown,2, OBIS queried; no depth data available.
+Harpiliopsis depressa,Harpiliopsis depressa,220131.0,species,accepted,commensal,facultative,,1.0,21.0,4,unknown,2, Depth from OBIS (4 occurrence records).
+Harpiliopsis spinigera,Harpiliopsis spinigera,220130.0,species,accepted,commensal,facultative,,2.0,12.0,4,unknown,2, Depth from OBIS (4 occurrence records).
+Hemilienardia malleti,Hemilienardia malleti,217103.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Imbricariopsis punctata,Imbricariopsis punctata,1061679.0,species,accepted,unknown,unknown,,1.0,2.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Jacforus cavatus,Jacforus cavatus,444268.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Labroides dimidiatus,Labroides dimidiatus,219014.0,species,accepted,unknown,unknown,,1.8,17.3,9,unknown,2, Depth from OBIS (9 occurrence records).
+Liocarpilodes integerrimus,Liocarpilodes integerrimus,209142.0,species,accepted,unknown,unknown,,2.0,10.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Liomera bella,Liomera bella,208982.0,species,accepted,unknown,facultative,,,,0,unknown,2, Association inferred from genus-level reference data. OBIS queried; no depth data available.
+Liomera tristis,Liomera tristis,208992.0,species,accepted,unknown,facultative,,28.0,28.0,1,unknown,2, Association inferred from genus-level reference data. Depth from OBIS (1 occurrence records).
+Lophocochlias minutissimus,Lophocochlias minutissimus,730993.0,species,unaccepted,unknown,unknown,,4.0,350.0,8,unknown,2, Depth from OBIS (8 occurrence records).
+Lophozozymus anaglyptus,Lophozozymus anaglyptus,444376.0,species,accepted,unknown,unknown,,0.0,7.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Lovellona atramentosa,Lovellona atramentosa,428917.0,species,accepted,unknown,unknown,,0.0,150.0,4,unknown,2, Depth from OBIS (4 occurrence records).
+Luniella pugil,Luniella pugil,881754.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Luria isabella,Luria isabella,216862.0,species,accepted,unknown,unknown,,2.0,38.0,4,unknown,2, Depth from OBIS (4 occurrence records).
+Macrophiothrix longipeda,Macrophiothrix longipeda,213195.0,species,accepted,unknown,unknown,,30.4,30.4,1,unknown,2, Depth from OBIS (1 occurrence records).
+Macteola interrupta,Macteola interrupta,434315.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Mitrella moleculina,Mitrella moleculina,511534.0,species,accepted,unknown,unknown,,7.0,15.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Morula uva,Morula uva,600713.0,species,accepted,unknown,unknown,,0.0,32.0,6,unknown,2, Depth from OBIS (6 occurrence records).
+Morula zebrina,Morula zebrina,744853.0,species,accepted,unknown,unknown,,2.0,25.0,6,unknown,2, Depth from OBIS (6 occurrence records).
+Neocirrhites armatus,Neocirrhites armatus,281678.0,species,accepted,unknown,unknown,,7.3,19.0,9,unknown,2, Depth from OBIS (9 occurrence records).
+Onycocaris amakusensis,Onycocaris amakusensis,208746.0,species,accepted,unknown,facultative,,,,0,unknown,2, Association inferred from genus-level reference data. OBIS queried; no depth data available.
+Ophiactis savignyi,Ophiactis savignyi,125122.0,species,accepted,unknown,unknown,,1.0,550.0,7,unknown,2, Depth from OBIS (7 occurrence records).
+Ophiocoma erinaceus,Ophiocoma erinaceus,212371.0,species,accepted,detritivore; scavenger,facultative,,10.0,25.5,5,unknown,2, Depth from OBIS (5 occurrence records).
+Ophiocoma schoenleinii,Ophiocoma schoenleinii,212372.0,species,accepted,detritivore; scavenger,facultative,,2.0,16.5,5,unknown,2, Depth from OBIS (5 occurrence records).
+Ophiocomella sexradia,Ophiocomella sexradia,213452.0,species,accepted,unknown,unknown,,0.1,1555.0,4,unknown,2, Depth from OBIS (4 occurrence records).
+Ophioconis permixta,Ophioconis permixta,238160.0,species,accepted,unknown,unknown,,12.0,190.0,7,unknown,2, Depth from OBIS (7 occurrence records).
+Ophiomastix elegans,Ophiomastix elegans,1306667.0,species,accepted,detritivore; scavenger,facultative,,2.0,2.5,2,unknown,2, Depth from OBIS (2 occurrence records).
+Pagurixus nomurai,Pagurixus nomurai,366635.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Pagurixus ruber,Pagurixus ruber,366640.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Palaemon concinnus,Palaemon concinnus,220149.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Palapedia serenei,Palapedia serenei,444186.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Paracirrhites arcatus,Paracirrhites arcatus,218866.0,species,accepted,predator,facultative,,0.3,24.7,10,unknown,2, Depth from OBIS (10 occurrence records).
+Paractaea rufopunctata,Paractaea rufopunctata,209046.0,species,accepted,unknown,unknown,,1.0,220.0,4,unknown,2, Depth from OBIS (4 occurrence records).
+Paragobiodon lacunicolus,Paragobiodon lacunicolus,219536.0,species,accepted,commensal; mucus_feeder,obligate,,,1.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Paragobiodon modestus,Paragobiodon modestus,219538.0,species,accepted,commensal; mucus_feeder,obligate,,,,0,unknown,2, OBIS queried; no depth data available.
+Parelasmopus suensis,Parelasmopus suensis,534810.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Pascula muricata,Pascula muricata,408071.0,species,accepted,unknown,unknown,,0.0,80.0,10,unknown,2, Depth from OBIS (10 occurrence records).
+Periclimenaeus tridentatus,Periclimenaeus tridentatus,220170.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Periclimenes watamuae,Periclimenes watamuae,210617.0,species,accepted,unknown,facultative,,1.0,1.0,1,unknown,2, Association inferred from genus-level reference data. Depth from OBIS (1 occurrence records).
+Perinia tumida,Perinia tumida,217318.0,species,accepted,unknown,facultative,,,,0,unknown,2, Association inferred from genus-level reference data. OBIS queried; no depth data available.
+Peristernia nassatula,Peristernia nassatula,208048.0,species,accepted,unknown,unknown,,0.0,1.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Phylladiorhynchus integrirostris,Phylladiorhynchus integrirostris,392678.0,species,accepted,commensal; filter_feeder,facultative,,10.0,10.0,1,unknown,2, Association inferred from genus-level reference data. Depth from OBIS (1 occurrence records).
+Pollia wagneri,Pollia wagneri,217064.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Psaumis cavipes,Psaumis cavipes,209048.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Pseudobiceros damawan,Pseudobiceros damawan,878949.0,species,accepted,unknown,unknown,,0.0,0.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Pseudocheilinus hexataenia,Pseudocheilinus hexataenia,208915.0,species,accepted,unknown,unknown,,0.0,35.0,9,unknown,2, Depth from OBIS (9 occurrence records).
+Pseudoliomera speciosa,Pseudoliomera speciosa,209016.0,species,accepted,unknown,facultative,,2.0,14.0,5,unknown,2, Association inferred from genus-level reference data. Depth from OBIS (5 occurrence records).
+Pseudoliomera variolosa,Pseudoliomera variolosa,209010.0,species,accepted,unknown,facultative,,,,0,unknown,2, Association inferred from genus-level reference data. OBIS queried; no depth data available.
+Purpuradusta fimbriata,Purpuradusta fimbriata,390567.0,species,accepted,unknown,unknown,,50.0,50.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Quadrimaera quadrimana,Quadrimaera quadrimana,421523.0,species,accepted,unknown,unknown,,0.0,9.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Raoulserenea ornata,Raoulserenea ornata,409008.0,species,accepted,unknown,unknown,,6.0,12.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Rissoina ambigua,Rissoina ambigua,216954.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Rissoina heronensis,Rissoina heronensis,833610.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Rugathanas borradailei,Rugathanas borradailei,515086.0,species,accepted,commensal; bioeroder,facultative,,,,0,unknown,2, OBIS queried; no depth data available.
+Saron marmoratus,Saron marmoratus,210450.0,species,accepted,unknown,facultative,,2.0,12.0,4,unknown,2, Association inferred from genus-level reference data. Depth from OBIS (4 occurrence records).
+Saron neglectus,Saron neglectus,210451.0,species,accepted,unknown,facultative,,,,0,unknown,2, Association inferred from genus-level reference data. OBIS queried; no depth data available.
+Stomatella auricula,Stomatella auricula,527557.0,species,accepted,unknown,unknown,,1.0,2.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Stomatolina rubra,Stomatolina rubra,213528.0,species,accepted,unknown,unknown,,50.0,52.0,3,unknown,2, Depth from OBIS (3 occurrence records).
+Strigatella assimilis,Strigatella assimilis,890213.0,species,accepted,unknown,unknown,,0.0,1.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Synalpheus charon,Synalpheus charon,210494.0,species,accepted,commensal; bioeroder,facultative,,4.0,15.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Tetralia ocucaerulea,Tetralia ocucaerulea,443860.0,species,accepted,unknown,unknown,,0.0,40.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Thalamita coeruleipes,Thalamita coeruleipes,208876.0,species,superseded combination,unknown,facultative,,,,0,unknown,2, Association inferred from genus-level reference data. OBIS queried; no depth data available.
+Thalamita pseudopelsarti,Thalamita pseudopelsarti,387555.0,species,superseded combination,unknown,facultative,,,,0,unknown,2, Association inferred from genus-level reference data. OBIS queried; no depth data available.
+Thalassoma hardwicke,Thalassoma hardwicke,212217.0,species,accepted,unknown,unknown,,2.3,11.0,9,unknown,2, Depth from OBIS (9 occurrence records).
+Thinora maldivensis,Thinora maldivensis,515341.0,species,superseded combination,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Trapezia areolata,Trapezia areolata,443874.0,species,accepted,mutualist/defender; grazer/herbivore,obligate,,50.0,90.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Trapezia bella,Trapezia bella,210185.0,species,accepted,mutualist/defender; grazer/herbivore,obligate,,,,0,unknown,2, OBIS queried; no depth data available.
+Trapezia bidentata,Trapezia bidentata,443875.0,species,accepted,mutualist/defender; grazer/herbivore,obligate,,0.0,25.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Trapezia flavopunctata,Trapezia flavopunctata,210177.0,species,accepted,mutualist/defender; grazer/herbivore,obligate,,3.0,16.0,7,unknown,2, Depth from OBIS (7 occurrence records).
+Trapezia guttata,Trapezia guttata,210175.0,species,accepted,mutualist/defender; grazer/herbivore,obligate,,27.0,40.0,3,unknown,2, Depth from OBIS (3 occurrence records).
+Trapezia punctimanus,Trapezia punctimanus,443883.0,species,accepted,mutualist/defender; grazer/herbivore,obligate,,30.0,390.0,5,unknown,2, Depth from OBIS (5 occurrence records).
+Trapezia rufopunctata,Trapezia rufopunctata,210187.0,species,accepted,mutualist/defender; grazer/herbivore,obligate,,3.0,13.0,6,unknown,2, Depth from OBIS (6 occurrence records).
+Trapezia serenei,Trapezia serenei,443886.0,species,accepted,mutualist/defender; grazer/herbivore,obligate,,12.0,,1,unknown,2, Depth from OBIS (1 occurrence records).
+Trapezia speciosa,Trapezia speciosa,210184.0,species,accepted,mutualist/defender; grazer/herbivore,obligate,,,,0,unknown,2, OBIS queried; no depth data available.
+Trapezia tigrina,Trapezia tigrina,210186.0,species,accepted,mutualist/defender; grazer/herbivore,obligate,,1.0,5.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Vexillum tusum,Vexillum tusum,758960.0,species,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Xanthias canaliculatus,Xanthias canaliculatus,209094.0,species,accepted,unknown,facultative,,,,0,unknown,2, Association inferred from genus-level reference data. OBIS queried; no depth data available.
+Xanthias lamarckii,Xanthias lamarckii,444335.0,species,accepted,unknown,facultative,,1.0,1.0,1,unknown,2, Association inferred from genus-level reference data. Depth from OBIS (1 occurrence records).
+Xanthias latifrons,Xanthias latifrons,209103.0,species,accepted,unknown,facultative,,,,0,unknown,2, Association inferred from genus-level reference data. OBIS queried; no depth data available.
+Alpheus,Alpheus,106978.0,genus,accepted,commensal; bioeroder,facultative,,0.0,1.81,3,unknown,2, Association from Stier lab reference sheet (2012). Depth from OBIS (3 occurrence records).
+Ampithoe,Ampithoe,101459.0,genus,accepted,unknown,unknown,,0.0,60.3,2,unknown,2, Depth from OBIS (2 occurrence records).
+Axiopsis,Axiopsis,246229.0,genus,accepted,unknown,unknown,,6.0,61.3,4,unknown,2, Depth from OBIS (4 occurrence records).
+Calcinus,Calcinus,106840.0,genus,accepted,unknown,unknown,,1.0,16.0,3,unknown,2, Depth from OBIS (3 occurrence records).
+Cerithium,Cerithium,137760.0,genus,accepted,unknown,unknown,,0.0,2.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Cherusius,Cherusius,881699.0,genus,accepted,unknown,unknown,,0.0,3.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Chlorodiella,Chlorodiella,205384.0,genus,accepted,unknown,facultative,,13.0,15.0,1,unknown,2, Association inferred from genus-level reference data. Depth from OBIS (1 occurrence records).
+Clathurella,Clathurella,205792.0,genus,accepted,unknown,unknown,,134.0,460.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Collonia,Collonia,225659.0,genus,accepted,unknown,unknown,,353.0,368.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Cuapetes,Cuapetes,513994.0,genus,accepted,unknown,facultative,,17.0,71.0,2,unknown,2, Association inferred from genus-level reference data. Depth from OBIS (2 occurrence records).
+Diodora,Diodora,138011.0,genus,accepted,unknown,unknown,,0.0,16.0,3,unknown,2, Depth from OBIS (3 occurrence records).
+Discias,Discias,240676.0,genus,accepted,unknown,unknown,,2.0,100.0,3,unknown,2, Depth from OBIS (3 occurrence records).
+Elasmopus,Elasmopus,101671.0,genus,accepted,unknown,unknown,,0.44,38.0,5,unknown,2, Depth from OBIS (5 occurrence records).
+Eunice,Eunice,129278.0,genus,accepted,predator; scavenger,facultative,,17.0,174.0,5,unknown,2, Depth from OBIS (5 occurrence records).
+Eviota,Eviota,205965.0,genus,accepted,commensal,facultative,,0.0,3.66,1,unknown,2, Depth from OBIS (1 occurrence records).
+Fennera,Fennera,206310.0,genus,accepted,commensal,obligate,,2.0,36.58,6,unknown,2, Association from Stier lab reference sheet (2012). Depth from OBIS (6 occurrence records).
+Gammaropsis,Gammaropsis,101558.0,genus,accepted,unknown,unknown,,0.0,120.0,4,unknown,2, Depth from OBIS (4 occurrence records).
+Hapalocarcinus,Hapalocarcinus,205812.0,genus,accepted,unknown,unknown,,6.0,25.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Harpiliopsis,Harpiliopsis,204789.0,genus,accepted,commensal,facultative,,1.0,8.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Hauchiella,Hauchiella,152388.0,genus,accepted,unknown,unknown,,2.0,335.0,10,unknown,2, Depth from OBIS (10 occurrence records).
+Hesione,Hesione,129308.0,genus,accepted,unknown,unknown,,3.0,7.6,2,unknown,2, Depth from OBIS (2 occurrence records).
+Iphione,Iphione,206125.0,genus,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Leocrates,Leocrates,129312.0,genus,accepted,unknown,unknown,,50.0,1000.0,3,unknown,2, Depth from OBIS (3 occurrence records).
+Liomera,Liomera,205014.0,genus,accepted,unknown,facultative,,37.0,37.0,1,unknown,2, Association inferred from genus-level reference data. Depth from OBIS (1 occurrence records).
+Lysidice,Lysidice,129280.0,genus,accepted,unknown,unknown,,0.0,99.0,5,unknown,2, Depth from OBIS (5 occurrence records).
+Maera,Maera,101675.0,genus,accepted,unknown,unknown,,8.0,117.0,5,unknown,2, Depth from OBIS (5 occurrence records).
+Microprosthema,Microprosthema,205426.0,genus,accepted,unknown,unknown,,0.5,9.0,4,unknown,2, Depth from OBIS (4 occurrence records).
+Nikoides,Nikoides,204120.0,genus,accepted,unknown,unknown,,17.0,55.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Notopygos,Notopygos,129190.0,genus,accepted,unknown,unknown,,0.0,355.0,6,unknown,2, Depth from OBIS (6 occurrence records).
+Notospermus,Notospermus,122375.0,genus,accepted,unknown,unknown,,18.0,30.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Ophiocoma,Ophiocoma,123592.0,genus,accepted,detritivore; scavenger,facultative,,7.0,16.0,3,unknown,2, Depth from OBIS (3 occurrence records).
+Ophiozonella,Ophiozonella,123573.0,genus,accepted,unknown,unknown,,179.0,1518.0,10,unknown,2, Depth from OBIS (10 occurrence records).
+Oreotlos,Oreotlos,439441.0,genus,accepted,unknown,unknown,,50.0,97.0,4,unknown,2, Depth from OBIS (4 occurrence records).
+Pagurixus,Pagurixus,204996.0,genus,accepted,unknown,unknown,,9.0,95.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Paragrubia,Paragrubia,205000.0,genus,accepted,unknown,unknown,,,,0,unknown,2, OBIS queried; no depth data available.
+Pascula,Pascula,205373.0,genus,accepted,unknown,unknown,,0.0,25.0,5,unknown,2, Depth from OBIS (5 occurrence records).
+Periclimenaeus,Periclimenaeus,205820.0,genus,accepted,unknown,unknown,,33.0,33.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Periclimenes,Periclimenes,107035.0,genus,accepted,unknown,facultative,,0.0,445.0,6,unknown,2, Association inferred from genus-level reference data. Depth from OBIS (6 occurrence records).
+Prionalpheus,Prionalpheus,514039.0,genus,accepted,commensal; bioeroder,facultative,,,,0,unknown,2, OBIS queried; no depth data available.
+Rissoina,Rissoina,138457.0,genus,accepted,unknown,unknown,,3.0,4.0,1,unknown,2, Depth from OBIS (1 occurrence records).
+Scorpaenodes,Scorpaenodes,126172.0,genus,accepted,unknown,unknown,,1.0,3.5,2,unknown,2, Depth from OBIS (2 occurrence records).
+Trivirostra,Trivirostra,206759.0,genus,accepted,unknown,unknown,,5.0,304.0,4,unknown,2, Depth from OBIS (4 occurrence records).
+Unciola,Unciola,101474.0,genus,accepted,unknown,unknown,,36.0,1276.0,8,unknown,2, Depth from OBIS (8 occurrence records).
+Vexillum,Vexillum,137846.0,genus,accepted,unknown,unknown,,0.0,5.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Zafra,Zafra,182802.0,genus,accepted,unknown,unknown,,4.0,25.0,3,unknown,2, Depth from OBIS (3 occurrence records).
+Alpheidae,Alpheidae,106776.0,family,accepted,commensal; bioeroder,facultative,,0.0,59.0,3,unknown,2, Depth from OBIS (3 occurrence records).
+Amphinomidae,Amphinomidae,960.0,family,accepted,unknown,unknown,,0.0,339.0,10,unknown,2, Depth from OBIS (10 occurrence records).
+Axiidae,Axiidae,106798.0,family,accepted,unknown,unknown,,0.0,640.0,4,unknown,2, Depth from OBIS (4 occurrence records).
+Capitellidae,Capitellidae,921.0,family,accepted,unknown,unknown,,0.0,1011.0,7,unknown,2, Depth from OBIS (7 occurrence records).
+Columbellidae,Columbellidae,23009.0,family,accepted,unknown,unknown,,0.0,130.0,5,unknown,2, Depth from OBIS (5 occurrence records).
+Cypraeidae,Cypraeidae,23022.0,family,accepted,unknown,unknown,,4.6,15.5,8,unknown,2, Depth from OBIS (8 occurrence records).
+Diogenidae,Diogenidae,106736.0,family,accepted,unknown,unknown,,-1.0,12.0,5,unknown,2, Depth from OBIS (5 occurrence records).
+Eunicidae,Eunicidae,966.0,family,accepted,unknown,unknown,,0.0,91.0,5,unknown,2, Depth from OBIS (5 occurrence records).
+Galatheidae,Galatheidae,106733.0,family,accepted,unknown,unknown,,10.0,5774.0,8,unknown,2, Depth from OBIS (8 occurrence records).
+Glyceridae,Glyceridae,952.0,family,accepted,unknown,unknown,,51.7,155.0,4,unknown,2, Depth from OBIS (4 occurrence records).
+Gobiidae,Gobiidae,125537.0,family,accepted,commensal,facultative,,4.0,59.0,6,unknown,2, Depth from OBIS (6 occurrence records).
+Hesionidae,Hesionidae,946.0,family,accepted,unknown,unknown,,0.0,2774.0,5,unknown,2, Depth from OBIS (5 occurrence records).
+Hippolytidae,Hippolytidae,106777.0,family,accepted,unknown,unknown,,0.0,37.0,10,unknown,2, Depth from OBIS (10 occurrence records).
+Hipponicidae,Hipponicidae,23057.0,family,accepted,unknown,unknown,,-0.73,0.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Labridae,Labridae,125541.0,family,accepted,unknown,unknown,,3.0,61.9,9,unknown,2, Depth from OBIS (9 occurrence records).
+Leucothoidae,Leucothoidae,101393.0,family,accepted,unknown,unknown,,55.0,122.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Majidae,Majidae,106760.0,family,accepted,unknown,unknown,,3.0,277.0,4,unknown,2, Depth from OBIS (4 occurrence records).
+Marginellidae,Marginellidae,23025.0,family,accepted,unknown,unknown,,0.3000000119,85.0,3,unknown,2, Depth from OBIS (3 occurrence records).
+Melitidae,Melitidae,101397.0,family,accepted,unknown,unknown,,0.0,61.0,5,unknown,2, Depth from OBIS (5 occurrence records).
+Muricidae,Muricidae,148.0,family,accepted,unknown,unknown,,5.2,296.0,3,unknown,2, Depth from OBIS (3 occurrence records).
+Nereididae,Nereididae,22496.0,family,accepted,unknown,unknown,,0.0,117.0,5,unknown,2, Depth from OBIS (5 occurrence records).
+Opheliidae,Opheliidae,924.0,family,accepted,unknown,unknown,,7.0,446.0,6,unknown,2, Depth from OBIS (6 occurrence records).
+Paguridae,Paguridae,106738.0,family,accepted,unknown,unknown,,4.9,106.0,6,unknown,2, Depth from OBIS (6 occurrence records).
+Palaemonidae,Palaemonidae,106788.0,family,accepted,unknown,unknown,,0.0,45.0,6,unknown,2, Depth from OBIS (6 occurrence records).
+Phyllodocidae,Phyllodocidae,931.0,family,accepted,unknown,unknown,,4.0,291.0,6,unknown,2, Depth from OBIS (6 occurrence records).
+Pilumnidae,Pilumnidae,106766.0,family,accepted,unknown,unknown,,22.0,33.0,4,unknown,2, Depth from OBIS (4 occurrence records).
+Polynoidae,Polynoidae,939.0,family,accepted,unknown,unknown,,5.0,117.99,8,unknown,2, Depth from OBIS (8 occurrence records).
+Spionidae,Spionidae,913.0,family,accepted,unknown,unknown,,0.0,117.0,7,unknown,2, Depth from OBIS (7 occurrence records).
+Syllidae,Syllidae,948.0,family,accepted,unknown,unknown,,10.0,2273.0,8,unknown,2, Depth from OBIS (8 occurrence records).
+Terebellidae,Terebellidae,982.0,family,accepted,unknown,unknown,,-1.0,357.0,7,unknown,2, Depth from OBIS (7 occurrence records).
+Triphoridae,Triphoridae,131.0,family,accepted,unknown,unknown,,10.0,11.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Trochidae,Trochidae,443.0,family,accepted,unknown,unknown,,-1.62,35.7,5,unknown,2, Depth from OBIS (5 occurrence records).
+Xanthidae,Xanthidae,106769.0,family,accepted,unknown,unknown,,36.58,327.0,2,unknown,2, Depth from OBIS (2 occurrence records).
+Coralliophilinae,Coralliophilinae,411789.0,subfamily,accepted,unknown,unknown,,1.0,255.0,7,unknown,2, Depth from OBIS (7 occurrence records).
+Ophiolepis cincta cincta,Ophiolepis cincta cincta,224123.0,subspecies,accepted,unknown,unknown,,1.0,25.0,6,unknown,2, Depth from OBIS (6 occurrence records).

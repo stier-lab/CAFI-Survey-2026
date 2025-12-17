@@ -4,9 +4,10 @@
 .RData
 .Ruserdata
 .Rproj.user/
+Rplots.pdf
 
 # macOS
-.DS_Store
+**/.DS_Store
 .AppleDouble
 .LSOverride
 
@@ -34,11 +35,11 @@ output/
 *.temp
 *~
 
-# Large data files (optional - uncomment if you don't want to track raw data)
-# data/*.csv
-
 # Log files
 *.log
 
 # Session files
 .Renviron
+
+# Archive - large unused files (optional, uncomment to exclude from git)
+# archive/gis/

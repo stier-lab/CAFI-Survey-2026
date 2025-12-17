@@ -1,0 +1,921 @@
+---
+title: "Complete CAFI Survey Analysis Compendium"
+subtitle: "All Analyses & Results — Coral-Associated Fauna of Mo'orea, French Polynesia"
+author: "CAFI Research Team"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float:
+      collapsed: false
+    number_sections: true
+    theme: flatly
+    highlight: tango
+    code_folding: hide
+    fig_width: 12
+    fig_height: 8
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  out.width = "100%"
+)
+
+library(tidyverse)
+library(kableExtra)
+
+# Set base path
+base_path <- here::here()
+if (!dir.exists(base_path)) base_path <- "/Users/adrianstiermbp2023/CAFI-Survey-2026"
+
+fig_path <- file.path(base_path, "output/figures")
+```
+
+# Executive Summary {-}
+
+This document is a **100% comprehensive compendium** of all analyses conducted on the CAFI (Coral-Associated Fauna Inventory) survey data. It consolidates results from **47+ R scripts** and **153 figures** across the repository.
+
+## Master Hypothesis Summary {-}
+
+| Hypothesis | Question | Result | Key Statistic |
+|:-----------|:---------|:-------|:--------------|
+| **H1** | Community composition differs among sites? | **SUPPORTED** | R² = 0.18, p < 0.001 |
+| **H2** | CAFI abundance scales sublinearly with coral size? | **SUPPORTED** | β = 0.49 [0.40, 0.57] |
+| **H3** | Neighborhood effects matter beyond coral size? | **NOT SUPPORTED** | <1% ΔR² |
+| **H4** | CAFI diversity predicts coral condition? | **NOT SUPPORTED** | Sampling artifact |
+| **H5** | Networks show non-random structure? | **SUPPORTED** | Transitivity 3.8× null |
+
+## Complete Analysis Categories {-}
+
+1. Data Loading & Quality Control
+2. Community Composition (PERMANOVA, NMDS)
+3. Diversity Analysis (α, β, γ)
+4. Power-Law Scaling (H2)
+5. Neighborhood Effects (H3)
+6. Coral Characteristics & Physiology
+7. Position Correction (Stump Length)
+8. CAFI-Coral Condition Relationships
+9. Diversity-Condition Analysis (H4)
+10. Network Analysis (H5)
+11. Spatial Autocorrelation (Moran's I, LISA)
+12. Size-Biomass Scaling
+13. Machine Learning (RF, XGBoost, SDMs)
+14. Comprehensive Predictor Analysis
+15. Trapezid Guardian Crab Analysis
+16. Morphotype/Habitat Analysis
+17. db-RDA Composition Analysis
+18. NMDS Outlier Investigation
+19. Variance Partitioning
+
+---
+
+# Data Overview & Quality Control
+
+## Study System
+
+```{r study-system, out.width="90%"}
+study_fig <- file.path(fig_path, "manuscript/Figure1_study_system.png")
+if (file.exists(study_fig)) {
+  knitr::include_graphics(study_fig)
+} else {
+  cat("Figure not available")
+}
+```
+
+## Dataset Summary
+
+```{r load-summary-data}
+# Load data for summary statistics
+cafi_data <- read.csv(file.path(base_path, "data/survey_cafi_data_w_taxonomy_summer2019_v5.csv"))
+coral_data <- read.csv(file.path(base_path, "data/survey_coral_characteristics_merged_v2.csv"))
+
+summary_stats <- tibble(
+  Metric = c("Total coral colonies sampled", "Total CAFI individuals",
+             "Unique CAFI OTUs", "Sites surveyed",
+             "Depth range (m)", "Coral volume range (cm³)"),
+  Value = c(nrow(coral_data),
+            nrow(cafi_data),
+            n_distinct(paste(cafi_data$genus, cafi_data$species)),
+            "3 (HAU, MAT, MRB)",
+            "1-12",
+            "10-15,000+")
+)
+
+kable(summary_stats, caption = "Dataset Overview") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+::: {.alert .alert-info}
+**Important: Two Survey Types**
+
+The study employed two complementary sampling designs:
+
+- **Neighborhood surveys (n = 63)**: Corals POC01-POC21 at each site received full 5-meter radius surveys documenting all neighboring *Pocillopora* colonies
+- **Size surveys (n = 51)**: Corals POC22+ at each site were surveyed for size and CAFI only—*no neighborhood data collected*
+
+**Neighborhood analyses use ONLY the 63 corals with actual neighborhood surveys.** Community composition and scaling analyses use all 114 corals.
+:::
+
+---
+
+# Community Composition Analysis {.tabset}
+
+## Species Rank-Abundance
+
+```{r rank-abundance-fig, out.width="90%"}
+fig <- file.path(fig_path, "community_composition/species_rank_abundance.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Taxonomic Composition
+
+```{r taxonomic-pie, out.width="80%"}
+fig <- file.path(fig_path, "community_composition/taxonomic_composition_pie.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Top Species Heatmap
+
+```{r species-heatmap, out.width="100%"}
+fig <- file.path(fig_path, "community_composition/top_species_heatmap.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Community Stacked Bar
+
+```{r community-stacked, out.width="100%"}
+fig <- file.path(fig_path, "community_composition/community_composition_stacked.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Species Accumulation Curves
+
+```{r species-accumulation, out.width="90%"}
+fig <- file.path(fig_path, "community_composition/species_accumulation_curves.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Site Diversity Metrics
+
+```{r site-diversity, out.width="90%"}
+fig <- file.path(fig_path, "community_composition/site_diversity_metrics.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Size Distribution by Type
+
+```{r size-by-type, out.width="90%"}
+fig <- file.path(fig_path, "community_composition/size_distribution_by_type.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+---
+
+# Diversity Analysis {.tabset}
+
+## NMDS Ordination (Cleaned)
+
+```{r nmds-cleaned, out.width="100%"}
+fig <- file.path(fig_path, "diversity/nmds_ordination_cleaned.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## NMDS Excluded Corals Comparison
+
+```{r nmds-excluded, out.width="100%"}
+fig <- file.path(fig_path, "diversity/nmds_excluded_comparison.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## NMDS Outlier Investigation {.tabset}
+
+### Outliers Highlighted
+
+```{r nmds-outliers-1, out.width="100%"}
+fig <- file.path(fig_path, "nmds_outliers/01_nmds_outliers_highlighted.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+### By Abundance
+
+```{r nmds-outliers-2, out.width="100%"}
+fig <- file.path(fig_path, "nmds_outliers/02_nmds_by_abundance.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+### By Richness
+
+```{r nmds-outliers-3, out.width="100%"}
+fig <- file.path(fig_path, "nmds_outliers/03_nmds_by_richness.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+### Outlier Comparison
+
+```{r nmds-outliers-4, out.width="100%"}
+fig <- file.path(fig_path, "nmds_outliers/04_outlier_comparison_boxplots.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+### Composition Comparison
+
+```{r nmds-outliers-5, out.width="100%"}
+fig <- file.path(fig_path, "nmds_outliers/05_composition_comparison.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+---
+
+# Hypothesis 2: Power-Law Scaling {.tabset}
+
+**Question:** Does CAFI abundance scale sublinearly with coral volume?
+
+**Result:** ✓ **SUPPORTED** — β = 0.49 [95% CI: 0.40–0.57], significantly less than 1.0
+
+## Scaling Figure (Manuscript)
+
+```{r scaling-manuscript, out.width="100%"}
+fig <- file.path(fig_path, "manuscript/Figure3_scaling.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Coral Size Effects
+
+```{r size-effects, out.width="100%"}
+fig <- file.path(fig_path, "comprehensive_predictors/coral_size_effects.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Size-Abundance Models
+
+```{r size-abundance-models, out.width="100%"}
+fig <- file.path(fig_path, "size_neighbor_effects/size_abundance_models.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+---
+
+# Hypothesis 3: Neighborhood Effects {.tabset}
+
+**Question:** Do local coral neighborhood characteristics affect CAFI beyond focal coral size?
+
+**Result:** ✗ **NOT SUPPORTED** — <1% additional variance explained
+
+::: {.alert .alert-warning}
+**Sample Note:** Neighborhood analyses use only the **63 corals** with 5m radius neighborhood surveys (POC01-POC21 at each site). The 51 "size" corals were not surveyed for neighbors and have `NA` for neighborhood metrics.
+:::
+
+## Neighbor Effects Overview
+
+```{r neighbor-effects, out.width="100%"}
+fig <- file.path(fig_path, "comprehensive_predictors/neighbor_effects.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Neighborhood Effects (Manuscript)
+
+```{r neighborhood-manuscript, out.width="100%"}
+fig <- file.path(fig_path, "neighborhood_effects/Figure6_comprehensive_neighborhood.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Depth Effects by Site
+
+```{r depth-effects, out.width="100%"}
+fig <- file.path(fig_path, "comprehensive_predictors/depth_effects_by_site.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+---
+
+# Coral Characteristics & Physiology {.tabset}
+
+## Sampling Position Bias
+
+The stump length (position along branch) confounds physiology measurements. All physiological metrics are corrected for this bias.
+
+```{r position-bias-1, out.width="100%"}
+fig <- file.path(fig_path, "coral_characteristics/01_sampling_position_bias.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Position by Size Quintile
+
+```{r position-quintile, out.width="100%"}
+fig <- file.path(fig_path, "coral_characteristics/02_position_by_size_quintile.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Correlation Heatmap (Corrected)
+
+```{r corr-heatmap, out.width="90%"}
+fig <- file.path(fig_path, "coral_characteristics/03_correlation_heatmap_corrected.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## PCA Scree Plot
+
+```{r pca-scree, out.width="80%"}
+fig <- file.path(fig_path, "coral_characteristics/04_pca_scree_plot.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## PCA Biplot
+
+```{r pca-biplot, out.width="100%"}
+fig <- file.path(fig_path, "coral_characteristics/05_pca_biplot.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Size Effects on Corrected Traits
+
+```{r size-corrected-traits, out.width="100%"}
+fig <- file.path(fig_path, "coral_characteristics/06_size_effects_corrected_traits.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Condition Score by Site
+
+```{r condition-site, out.width="90%"}
+fig <- file.path(fig_path, "coral_characteristics/07_condition_score_by_site.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Condition Score vs Size
+
+```{r condition-size, out.width="90%"}
+fig <- file.path(fig_path, "coral_characteristics/08_condition_score_vs_size.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Condition Trait Profiles
+
+```{r condition-profiles, out.width="100%"}
+fig <- file.path(fig_path, "coral_characteristics/09_condition_trait_profiles.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+---
+
+# CAFI-Coral Relationships {.tabset}
+
+## CAFI Overall Abundance
+
+```{r cafi-abundance, out.width="90%"}
+fig <- file.path(fig_path, "coral_cafi_relationships/cafi_overall_abundance.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## CAFI by Location
+
+```{r cafi-location, out.width="100%"}
+fig <- file.path(fig_path, "coral_cafi_relationships/cafi_by_location.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## CAFI by Branch Width
+
+```{r cafi-branch, out.width="90%"}
+fig <- file.path(fig_path, "coral_cafi_relationships/cafi_by_branch_width.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Taxonomic Composition by Site
+
+```{r taxa-by-site, out.width="100%"}
+fig <- file.path(fig_path, "coral_cafi_relationships/taxonomic_composition_by_site.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## CAFI vs Coral Condition
+
+```{r cafi-vs-condition, out.width="100%"}
+fig <- file.path(fig_path, "coral_cafi_relationships/cafi_vs_coral_condition.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## CAFI vs Condition by Site
+
+```{r cafi-condition-site, out.width="100%"}
+fig <- file.path(fig_path, "coral_cafi_relationships/cafi_vs_condition_by_site.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Richness vs Coral Condition
+
+```{r richness-condition, out.width="100%"}
+fig <- file.path(fig_path, "coral_cafi_relationships/richness_vs_coral_condition.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## CAFI vs Physiology Panel
+
+```{r cafi-physio-panel, out.width="100%"}
+fig <- file.path(fig_path, "coral_cafi_relationships/cafi_vs_physiology_panel.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## CAFI vs Corrected Traits Panel
+
+```{r cafi-corrected-panel, out.width="100%"}
+fig <- file.path(fig_path, "coral_cafi_relationships/cafi_vs_corrected_traits_panel.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Richness vs Corrected Traits
+
+```{r richness-corrected, out.width="100%"}
+fig <- file.path(fig_path, "coral_cafi_relationships/richness_vs_corrected_traits_panel.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## CAFI Trait Coefficients
+
+```{r trait-coefficients, out.width="90%"}
+fig <- file.path(fig_path, "coral_cafi_relationships/cafi_trait_coefficients.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Model Coefficients
+
+```{r model-coefficients, out.width="90%"}
+fig <- file.path(fig_path, "coral_cafi_relationships/model_coefficients.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+---
+
+# Hypothesis 4: Diversity-Condition {.tabset}
+
+**Question:** Does CAFI diversity predict coral physiological condition?
+
+**Result:** ✗ **NOT SUPPORTED** — Apparent relationship is a sampling artifact
+
+## CAFI-Condition Manuscript Figure
+
+```{r cafi-condition-manuscript, out.width="100%"}
+fig <- file.path(fig_path, "manuscript/Figure4_cafi_condition.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## CAFI Predicts Condition Analysis
+
+```{r cafi-predicts-condition, out.width="100%"}
+figs <- list.files(file.path(fig_path, "cafi_predicts_condition"), pattern = "\\.png$", full.names = TRUE)
+if (length(figs) > 0) {
+  for (f in head(figs, 4)) {
+    cat("\n\n")
+    print(knitr::include_graphics(f))
+  }
+}
+```
+
+---
+
+# Hypothesis 5: Network Structure {.tabset}
+
+**Question:** Do CAFI co-occurrence networks exhibit non-random modular structure?
+
+**Result:** ✓ **SUPPORTED** — Transitivity 3.8× null, Modularity Q = 0.52
+
+## Network Manuscript Figure
+
+```{r network-manuscript, out.width="100%"}
+fig <- file.path(fig_path, "manuscript/Figure5_network.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Co-occurrence Network
+
+```{r cooccurrence-network, out.width="100%"}
+fig <- file.path(fig_path, "network_analysis/01_cafi_cooccurrence_network.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Network Modules
+
+```{r network-modules, out.width="100%"}
+fig <- file.path(fig_path, "network_analysis/02_cafi_network_modules.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Keystone Species Ranking
+
+```{r keystone-ranking, out.width="90%"}
+fig <- file.path(fig_path, "network_analysis/03_keystone_species_ranking.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Condition vs Network Degree
+
+```{r condition-network-degree, out.width="100%"}
+fig <- file.path(fig_path, "network_analysis/04_condition_vs_cafi_network_degree.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Condition vs Keystone Presence
+
+```{r condition-keystone, out.width="100%"}
+fig <- file.path(fig_path, "network_analysis/05_condition_vs_keystone_presence.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Coral Size vs Network Degree
+
+```{r size-network-degree, out.width="100%"}
+fig <- file.path(fig_path, "network_analysis/10_coral_size_vs_network_degree.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Module Taxonomic Composition
+
+```{r module-taxa, out.width="100%"}
+fig <- file.path(fig_path, "network_analysis/08_module_taxonomic_composition.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+---
+
+# Spatial Analysis {.tabset}
+
+## Survey Locations Map
+
+```{r survey-map, out.width="100%"}
+fig <- file.path(fig_path, "spatial_patterns/survey_locations_map.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Depth Distribution
+
+```{r depth-dist, out.width="90%"}
+fig <- file.path(fig_path, "spatial_patterns/depth_distribution.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Richness vs Depth
+
+```{r richness-depth, out.width="90%"}
+fig <- file.path(fig_path, "spatial_patterns/richness_vs_depth.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Spatial Autocorrelation {.tabset}
+
+### Moran's I Scatterplot
+
+```{r moran-scatter, out.width="90%"}
+fig <- file.path(fig_path, "spatial_analysis/moran_scatterplot_abundance.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+### LISA Cluster Map
+
+```{r lisa-map, out.width="100%"}
+fig <- file.path(fig_path, "spatial_analysis/lisa_cluster_map.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+### Mantel Test
+
+```{r mantel-test, out.width="90%"}
+fig <- file.path(fig_path, "spatial_analysis/mantel_test_plot.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+### Spatial Interpolation
+
+```{r spatial-interp, out.width="100%"}
+fig <- file.path(fig_path, "spatial_analysis/spatial_interpolation_abundance.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+---
+
+# Size-Biomass Scaling {.tabset}
+
+## Community Size Spectrum
+
+```{r size-spectrum, out.width="100%"}
+fig <- file.path(fig_path, "size_biomass_scaling/community_size_spectrum.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Taxonomic Size Distributions
+
+```{r taxa-size-dist, out.width="100%"}
+fig <- file.path(fig_path, "size_biomass_scaling/taxonomic_size_distributions.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Biomass-Abundance Scaling
+
+```{r biomass-abundance, out.width="100%"}
+fig <- file.path(fig_path, "size_biomass_scaling/biomass_abundance_scaling.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+---
+
+# Machine Learning {.tabset}
+
+## Random Forest Variable Importance
+
+```{r rf-importance, out.width="90%"}
+fig <- file.path(fig_path, "machine_learning/rf_variable_importance.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## RF Predictions vs Actual
+
+```{r rf-predictions, out.width="90%"}
+fig <- file.path(fig_path, "machine_learning/rf_predictions_vs_actual.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## XGBoost Feature Importance
+
+```{r xgb-importance, out.width="90%"}
+fig <- file.path(fig_path, "machine_learning/xgboost_feature_importance.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Model Comparison
+
+```{r model-comparison, out.width="90%"}
+fig <- file.path(fig_path, "machine_learning/model_comparison_boxplot.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+---
+
+# Advanced Statistical Models {.tabset}
+
+## GLMM Coefficients
+
+```{r glmm-coefs, out.width="90%"}
+fig <- file.path(fig_path, "advanced_models/glmm_coefficients_abundance.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Model Diagnostics
+
+```{r model-diagnostics, out.width="100%"}
+fig <- file.path(fig_path, "advanced_models/model_diagnostics_abundance.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Variance Partitioning
+
+```{r variance-part, out.width="90%"}
+fig <- file.path(fig_path, "advanced_models/variance_partitioning.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Richness Model Predictions
+
+```{r richness-predictions, out.width="100%"}
+fig <- file.path(fig_path, "advanced_models/richness_model_predictions.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+---
+
+# db-RDA Composition Analysis {.tabset}
+
+## RDA Composition Figure
+
+```{r rda-composition, out.width="100%"}
+fig <- file.path(fig_path, "manuscript/Figure8_rda_composition.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Composition Figures
+
+```{r composition-figs, out.width="100%"}
+figs <- list.files(file.path(fig_path, "composition"), pattern = "\\.png$", full.names = TRUE)
+if (length(figs) > 0) {
+  for (f in figs) {
+    cat("\n\n")
+    print(knitr::include_graphics(f))
+  }
+}
+```
+
+---
+
+# Trapezid Guardian Crab Analysis {.tabset}
+
+Trapezids (Family Trapeziidae) are obligate coral symbionts that defend Pocillopora from predators.
+
+## Trapezids by Site
+
+```{r trapezids-site, out.width="90%"}
+fig <- file.path(fig_path, "trapezid_analysis/trapezids_by_site.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Trapezids vs Tissue Biomass
+
+```{r trapezids-biomass, out.width="90%"}
+fig <- file.path(fig_path, "trapezid_analysis/trapezids_vs_tissue_biomass.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+---
+
+# Condition vs Landscape {.tabset}
+
+## Condition vs Size
+
+```{r cond-size, out.width="90%"}
+fig <- file.path(fig_path, "condition_vs_landscape/condition_vs_size.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Condition by Site
+
+```{r cond-site, out.width="90%"}
+fig <- file.path(fig_path, "condition_vs_landscape/condition_by_site.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Condition vs Neighborhood Panel
+
+```{r cond-neighbor, out.width="100%"}
+fig <- file.path(fig_path, "condition_vs_landscape/condition_vs_neighborhood_panel.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Correlation Matrix
+
+```{r cond-corr, out.width="100%"}
+fig <- file.path(fig_path, "condition_vs_landscape/condition_landscape_correlation_matrix.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Individual Physiology vs Size
+
+```{r physio-size, out.width="100%"}
+fig <- file.path(fig_path, "condition_vs_landscape/individual_physio_vs_size.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+---
+
+# Comprehensive Summary {.tabset}
+
+## Results Dashboard
+
+```{r results-dashboard, out.width="100%"}
+fig <- file.path(fig_path, "comprehensive_summary/results_dashboard.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Predictor Overview
+
+```{r predictor-overview, out.width="100%"}
+fig <- file.path(fig_path, "comprehensive_summary/predictor_overview.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Model Comparison Summary
+
+```{r model-comp-summary, out.width="100%"}
+fig <- file.path(fig_path, "comprehensive_summary/model_comparison.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Comprehensive Summary Figure
+
+```{r comprehensive-summary, out.width="100%"}
+fig <- file.path(fig_path, "comprehensive_summary/comprehensive_summary.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Predictor Correlation Matrix
+
+```{r predictor-corr, out.width="100%"}
+fig <- file.path(fig_path, "comprehensive_predictors/predictor_correlation_matrix.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+---
+
+# All Manuscript Figures {.tabset}
+
+## Figure 1: Study System
+
+```{r ms-fig1, out.width="100%"}
+fig <- file.path(fig_path, "manuscript/Figure1_study_system.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Figure 2: Community Composition
+
+```{r ms-fig2, out.width="100%"}
+fig <- file.path(fig_path, "manuscript/Figure2_community_composition.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Figure 3: Size Scaling
+
+```{r ms-fig3, out.width="100%"}
+fig <- file.path(fig_path, "manuscript/Figure3_scaling.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Figure 4: CAFI-Condition
+
+```{r ms-fig4, out.width="100%"}
+fig <- file.path(fig_path, "manuscript/Figure4_cafi_condition.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Figure 5: Network Analysis
+
+```{r ms-fig5, out.width="100%"}
+fig <- file.path(fig_path, "manuscript/Figure5_network.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+## Figure 8: RDA Composition
+
+```{r ms-fig8, out.width="100%"}
+fig <- file.path(fig_path, "manuscript/Figure8_rda_composition.png")
+if (file.exists(fig)) knitr::include_graphics(fig)
+```
+
+---
+
+# Summary of Key Findings
+
+## What Matters for CAFI Assembly
+
+1. **Coral Size** — Dominant predictor (~56% of abundance variance)
+   - Sublinear scaling (β = 0.49): larger corals have proportionally fewer CAFI per unit volume
+   - Consistent with propagule redirection hypothesis
+
+2. **Reef Site** — ~18% of compositional variance
+   - Sites harbor distinct CAFI assemblages
+   - Environmental filtering at landscape scale
+
+3. **Network Structure** — Non-random co-occurrence
+   - Transitivity 3.8× null expectation
+   - Modularity Q = 0.52 (strong modular structure)
+   - Predictable species associations
+
+## What Doesn't Matter (at scales measured)
+
+1. **Neighborhood Effects** — <1% additional variance beyond size
+   - 5m measurement scale may be too small
+   - Propagule dynamics may operate at 10s-100s of meters
+
+2. **Coral Condition** — No effect on CAFI
+   - Diversity-condition relationship is sampling artifact
+   - Position correction eliminates apparent relationships
+
+3. **Raw Diversity Metrics** — Confounded by abundance
+   - Must use rarefied or residualized richness
+
+## Practical Implications
+
+- **Restoration**: Size distribution matters more than coral spacing
+- **Mixed-size strategy**: Small corals maximize density; large corals support distinct communities
+- **Site selection**: Different reef environments support different CAFI assemblages
+
+---
+
+# Statistical Methods Summary
+
+| Category | Methods | R Packages |
+|:---------|:--------|:-----------|
+| Multivariate | PERMANOVA, NMDS, PERMDISP, db-RDA | vegan |
+| Scaling | Log-log regression, Mixed models | lme4, lmerTest |
+| Non-linear | GAMs with smooth terms | mgcv |
+| Count models | GLMM (negative binomial) | glmmTMB |
+| Machine Learning | Random Forest, XGBoost | randomForest, xgboost |
+| Networks | Co-occurrence, null models | igraph |
+| Spatial | Moran's I, LISA, Mantel | spdep, ape |
+| Variance partitioning | varpart | vegan |
+
+---
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```
+
+---
+
+*Document generated: `r Sys.time()`*
+
+*Complete CAFI Survey Analysis Compendium v3.0*
+
+*Consolidates 47+ R scripts and 153 figures from the analysis pipeline*
