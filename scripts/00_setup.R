@@ -34,6 +34,7 @@ library(vegan)       # Community ecology (diversity, NMDS, PERMANOVA)
 library(lme4)        # Mixed effects models (optional)
 library(broom)       # Tidy model outputs
 library(car)         # VIF and other diagnostics
+library(moments)     # Skewness, kurtosis
 
 # Visualization
 library(patchwork)   # Combine ggplots
@@ -131,7 +132,7 @@ SITE_COLORS <- c(
 FUNC_COLORS <- c(
   "Trapezia" = "#D55E00",        # Red-orange (mutualist crabs)
   "Resident Fish" = "#0072B2",   # Blue
-  "Corallivore" = "#CC79A7",     # Pink
+  "Gastropod" = "#CC79A7",  # Pink
   "Other Crab" = "#009E73",      # Teal
   "Shrimp" = "#E69F00",          # Orange
   "Other" = "#999999"            # Gray

@@ -45,9 +45,9 @@ assign_functional_group <- function(otu, type) {
     # Mutualist defenders (Trapezia crabs)
     str_detect(otu_lower, "trapezia") ~ "Trapezia",
 
-    # Corallivore snails
-    str_detect(otu_lower, "coralliophila|drupella") ~ "Corallivore",
-    type_lower == "snail" ~ "Corallivore",
+    # Gastropods (snails)
+    str_detect(otu_lower, "coralliophila|drupella") ~ "Gastropod",
+    type_lower == "snail" ~ "Gastropod",
 
     # Resident fish (gobies, hawkfish, damsels)
     str_detect(otu_lower, "paragobiodon|gobiodon|caracanthus|dascyllus") ~ "Resident Fish",
@@ -134,7 +134,7 @@ cafi_by_coral <- cafi_clean %>%
     # Functional group counts
     n_trapezia      = sum(functional_group == "Trapezia"),
     n_resident_fish = sum(functional_group == "Resident Fish"),
-    n_corallivore   = sum(functional_group == "Corallivore"),
+    n_corallivore   = sum(functional_group == "Gastropod"),
     n_other_crab    = sum(functional_group == "Other Crab"),
     n_shrimp        = sum(functional_group == "Shrimp"),
     n_other         = sum(functional_group == "Other"),
@@ -345,6 +345,75 @@ community_matrix <- cafi_clean %>%
 cat("   Matrix:", nrow(community_matrix), "corals x", ncol(community_matrix), "OTUs\n\n")
 
 # ============================================================================
+# 6b. CREATE PCA-BASED CAFI COMMUNITY SCORE (PC1_CAFI)
+# ============================================================================
+# Following Stier et al. manuscript approach: Use PCA of community composition
+# to create a composite CAFI score representing overall community structure
+
+cat("6b. Computing PCA-based CAFI community score (PC1_CAFI)...\n")
+
+# Use Hellinger transformation for community data (recommended for PCA)
+# This down-weights rare species and handles zeros appropriately
+if (nrow(community_matrix) >= 10 && ncol(community_matrix) >= 3) {
+
+  # Hellinger transformation
+  comm_hell <- vegan::decostand(community_matrix, method = "hellinger")
+
+  # PCA on Hellinger-transformed community data
+  cafi_pca <- prcomp(comm_hell, scale. = FALSE, center = TRUE)
+
+  # Extract PC1 - orient so higher values = more/diverse CAFI
+  pc1_scores <- cafi_pca$x[, 1]
+
+  # Check if PC1 should be flipped (make it positively correlated with total abundance)
+  total_cafi_vec <- rowSums(community_matrix)
+  if (cor(pc1_scores, total_cafi_vec) < 0) {
+    pc1_scores <- -pc1_scores
+  }
+
+  # Standardize to z-scores
+  pc1_cafi <- scale(pc1_scores)[, 1]
+
+  # Calculate variance explained
+  var_explained_cafi <- summary(cafi_pca)$importance[2, 1] * 100
+
+  # Create PC1_CAFI data frame
+  pc1_cafi_df <- tibble(
+    coral_id = rownames(community_matrix),
+    pc1_cafi = pc1_cafi
+  )
+
+  # Also create PC2_CAFI for additional analyses
+  pc2_scores <- cafi_pca$x[, 2]
+  pc1_cafi_df$pc2_cafi <- scale(pc2_scores)[, 1]
+
+  cat("   PC1_CAFI computed successfully\n")
+  cat("   Variance explained: PC1 =", round(var_explained_cafi, 1), "%,",
+      "PC2 =", round(summary(cafi_pca)$importance[2, 2] * 100, 1), "%\n")
+  cat("   Correlation with total abundance: r =", round(cor(pc1_scores, total_cafi_vec), 3), "\n")
+
+  # Save PCA results
+  cafi_pca_results <- list(
+    pca = cafi_pca,
+    pc_scores = pc1_cafi_df,
+    var_explained = summary(cafi_pca)$importance,
+    loadings = cafi_pca$rotation
+  )
+  save_object(cafi_pca_results, "cafi_pca_results")
+
+  # Merge PC1_CAFI into coral_master
+  coral_master <- coral_master %>%
+    left_join(pc1_cafi_df, by = "coral_id")
+
+} else {
+  cat("   Insufficient data for CAFI PCA\n")
+  coral_master$pc1_cafi <- NA
+  coral_master$pc2_cafi <- NA
+}
+
+cat("\n")
+
+# ============================================================================
 # 7. SAVE ALL OBJECTS
 # ============================================================================
 
@@ -386,7 +455,8 @@ cat("Sample sizes:\n")
 cat("  Corals:", nrow(coral_master), "\n")
 cat("  CAFI individuals:", nrow(cafi_clean), "\n")
 cat("  Unique OTUs:", n_distinct(cafi_clean$otu), "\n")
-cat("  Corals with condition:", sum(!is.na(coral_master$condition_score)), "\n\n")
+cat("  Corals with condition (PC1_Coral):", sum(!is.na(coral_master$condition_score)), "\n")
+cat("  Corals with PC1_CAFI:", sum(!is.na(coral_master$pc1_cafi)), "\n\n")
 
 cat("By site:\n")
 coral_master %>%

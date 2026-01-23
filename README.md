@@ -26,7 +26,8 @@ R 4.0+ with these packages (auto-installed by setup script):
 
 ```r
 # From R console in project root:
-source("scripts/run_pipeline.R")
+source("scripts/run_full_pipeline.R")
+run_pipeline()
 ```
 
 This runs the complete pipeline (~5-10 min) and generates:
@@ -34,6 +35,27 @@ This runs the complete pipeline (~5-10 min) and generates:
 - Exploratory figures in `output/figures/`
 - Statistical tables in `output/tables/`
 - Processed data objects in `output/objects/`
+- Execution log in `output/pipeline.log`
+
+**Pipeline options:**
+
+```r
+# Skip already-completed steps:
+run_pipeline(skip_completed = TRUE)
+
+# Run only core pipeline:
+run_core_pipeline()
+
+# Check pipeline status:
+check_pipeline_status()
+```
+
+**From command line:**
+
+```bash
+Rscript scripts/run_full_pipeline.R
+Rscript scripts/run_full_pipeline.R --skip-completed
+```
 
 ### Run Individual Scripts
 
@@ -42,12 +64,15 @@ This runs the complete pipeline (~5-10 min) and generates:
 source("scripts/00_setup.R")
 
 # 2. Load and clean data (required second)
-source("scripts/01_load_clean_data.R")
+source("scripts/01_load_data.R")
 
 # 3. Run specific analysis
-source("scripts/04_scaling_relationships.R")  # Fig 2: Size-abundance scaling
-source("scripts/06_network_analysis.R")       # Fig 4: Networks
-source("scripts/08_cafi_condition_feedbacks.R") # Fig 6: Feedbacks
+source("scripts/02_community_analysis.R")        # Community composition
+source("scripts/03_landscape_characterization.R") # Landscape metrics
+source("scripts/04_landscape_effects.R")          # Landscape effects on CAFI
+source("scripts/05_species_scaling_analysis.R")   # Species-area scaling
+source("scripts/06_network_analysis.R")           # Co-occurrence networks
+source("scripts/07_spatial_autocorrelation.R")    # Spatial patterns
 ```
 
 ---
@@ -65,11 +90,22 @@ CAFI-Survey-2026/
 │   └── README.md                  # DATA DOCUMENTATION (start here)
 │
 ├── scripts/                       # R analysis scripts (see below)
+│   ├── run_full_pipeline.R        # MASTER PIPELINE RUNNER
 │   ├── 00_setup.R                 # Setup, packages, paths, theme
-│   ├── 01_load_clean_data.R       # Data loading and cleaning
-│   ├── 02-09_*.R                  # Core analyses + manuscript figures
-│   ├── 10-13_*.R                  # Supplementary analyses
-│   ├── run_pipeline.R             # Pipeline orchestrator
+│   ├── 00b_data_quality_audit.R   # Data quality assessment
+│   ├── 01_load_data.R             # Data loading and cleaning
+│   ├── 02_community_analysis.R    # Community composition (Q2)
+│   ├── 03_landscape_characterization.R # Landscape metrics
+│   ├── 04_landscape_effects.R     # Neighborhood effects (Q4)
+│   ├── 05_species_scaling_analysis.R # Size-abundance scaling (Q1)
+│   ├── 06_network_analysis.R      # Co-occurrence networks
+│   ├── 07_spatial_autocorrelation.R # Spatial patterns (Moran's I)
+│   ├── 08_functional_groups.R     # Functional group scaling
+│   ├── 09_cafi_condition_feedbacks.R # CAFI-condition feedbacks (Q3)
+│   ├── 10_feature_engineering.R   # Feature creation for ML
+│   ├── 11_machine_learning.R      # RF + XGBoost models
+│   ├── 12_model_evaluation.R      # Cross-validation, diagnostics
+│   ├── 13_manuscript_figures.R    # Publication figures (Q1-Q4)
 │   └── archive/                   # Deprecated scripts (reference only)
 │
 ├── output/                        # Generated outputs
@@ -79,9 +115,7 @@ CAFI-Survey-2026/
 │   └── objects/                   # RDS R data objects
 │
 └── docs/                          # Documentation
-    ├── KEY_RESULTS_SUMMARY.md     # Main findings
-    ├── ANALYSIS_METHODS_SUMMARY.md # Detailed methods
-    └── PRD.md                     # Product requirements
+    └── METHODS.md                 # Detailed statistical methods
 ```
 
 ---
@@ -90,41 +124,70 @@ CAFI-Survey-2026/
 
 ### Script Overview
 
-| Script | Purpose | Manuscript Figure |
-|--------|---------|-------------------|
-| `00_setup.R` | Load packages, configure paths, define theme | — |
-| `01_load_clean_data.R` | Load CSVs, clean data, create RDS objects | — |
-| `02_community_composition.R` | Taxonomic summaries, PERMANOVA | — |
-| `03_diversity_analysis.R` | Alpha/beta diversity, NMDS | Fig 4 (ordination) |
-| `04_scaling_relationships.R` | Size-abundance power-law scaling | **Fig 2** |
-| `05_coral_condition.R` | Position-corrected condition scores | **Fig 5** |
-| `06_network_analysis.R` | Co-occurrence networks, modularity | **Fig 4** (networks) |
-| `07_neighborhood_effects.R` | Meter-scale neighborhood effects | **Fig 6** (partial) |
-| `08_cafi_condition_feedbacks.R` | CAFI -> coral condition | **Fig 6** |
-| `09_functional_groups.R` | Trapezia, fish, corallivore patterns | **Fig 3** |
-| `10_spatial_patterns.R` | Maps, spatial extent | Supplementary |
-| `11_size_biomass_scaling.R` | CAFI body size distributions | Supplementary |
-| `12_machine_learning.R` | Random Forest predictions | Supplementary |
-| `13_spatial_autocorrelation.R` | Moran's I, spatial regression | Supplementary |
+#### Core Pipeline
+| Script | Purpose | Description |
+|--------|---------|-------------|
+| `00_setup.R` | Setup | Load packages, configure paths, define ggplot theme |
+| `00b_data_quality_audit.R` | Quality | Data quality assessment, trait integration |
+| `01_load_data.R` | Data loading | Load CSVs, clean data, create RDS objects |
+| `02_community_analysis.R` | Community | Taxonomic summaries, PERMANOVA, composition |
+| `03_landscape_characterization.R` | Landscape | Neighborhood density, predictor selection |
+| `04_landscape_effects.R` | Effects | Size and neighborhood effects on CAFI |
+| `05_species_scaling_analysis.R` | Scaling | Species-area relationships, power-law |
+
+#### Extended Analyses
+| Script | Purpose | Question |
+|--------|---------|----------|
+| `06_network_analysis.R` | Co-occurrence networks, modularity | Q2 |
+| `07_spatial_autocorrelation.R` | Moran's I, LISA, Mantel tests | Q2 |
+| `08_functional_groups.R` | Trapezia, fish, corallivore patterns | Q1/Q3 |
+| `09_cafi_condition_feedbacks.R` | PCA, mixed models, FDR correction | Q3/Q4 |
+
+#### Machine Learning & Publication
+| Script | Purpose |
+|--------|---------|
+| `10_feature_engineering.R` | Feature creation, VIF selection |
+| `11_machine_learning.R` | Random Forest, XGBoost models |
+| `12_model_evaluation.R` | Cross-validation, diagnostics |
+| `13_manuscript_figures.R` | Publication figures organized by Q1-Q4 |
+
+**Note**: Archived scripts are in `scripts/archive/` for reference only.
 
 ### Dependency Chain
 
 ```
-00_setup.R
-    ↓
-01_load_clean_data.R
-    ↓
-┌───┴───────────────────────────────────┐
-│  02_community_composition.R           │
-│  03_diversity_analysis.R     → Fig 4  │
-│  04_scaling_relationships.R  → Fig 2  │
-│  05_coral_condition.R        → Fig 5  │
-│  06_network_analysis.R       → Fig 4  │
-│  07_neighborhood_effects.R   → Fig 6  │
-│  08_cafi_condition_feedbacks.R → Fig 6│
-│  09_functional_groups.R      → Fig 3  │
-└───────────────────────────────────────┘
+run_full_pipeline.R (orchestrates all scripts)
+        ↓
+00_setup.R → 00b_data_quality_audit.R → 01_load_data.R
+        ↓
+┌─────────────────────────────────────────────┐
+│  Core Analyses (Q1-Q2):                     │
+│  ├─ 02_community_analysis.R      (Q2)      │
+│  ├─ 03_landscape_characterization.R        │
+│  ├─ 04_landscape_effects.R       (Q4)      │
+│  └─ 05_species_scaling_analysis.R (Q1)     │
+└─────────────────────────────────────────────┘
+        ↓
+┌─────────────────────────────────────────────┐
+│  Extended Analyses (Q2-Q4):                 │
+│  ├─ 06_network_analysis.R        (Q2)      │
+│  ├─ 07_spatial_autocorrelation.R  (Q2)     │
+│  ├─ 08_functional_groups.R       (Q1/Q3)   │
+│  └─ 09_cafi_condition_feedbacks.R (Q3/Q4)  │
+└─────────────────────────────────────────────┘
+        ↓
+┌─────────────────────────────────────────────┐
+│  Machine Learning & Figures:                │
+│  ├─ 10_feature_engineering.R                │
+│  ├─ 11_machine_learning.R                   │
+│  ├─ 12_model_evaluation.R                   │
+│  └─ 13_manuscript_figures.R                 │
+└─────────────────────────────────────────────┘
+        ↓
+output/pipeline.log
 ```
+
+**Note**: Scripts 02-09 can be run independently after setup and data loading.
 
 ---
 
@@ -142,40 +205,47 @@ CAFI-Survey-2026/
 
 ---
 
-## Key Research Questions
+## Research Questions (Q1-Q4)
 
-### 1. How does coral size affect CAFI abundance? (Fig 2)
+This study addresses four core questions linking coral habitat, CAFI communities, and coral condition:
 
-The relationship between coral size (V) and CAFI abundance (N) follows a power law: **N = a × V^β**
+### Q1: SCALING — How does CAFI abundance scale with coral size?
 
-Three competing hypotheses:
+**N = a × V^β** — Three competing hypotheses:
 
 | Hypothesis | Scaling | Mechanism |
 |------------|---------|-----------|
 | **Field of Dreams** | β = 1 | Abundance proportional to size; passive habitat filling |
 | **Propagule Redistribution** | β < 1 | Larger corals "dilute" settlers; per-capita density decreases |
-| **Super-linear** | β > 1 | Larger corals disproportionately attractive; aggregation |
+| **Super-linear** | β > 1 | Larger corals disproportionately attractive |
 
-**Key Results**:
-- **Total abundance**: β = 1.20 (super-linear) — larger corals harbor more per unit volume
-- **Species richness**: β = 0.81 (redistribution) — diversity saturates in larger corals
-- **Individual species**: Most show β ≈ 1 (Field of Dreams) — proportional scaling
+**Result**: Total CAFI abundance β = 1.20 [1.01, 1.40] — marginally super-linear. Species richness z = 0.79 [0.69, 0.89] — sublinear. Per-capita density decreases with size (dilution slope = -0.42). Functional groups vary: Trapezia β ≈ 1.0 (linear), Fish β ≈ 1.7 (super-linear).
 
-See `output/reports/SCALING_ANALYSIS.html` for comprehensive analysis.
+### Q2: COMPOSITION — Do larger corals support more distinct communities?
 
-### 2. Do CAFI functional groups affect coral condition? (Figs 3, 6)
+Tests whether community *composition* (not just richness) diverges with coral size — i.e., whether larger corals accumulate unique species assemblages rather than just more individuals.
 
-| Functional Group | Taxa | Expected Effect |
-|-----------------|------|-----------------|
-| Mutualist defenders | *Trapezia*, *Tetralia* crabs | Positive |
-| Nutrient providers | *Paragobiodon*, *Caracanthus* fish | Positive |
-| Corallivores | *Drupella*, *Coralliophila* snails | Negative |
+**Methods**: PERMANOVA, betadisper (distance to centroid), rarefaction robustness check (≥5 individuals, n=105).
 
-**Result**: Defender abundance correlates with higher condition; corallivores with lower.
+**Result**: Sites strongly structure composition. Raw analysis shows community distinctness decreases with size, but this is **NOT significant after rarefaction** (p=0.61). The size-composition pattern is an abundance sampling artifact, not true divergence.
 
-### 3. Do local neighborhoods affect CAFI? (Figs 4, 6)
+### Q3: FEEDBACKS — Does CAFI community identity predict coral condition?
 
-**Result**: Neighbor density has weak positive effect; coral size dominates.
+Tests whether the identity of CAFI (mutualists vs parasites) provides measurable physiological benefits to host corals. FDR-corrected for multiple testing.
+
+| Predictor | p-value | p_FDR | Direction |
+|-----------|---------|-------|-----------|
+| Species richness | 0.008 | 0.053 (marginal) | Positive |
+| Total abundance | 0.10 | 0.25 | Positive |
+| PC1_CAFI | 0.55 | 0.55 | — |
+
+**Result**: Species richness → condition is the strongest signal (p=0.008) but marginal after FDR correction (p_FDR=0.053). Suggestive that community complexity may matter for coral health, but requires larger samples to confirm.
+
+### Q4: NEIGHBORHOOD — Does local coral density affect CAFI recruitment?
+
+Tests whether neighborhood density (n_neighbors within 5m) acts as a source of CAFI recruitment or facilitates coral condition — the observational analog to the experimental density manipulation.
+
+**Result**: n_neighbors NOT significant for CAFI abundance (p=0.86) or condition (p=0.93). Coral volume remains the dominant predictor. Neighborhood density does not explain CAFI or condition variation in this established community.
 
 ---
 
@@ -193,7 +263,7 @@ See `output/reports/SCALING_ANALYSIS.html` for comprehensive analysis.
 
 ## Working with Pre-computed Objects
 
-After running `01_load_clean_data.R`, these RDS files are available:
+After running `01_load_data.R`, these RDS files are available:
 
 ```r
 # Load pre-computed objects
@@ -210,21 +280,27 @@ functional_summary <- readRDS("output/objects/functional_summary.rds") # By func
 
 ### Manuscript Figures (`output/figures/manuscript/`)
 
-| Figure | Content | Script |
-|--------|---------|--------|
-| Fig 2 | Size-abundance-richness scaling | `04_scaling_relationships.R` |
-| Fig 3 | Functional group responses | `09_functional_groups.R` |
-| Fig 4 | NMDS ordination + networks | `03_diversity_analysis.R`, `06_network_analysis.R` |
-| Fig 5 | Condition vs landscape | `05_coral_condition.R` |
-| Fig 6 | CAFI-condition feedbacks | `07_neighborhood_effects.R`, `08_cafi_condition_feedbacks.R` |
+| Figure | Content | Question | Script |
+|--------|---------|----------|--------|
+| Fig 1 | Study design, sites, dataset summary | Overview | `13_manuscript_figures.R` |
+| Fig 2 | Size-abundance scaling (power law) | Q1 | `13_manuscript_figures.R`, `05` |
+| Fig 3 | Functional group scaling patterns | Q1 | `08_functional_groups.R` |
+| Fig 4 | Co-occurrence network analysis | Q2 | `06_network_analysis.R` |
+| Fig 5 | CAFI-condition feedbacks | Q3 | `09_cafi_condition_feedbacks.R` |
 
 ### Statistical Tables (`output/tables/`)
 
 Key output files:
-- `scaling_model_results.csv` - Size-abundance coefficients
-- `permanova_results.csv` - Community composition tests
-- `network_metrics.csv` - Modularity, centrality
-- `condition_model_results.csv` - Condition predictors
+- `scaling_results_all.csv` - Species-area scaling coefficients
+- `landscape_effects_summary.csv` - Predictor effect sizes
+- `network_metrics.csv` - Network structure (modularity, centrality)
+- `morans_i_results.csv` - Spatial autocorrelation tests
+- `pipeline_timing.csv` - Script execution times
+
+### Pipeline Outputs
+
+- `output/pipeline.log` - Detailed execution log with timing
+- `output/tables/pipeline_timing.csv` - Script-by-script performance
 
 ---
 
@@ -277,4 +353,4 @@ MIT License
 
 ---
 
-*Last updated: December 2025*
+*Last updated: January 2026*

@@ -44,7 +44,7 @@
 # PART 3: Shannon Diversity
 # PART 4: Individual Species (abundant taxa with sufficient prevalence)
 # PART 5: Taxonomic Groups (crabs, shrimps, fishes, snails)
-# PART 6: Functional Groups (Trapezia, corallivores, etc.)
+# PART 6: Taxonomic Groups (Trapezia, Gastropods, Fish, etc.)
 #
 # MODEL SPECIFICATION:
 #   log(Y) ~ β × log(V) + site
@@ -91,16 +91,39 @@ FIG_DIR <- PATHS$fig_05_scaling
 cafi_clean <- readRDS(file.path(PATHS$objects, "cafi_clean.rds"))
 
 # ============================================================================
-# HELPER FUNCTION: Fit Scaling Model
+# HELPER FUNCTION: Fit Scaling Model with Bootstrap CI
 # ============================================================================
+# Following Stier et al. (2024) Ecology Letters methodology:
+# Use bootstrap resampling to generate 95% CI around the scaling exponent
+# If 95% CI includes 1 → Field of Dreams
+# If 95% CI excludes 1 and β < 1 → Propagule Redirection
+# ============================================================================
+
+#' Bootstrap function to estimate scaling exponent
+#' @param data Data with abundance and volume
+#' @param indices Bootstrap sample indices
+#' @return Scaling exponent beta
+boot_scaling <- function(data, indices) {
+  d <- data[indices, ]
+  tryCatch({
+    # Include site as fixed effect to match main model specification
+    if ("site" %in% names(d) && length(unique(d$site)) > 1) {
+      model <- MASS::glm.nb(abundance ~ log10(volume) + site, data = d)
+    } else {
+      model <- MASS::glm.nb(abundance ~ log10(volume), data = d)
+    }
+    coef(model)["log10(volume)"]
+  }, error = function(e) NA)
+}
 
 #' Fit a scaling model and test against Field of Dreams (β = 1)
 #'
 #' @param data Data frame with 'abundance' and 'volume' columns
 #' @param response_name Character string for labeling
 #' @param min_nonzero Minimum non-zero observations required (default 15)
+#' @param n_boot Number of bootstrap replicates (default 2000)
 #' @return List with model results and interpretation
-fit_scaling_model <- function(data, response_name, min_nonzero = 15) {
+fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 2000) {
 
   # Calculate summary stats
   n_total <- nrow(data)
@@ -120,6 +143,8 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15) {
       se = NA_real_,
       ci_lower = NA_real_,
       ci_upper = NA_real_,
+      boot_ci_lower = NA_real_,
+      boot_ci_upper = NA_real_,
       z_value = NA_real_,
       p_value = NA_real_,
       z_vs_1 = NA_real_,
@@ -141,17 +166,39 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15) {
     z_val <- coefs["log10(volume)", "z value"]
     p_val <- coefs["log10(volume)", "Pr(>|z|)"]
 
-    # 95% CI
+    # Profile-based 95% CI
     ci <- confint(model, "log10(volume)", level = 0.95)
 
-    # Test vs β = 1 (Field of Dreams hypothesis)
+    # Bootstrap 95% CI (following Stier et al. 2024 methodology)
+    boot_ci_lower <- NA_real_
+    boot_ci_upper <- NA_real_
+
+    if (requireNamespace("boot", quietly = TRUE) && n_nonzero >= 20) {
+      suppressWarnings({
+        boot_result <- boot::boot(data, boot_scaling, R = n_boot)
+        valid_betas <- boot_result$t[!is.na(boot_result$t)]
+
+        if (length(valid_betas) >= n_boot * 0.8) {  # Require 80% successful fits
+          boot_ci <- quantile(valid_betas, probs = c(0.025, 0.975))
+          boot_ci_lower <- boot_ci[1]
+          boot_ci_upper <- boot_ci[2]
+        }
+      })
+    }
+
+    # Use bootstrap CI if available, otherwise profile CI
+    test_ci_lower <- if (!is.na(boot_ci_lower)) boot_ci_lower else ci[1]
+    test_ci_upper <- if (!is.na(boot_ci_upper)) boot_ci_upper else ci[2]
+
+    # Test vs β = 1 using z-test
     z_vs_1 <- (beta - 1) / se
     p_vs_1 <- 2 * pnorm(-abs(z_vs_1))
 
-    # Interpret based on CI and statistical test
-    if (p_vs_1 < 0.05 && beta < 1) {
+    # Interpret based on CI (whether 95% CI includes 1)
+    # Following Stier et al. (2024) approach
+    if (test_ci_upper < 1) {
       interpretation <- "Redistribution (β < 1)"
-    } else if (p_vs_1 < 0.05 && beta > 1) {
+    } else if (test_ci_lower > 1) {
       interpretation <- "Super-linear (β > 1)"
     } else {
       interpretation <- "Field of Dreams (β ≈ 1)"
@@ -167,6 +214,8 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15) {
       se = se,
       ci_lower = ci[1],
       ci_upper = ci[2],
+      boot_ci_lower = boot_ci_lower,
+      boot_ci_upper = boot_ci_upper,
       z_value = z_val,
       p_value = p_val,
       z_vs_1 = z_vs_1,
@@ -187,6 +236,8 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15) {
       se = NA_real_,
       ci_lower = NA_real_,
       ci_upper = NA_real_,
+      boot_ci_lower = NA_real_,
+      boot_ci_upper = NA_real_,
       z_value = NA_real_,
       p_value = NA_real_,
       z_vs_1 = NA_real_,
@@ -210,6 +261,8 @@ result_to_row <- function(result) {
     se = result$se,
     ci_lower = result$ci_lower,
     ci_upper = result$ci_upper,
+    boot_ci_lower = if (!is.null(result$boot_ci_lower)) result$boot_ci_lower else NA_real_,
+    boot_ci_upper = if (!is.null(result$boot_ci_upper)) result$boot_ci_upper else NA_real_,
     z_value = result$z_value,
     p_value = result$p_value,
     z_vs_1 = result$z_vs_1,
@@ -255,11 +308,17 @@ cat("Model: Total CAFI ~ log10(Volume) + site (Negative Binomial GLM)\n\n")
 cat("Results:\n")
 cat("  Scaling exponent β =", round(total_result$beta, 3), "\n")
 cat("  Standard error =", round(total_result$se, 3), "\n")
-cat("  95% CI: [", round(total_result$ci_lower, 3), ",", round(total_result$ci_upper, 3), "]\n")
+cat("  Profile 95% CI: [", round(total_result$ci_lower, 3), ",", round(total_result$ci_upper, 3), "]\n")
+if (!is.na(total_result$boot_ci_lower)) {
+  cat("  Bootstrap 95% CI: [", round(total_result$boot_ci_lower, 3), ",", round(total_result$boot_ci_upper, 3), "]\n")
+}
 cat("  z-value =", round(total_result$z_value, 2), ", p =", format.pval(total_result$p_value, 3), "\n\n")
 
 cat("Test vs Field of Dreams (H0: β = 1):\n")
 cat("  z =", round(total_result$z_vs_1, 2), ", p =", format.pval(total_result$p_vs_1, 3), "\n")
+if (!is.na(total_result$boot_ci_lower)) {
+  cat("  Bootstrap CI includes 1:", ifelse(total_result$boot_ci_lower <= 1 & total_result$boot_ci_upper >= 1, "YES", "NO"), "\n")
+}
 cat("  Interpretation:", total_result$interpretation, "\n\n")
 
 # Store for combined results
@@ -405,12 +464,12 @@ cat("############################################################\n\n")
 cat("Testing scaling for functional groups...\n\n")
 
 functional_groups <- list(
-  "Trapezia (mutualists)" = "n_trapezia",
-  "Resident Fish" = "n_resident_fish",
-  "Corallivores" = "n_corallivore",
-  "Other Crabs" = "n_other_crab",
+  "Trapezia crabs" = "n_trapezia",
+  "Fish" = "n_resident_fish",
+  "Gastropods" = "n_corallivore",
+  "Other crabs" = "n_other_crab",
   "Shrimps" = "n_shrimp",
-  "Other" = "n_other"
+  "Other invertebrates" = "n_other"
 )
 
 functional_results <- list()
@@ -506,6 +565,240 @@ species_results <- map(key_species$otu, function(sp) {
 
 names(species_results) <- key_species$otu
 all_results$individual_species <- species_results
+
+# ############################################################################
+#                    PART 6B: KEY SPECIES FROM EXPERIMENTAL PAPER
+# ############################################################################
+# Test scaling patterns for species highlighted in Stier et al. experimental work
+# These species showed significant effects on coral condition:
+#   POSITIVE effects: Caracanthus maculatus, Alpheus lottini (and Alpheus spp.)
+#   NEGATIVE effects: Cymo quadrilobatus, Luniella pugil
+#
+# Key question: Do these functionally important species show heterogeneous
+# scaling responses (as predicted by "Field of Dreams" heterogeneity)?
+# ############################################################################
+
+cat("\n############################################################\n")
+cat("PART 6B: KEY SPECIES FROM EXPERIMENTAL PAPER\n")
+cat("############################################################\n\n")
+
+cat("Testing scaling patterns for species with documented effects on coral condition\n")
+cat("from Stier et al. experimental studies.\n\n")
+
+# Define key species from experimental paper
+key_exp_species <- list(
+  list(
+    name = "Caracanthus maculatus",
+    pattern = "Caracanthus",
+    effect = "positive",
+    description = "Coral croucher (guards against corallivores)"
+  ),
+  list(
+    name = "Alpheus lottini",
+    pattern = "^Alpheus lottini$",
+    effect = "positive",
+    description = "Snapping shrimp (mutualist)"
+  ),
+  list(
+    name = "All Alpheus spp.",
+    pattern = "^Alpheus",
+    effect = "positive",
+    description = "All snapping shrimp species"
+  ),
+  list(
+    name = "Cymo + Luniella (xanthids)",
+    pattern = "Cymo|Luniella",
+    effect = "negative",
+    description = "Harmful xanthid crabs (tissue consumers)"
+  )
+)
+
+# Calculate abundances for each key species/group
+cat("Calculating abundances for key species...\n")
+
+key_species_abundances <- lapply(key_exp_species, function(sp) {
+  counts <- cafi_clean %>%
+    filter(grepl(sp$pattern, otu, ignore.case = TRUE)) %>%
+    group_by(coral_id) %>%
+    summarise(abundance = n(), .groups = "drop")
+
+  # Complete with zeros for corals without this species
+  complete_counts <- coral_data %>%
+    dplyr::select(coral_id, site, volume) %>%
+    left_join(counts, by = "coral_id") %>%
+    mutate(abundance = replace_na(abundance, 0))
+
+  list(
+    name = sp$name,
+    effect = sp$effect,
+    description = sp$description,
+    data = complete_counts,
+    total_individuals = sum(complete_counts$abundance),
+    n_corals_present = sum(complete_counts$abundance > 0)
+  )
+})
+
+names(key_species_abundances) <- sapply(key_exp_species, function(x) x$name)
+
+# Report occurrence summary
+cat("\nKey species occurrence summary:\n")
+cat(sprintf("  %-30s %8s %12s\n", "Species/Group", "Total N", "Corals Present"))
+cat("  ", strrep("-", 52), "\n", sep = "")
+
+for (sp in key_species_abundances) {
+  cat(sprintf("  %-30s %8d %12d (%.1f%%)\n",
+              sp$name,
+              sp$total_individuals,
+              sp$n_corals_present,
+              100 * sp$n_corals_present / nrow(coral_data)))
+}
+
+# Fit scaling models with RELAXED thresholds for key species
+# Using min_nonzero = 5 to include rarer but important species
+cat("\nFitting scaling models (relaxed threshold: min 5 corals with species present)...\n\n")
+
+key_species_results <- lapply(key_species_abundances, function(sp) {
+  result <- fit_scaling_model(
+    sp$data,
+    sp$name,
+    min_nonzero = 5,  # Relaxed threshold for key species
+    n_boot = 2000
+  )
+
+  # Add experimental paper metadata
+  result$exp_effect <- sp$effect
+  result$description <- sp$description
+
+  # Report
+  if (result$converged && !is.na(result$beta)) {
+    cat(sprintf("  %-30s β = %6.3f [%5.3f, %5.3f], p vs 1: %s\n",
+                sp$name,
+                result$beta,
+                result$boot_ci_lower,
+                result$boot_ci_upper,
+                format.pval(result$p_vs_1, 3)))
+    cat(sprintf("    → %s (experimental effect: %s on coral condition)\n",
+                result$interpretation, sp$effect))
+  } else {
+    cat(sprintf("  %-30s %s\n", sp$name, result$interpretation))
+  }
+
+  result
+})
+
+names(key_species_results) <- names(key_species_abundances)
+all_results$key_exp_species <- key_species_results
+
+# Create summary table for key species
+cat("\n--- KEY SPECIES SCALING SUMMARY ---\n\n")
+
+key_species_summary <- map_df(key_species_results, function(r) {
+  tibble(
+    species = r$response,
+    exp_effect = r$exp_effect,
+    description = r$description,
+    n_total = r$n_corals,
+    n_present = r$n_nonzero,
+    total_abundance = r$total_abundance,
+    beta = r$beta,
+    ci_lower = r$boot_ci_lower,
+    ci_upper = r$boot_ci_upper,
+    p_vs_1 = r$p_vs_1,
+    interpretation = r$interpretation
+  )
+})
+
+# Add Field of Dreams / Redistribution classification
+key_species_summary <- key_species_summary %>%
+  mutate(
+    scaling_pattern = case_when(
+      is.na(beta) ~ "Insufficient data",
+      interpretation == "Field of Dreams" ~ "Field of Dreams (β ≈ 1)",
+      grepl("Redistribution", interpretation) ~ "Propagule Redistribution (β < 1)",
+      TRUE ~ interpretation
+    )
+  )
+
+print(key_species_summary %>%
+        dplyr::select(species, exp_effect, n_present, beta, ci_lower, ci_upper, scaling_pattern) %>%
+        mutate(across(where(is.numeric) & !c(n_present), ~round(., 3))))
+
+# Save key species scaling table
+save_table(key_species_summary, "key_species_scaling_experimental")
+cat("\n  Saved: key_species_scaling_experimental.csv\n")
+
+# Create visualization: Key species forest plot
+cat("\nCreating key species scaling forest plot...\n")
+
+key_plot_data <- key_species_summary %>%
+  filter(!is.na(beta)) %>%
+  mutate(
+    species = factor(species, levels = rev(species)),
+    exp_effect_label = ifelse(exp_effect == "positive",
+                               "Beneficial (positive effect on coral)",
+                               "Harmful (negative effect on coral)")
+  )
+
+if (nrow(key_plot_data) > 0) {
+  p_key_forest <- ggplot(key_plot_data, aes(x = beta, y = species, color = exp_effect_label)) +
+    geom_vline(xintercept = 1, linetype = "dashed", color = "gray40", linewidth = 0.8) +
+    geom_errorbar(aes(xmin = ci_lower, xmax = ci_upper), height = 0.3, linewidth = 0.8, orientation = "y") +
+    geom_point(size = 4) +
+    scale_color_manual(
+      values = c("Beneficial (positive effect on coral)" = "#0072B2",
+                 "Harmful (negative effect on coral)" = "#D55E00"),
+      name = "Effect on coral condition\n(from experimental paper)"
+    ) +
+    annotate("text", x = 1.15, y = 0.5, label = "Field of Dreams\n(β = 1)",
+             hjust = 0, size = 3, color = "gray40") +
+    annotate("text", x = 0.5, y = 0.5, label = "Redistribution\n(β < 1)",
+             hjust = 0.5, size = 3, color = "gray40") +
+    labs(
+      title = "Scaling Patterns for Key Species from Experimental Paper",
+      subtitle = "Comparing Field of Dreams (β = 1) vs. Propagule Redistribution (β < 1)",
+      x = "Scaling exponent (β) with 95% bootstrap CI",
+      y = NULL,
+      caption = "Dashed line = Field of Dreams prediction (β = 1)\nSpecies colored by documented effect on coral condition"
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      legend.position = "bottom",
+      legend.box = "vertical",
+      plot.caption = element_text(hjust = 0, size = 9),
+      panel.grid.minor = element_blank(),
+      axis.title = element_text(size = 11),
+      plot.title = element_text(face = "bold", size = 13)
+    )
+
+  ggsave(file.path(FIG_DIR, "key_species_scaling_forest.png"), p_key_forest,
+         width = 10, height = 6, dpi = 300, bg = "white")
+  cat("  Saved: key_species_scaling_forest.png\n")
+}
+
+# Summary interpretation
+cat("\n--- INTERPRETATION: HETEROGENEITY IN KEY SPECIES SCALING ---\n\n")
+
+n_analyzed <- sum(!is.na(key_species_summary$beta))
+n_fod <- sum(key_species_summary$interpretation == "Field of Dreams", na.rm = TRUE)
+n_redist <- sum(grepl("Redistribution", key_species_summary$interpretation), na.rm = TRUE)
+
+cat("Of", n_analyzed, "key species/groups analyzed:\n")
+cat("  Field of Dreams (β ≈ 1):", n_fod, "\n")
+cat("  Propagule Redistribution (β < 1):", n_redist, "\n\n")
+
+cat("Comparison with experimental paper predictions:\n")
+cat("  The experimental work (Stier et al.) predicts heterogeneous scaling responses\n")
+cat("  across species, with some following Field of Dreams and others showing\n")
+cat("  Propagule Redistribution. This survey tests whether the same pattern holds\n")
+cat("  for observational data across natural coral size variation.\n\n")
+
+# Check if already in individual species results
+already_in_main <- key_species_summary %>%
+  filter(species %in% names(species_results))
+
+if (nrow(already_in_main) > 0) {
+  cat("Note: Some key species were also included in main species analysis (met occurrence thresholds).\n")
+}
 
 # ############################################################################
 #                    PART 7: SUMMARY & SYNTHESIS
@@ -612,11 +905,11 @@ cat("\n############################################################\n")
 cat("CREATING FIGURES\n")
 cat("############################################################\n\n")
 
-# Define interpretation colors
+# Define interpretation colors (colorblind-safe)
 interpretation_colors <- c(
-  "Redistribution (β < 1)" = "#E41A1C",
-  "Field of Dreams (β ≈ 1)" = "#4DAF4A",
-  "Super-linear (β > 1)" = "#377EB8"
+  "Redistribution (β < 1)" = "#D55E00",
+  "Field of Dreams (β ≈ 1)" = "#009E73",
+  "Super-linear (β > 1)" = "#0072B2"
 )
 
 # ============================================================================
@@ -793,9 +1086,9 @@ make_species_panel <- function(sp_name, sp_result) {
   interp <- sp_result$interpretation
 
   title_color <- case_when(
-    interp == "Redistribution (β < 1)" ~ "#E41A1C",
-    interp == "Super-linear (β > 1)" ~ "#377EB8",
-    TRUE ~ "#4DAF4A"
+    interp == "Redistribution (β < 1)" ~ "#D55E00",
+    interp == "Super-linear (β > 1)" ~ "#0072B2",
+    TRUE ~ "#009E73"
   )
 
   ggplot(sp_data, aes(x = volume, y = abundance, color = site)) +
@@ -933,7 +1226,10 @@ scaling_analysis_results <- list(
   species_t_test = t_test,
 
   # Species metadata
-  species_summary = species_summary
+  species_summary = species_summary,
+
+  # Key species from experimental paper
+  key_species_scaling = key_species_summary
 )
 
 save_object(scaling_analysis_results, "scaling_analysis_results")
@@ -975,6 +1271,20 @@ for (i in 1:nrow(interpretation_summary)) {
   cat("     ", interpretation_summary$interpretation[i], ":", interpretation_summary$n[i], "\n")
 }
 
+cat("\n4. KEY SPECIES FROM EXPERIMENTAL PAPER:\n")
+if (exists("key_species_summary") && nrow(key_species_summary) > 0) {
+  for (i in 1:nrow(key_species_summary)) {
+    row <- key_species_summary[i, ]
+    if (!is.na(row$beta)) {
+      cat(sprintf("   %-25s β = %.3f [%.3f, %.3f] → %s\n",
+                  row$species, row$beta, row$ci_lower, row$ci_upper, row$scaling_pattern))
+    } else {
+      cat(sprintf("   %-25s %s\n", row$species, row$interpretation))
+    }
+  }
+  cat("   (See output/tables/key_species_scaling_experimental.csv for full details)\n")
+}
+
 cat("\nOUTPUT FILES:\n")
 cat("  Figures: output/figures/05_scaling/\n")
 cat("    - community_scaling.png\n")
@@ -982,7 +1292,9 @@ cat("    - group_scaling_forest.png\n")
 cat("    - species_scaling_forest.png\n")
 cat("    - species_scaling_panels.png\n")
 cat("    - scaling_summary.png\n")
+cat("    - key_species_scaling_forest.png (NEW)\n")
 cat("  Tables: output/tables/\n")
 cat("    - scaling_results_all.csv\n")
 cat("    - scaling_summary_by_category.csv\n")
-cat("    - scaling_interpretation_summary.csv\n\n")
+cat("    - scaling_interpretation_summary.csv\n")
+cat("    - key_species_scaling_experimental.csv (NEW)\n\n")

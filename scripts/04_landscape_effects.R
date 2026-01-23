@@ -178,7 +178,7 @@ cat("    β =", round(coef(m_shan_vol)["log10(volume)"], 3),
 p_size_abund <- ggplot(landscape_data, aes(x = volume, y = total_cafi, color = site)) +
   geom_point(alpha = 0.6, size = 2.5) +
   geom_smooth(method = "glm.nb", formula = y ~ log10(x), se = TRUE, color = "black") +
-  geom_abline(slope = 1, intercept = log10(mean(landscape_data$total_cafi / landscape_data$volume)),
+  geom_abline(slope = 1, intercept = mean(log10(landscape_data$total_cafi) - log10(landscape_data$volume)),
               linetype = "dashed", color = "gray50", linewidth = 0.8) +
   scale_x_log10(labels = scales::comma) +
   scale_y_log10() +
@@ -613,6 +613,7 @@ for (fg in functional_groups) {
       glm.nb(as.formula(paste(fg, "~ log10(volume) + n_neighbors + site")),
              data = landscape_data)
     }, error = function(e) {
+      cat("    [Note: NB failed for", fg, "- using Poisson fallback]\n")
       glm(as.formula(paste(fg, "~ log10(volume) + n_neighbors + site")),
           family = poisson, data = landscape_data)
     })
@@ -1389,7 +1390,6 @@ gtsave(aic_gt_table, file.path(FIG_DIR, "aic_model_comparison_table.html"))
 cat("  Saved: aic_model_comparison_table.png\n")
 cat("  Saved: aic_model_comparison_table.html\n")
 
-# Also save as CSV
 save_table(aic_comparison %>%
              mutate(across(where(is.numeric), ~round(., 4))),
            "aic_model_comparison")
@@ -1698,7 +1698,6 @@ gtsave(gt_table, file.path(FIG_DIR, "glmm_results_table.html"))
 cat("  Saved: glmm_results_table.png\n")
 cat("  Saved: glmm_results_table.html\n")
 
-# Also save as CSV for supplementary
 save_table(glmm_results %>%
              mutate(across(where(is.numeric), ~round(., 4))),
            "glmm_landscape_results")
