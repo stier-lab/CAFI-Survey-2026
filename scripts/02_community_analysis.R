@@ -870,7 +870,7 @@ p_nmds_trajectory <- ggplot() +
     x = "NMDS1",
     y = "NMDS2"
   ) +
-  coord_fixed(xlim = nmds1_lim, ylim = nmds2_lim, clip = "off") +
+  coord_fixed(xlim = nmds1_lim, ylim = nmds2_lim, clip = "on") +
   theme_publication() +
   theme(legend.position = "right")
 
