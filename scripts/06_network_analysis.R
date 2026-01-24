@@ -10,9 +10,9 @@
 #   habitat preferences, and identifiable hub/keystone species.
 #
 # ANALYSES:
-#   - Co-occurrence network construction (correlation-based)
+#   - Co-occurrence network construction (volume-residualized correlations)
 #   - Community detection (Louvain algorithm for modularity)
-#   - Null model comparison (1000 Erdos-Renyi random networks)
+#   - Null model comparison (1000 configuration model random networks)
 #   - Centrality analysis (degree, betweenness, eigenvector)
 #   - Module composition characterization
 #
@@ -110,15 +110,47 @@ comm_filtered <- comm_binary[, species_keep]
 cat("     Minimum occurrence threshold:", min_occurrence, "corals (5%)\n")
 cat("     Species retained:", ncol(comm_filtered), "of", ncol(comm_binary), "\n\n")
 
-# 1.3 Calculate Spearman correlations for co-occurrence
-cat("1.2 Calculating species co-occurrences (Spearman correlation)...\n")
+# 1.3 Residualize presence on coral volume (partial correlations)
+# This removes the mechanical confound: larger corals host more species,
+# inflating raw co-occurrence. We fit logistic GLM for each species and
+# use deviance residuals as volume-corrected presence values.
+cat("1.2 Residualizing species presence on coral volume...\n")
 
-cor_matrix <- cor(comm_filtered, method = "spearman", use = "pairwise.complete.obs")
+# Get volume for each coral (rows of community_matrix match coral_master)
+volume_vec <- coral_master$volume_field[match(rownames(comm_filtered), coral_master$coral_id)]
+log_volume <- log10(volume_vec)
+
+# Compute deviance residuals for each species
+residual_matrix <- matrix(NA, nrow = nrow(comm_filtered), ncol = ncol(comm_filtered))
+colnames(residual_matrix) <- colnames(comm_filtered)
+rownames(residual_matrix) <- rownames(comm_filtered)
+
+for (sp in seq_len(ncol(comm_filtered))) {
+  y <- comm_filtered[, sp]
+  fit <- tryCatch(
+    glm(y ~ log_volume, family = binomial(link = "logit")),
+    warning = function(w) glm(y ~ log_volume, family = binomial(link = "logit")),
+    error = function(e) NULL
+  )
+  if (!is.null(fit)) {
+    residual_matrix[, sp] <- residuals(fit, type = "deviance")
+  } else {
+    # Fallback: use raw presence if GLM fails (e.g., perfect separation)
+    residual_matrix[, sp] <- y - mean(y)
+  }
+}
+
+cat("     Species residualized:", ncol(residual_matrix), "\n")
+
+# 1.4 Calculate Spearman correlations on volume-corrected residuals
+cat("1.3 Calculating volume-corrected co-occurrences (Spearman correlation)...\n")
+
+cor_matrix <- cor(residual_matrix, method = "spearman", use = "pairwise.complete.obs")
 
 # Handle NAs in correlation matrix
 cor_matrix[is.na(cor_matrix)] <- 0
 
-# 1.4 Extract significant positive associations (r > 0.3)
+# 1.5 Extract significant positive associations (r > 0.3)
 # Using r = 0.3 threshold for moderate-to-strong positive associations
 threshold <- 0.3
 
@@ -268,27 +300,40 @@ cat("     Max degree:", max_degree, "\n\n")
 # ============================================================================
 
 cat("------------------------------------------------------------\n")
-cat("PART 4: NULL MODEL COMPARISON (Erdos-Renyi)\n")
+cat("PART 4: NULL MODEL COMPARISON (Configuration Model)\n")
 cat("------------------------------------------------------------\n\n")
 
-cat("4.1 Generating 1000 random networks...\n")
+cat("4.1 Generating 1000 degree-preserving random networks...\n")
+cat("     (Configuration model preserves observed degree sequence)\n")
 
 n_permutations <- 1000
 null_metrics <- matrix(NA, nrow = n_permutations, ncol = 4)
 colnames(null_metrics) <- c("modularity", "transitivity", "mean_distance", "diameter")
 
+# Observed degree sequence for configuration model
+obs_degree_seq <- degree(g)
+
 set.seed(123)
 
 for (i in 1:n_permutations) {
-  # Generate Erdos-Renyi random graph with same number of nodes and edge probability
-  g_random <- erdos.renyi.game(n_nodes, density, type = "gnp")
+  # Generate configuration model random graph preserving degree sequence
+  g_random <- tryCatch(
+    sample_degseq(obs_degree_seq, method = "simple"),
+    error = function(e) {
+      # Fallback: simple.no.multiple if simple fails
+      tryCatch(
+        sample_degseq(obs_degree_seq, method = "simple.no.multiple"),
+        error = function(e2) erdos.renyi.game(n_nodes, density, type = "gnp")
+      )
+    }
+  )
 
   # Calculate metrics
   null_metrics[i, "transitivity"] <- transitivity(g_random, type = "global")
   null_metrics[i, "mean_distance"] <- mean_distance(g_random)
   null_metrics[i, "diameter"] <- diameter(g_random)
 
-  # Modularity (only if network is connected enough)
+  # Modularity (only if network has edges)
   if (ecount(g_random) > 0) {
     null_comm <- cluster_louvain(g_random)
     null_metrics[i, "modularity"] <- modularity(null_comm)
@@ -515,12 +560,12 @@ cat("7.1 Creating network visualizations...\n")
 set.seed(42)
 layout_fr <- layout_with_fr(g)
 
-# Color palette for taxonomic types
+# Color palette for taxonomic types (Okabe-Ito colorblind-safe)
 type_colors <- c(
-  "crab" = "#E41A1C",
-  "shrimp" = "#377EB8",
-  "fish" = "#4DAF4A",
-  "snail" = "#984EA3",
+  "crab" = "#D55E00",
+  "shrimp" = "#0072B2",
+  "fish" = "#009E73",
+  "snail" = "#E69F00",
   "unknown" = "#999999"
 )
 

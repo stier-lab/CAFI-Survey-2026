@@ -80,11 +80,11 @@ This **observational survey** complements a parallel **experimental study** that
 
 **Methods:**
 - PCA on CAFI abundances → PC1_CAFI; PCA on physiology → PC1_Coral
-- Mixed models: condition ~ CAFI predictors + (1|site)
+- Linear models with fixed-effect site: condition ~ CAFI predictors + log_volume + site
 - FDR correction (Benjamini-Hochberg) across predictor families
-- Key species models: condition ~ species presence + log(volume) + (1|site)
-- Standardized β (effect in SD units) for LMM predictors
-- Partial R² via MuMIn::r.squaredGLMM()
+- Key species models: condition ~ species presence + log(volume) + site (FDR-corrected)
+- Standardized β (effect in SD units); VIF diagnostics
+- Note: 3 sites insufficient for random intercepts (Bolker et al. 2009)
 
 **Key findings:**
 - **Species richness → condition**: p = 0.008, p_FDR = 0.053 (marginal, strongest signal)
@@ -103,7 +103,7 @@ This **observational survey** complements a parallel **experimental study** that
 
 **Methods:**
 - NB GLM: `total_cafi ~ log_volume * n_neighbors + site`
-- LMM: `condition_score ~ log_volume * n_neighbors + (1|site)`
+- LM: `condition_score ~ log_volume * n_neighbors + site` (fixed effect)
 - Available on 61/114 corals (5m survey subset)
 
 **Key findings:**
@@ -155,7 +155,7 @@ Located in `scripts/` folder. Run in order via `run_full_pipeline.R`.
 #### Q3: FEEDBACKS
 | Script | Analysis | Output |
 |--------|----------|--------|
-| `09_cafi_condition_feedbacks.R` | PCA, mixed models, FDR correction | CAFI-condition relationships |
+| `09_cafi_condition_feedbacks.R` | PCA, fixed-effect LMs, FDR correction | CAFI-condition relationships |
 
 #### Q4: NEIGHBORHOOD
 | Script | Analysis | Output |
@@ -208,13 +208,18 @@ The following quality measures are implemented:
 | Issue | Fix | Script |
 |-------|-----|--------|
 | Multiple testing (feedbacks) | FDR correction (Benjamini-Hochberg) | `09_cafi_condition_feedbacks.R` |
-| Abundance confound (composition) | Rarefaction + re-test | `02_community_analysis.R` |
+| Multiple testing (key species) | FDR correction across 6 species tests | `09_cafi_condition_feedbacks.R` |
+| Abundance confound (composition) | Iterated rarefaction (100 draws, averaged) | `02_community_analysis.R` |
+| Volume confound (co-occurrence) | Residualized presence on log(volume) | `06_network_analysis.R` |
+| Random effects (k=3 sites) | Fixed-effect site throughout | `04`, `09` |
 | Bootstrap ignoring site | Site-stratified bootstrap | `05_species_scaling_analysis.R` |
 | Log-log intercept bias | Mean of log-differences | `04_landscape_effects.R` |
-| Network analysis hard failure | Graceful warning + skip | `06_network_analysis.R` |
+| Null model (network) | Configuration model (degree-preserving) | `06_network_analysis.R` |
 | NB convergence failure | Poisson fallback with logging | `04_landscape_effects.R` |
-| Effect size ambiguity | Pseudo-R², standardized β, partial R² | `04`, `05`, `09` |
-| Colorblind inaccessibility | Blue/orange/teal palette | All figure scripts |
+| Effect size ambiguity | Adjusted R², standardized β, VIF | `04`, `05`, `09` |
+| Model diagnostics | VIF, Shapiro-Wilk, Cook's D | `09`, `04` |
+| PERMANOVA Type I confound | Marginal (Type III) PERMANOVA | `02_community_analysis.R` |
+| Colorblind inaccessibility | Okabe-Ito palette | All figure scripts |
 
 ## Output Structure
 
@@ -250,7 +255,7 @@ output/
 - **Site codes**: HAU (Hauru), MAT (Maatea), MRB (Barrier Reef)
 - **Volume**: Use `volume_field` (field estimate)
 - **Key columns**: `n_galeropsis` (Galeropsis count per coral), `n_corallivore` (all gastropods)
-- **Packages**: Use `dplyr::select()` explicitly (MASS conflict); MuMIn for r.squaredGLMM()
+- **Packages**: Use `dplyr::select()` explicitly (MASS conflict); car::vif() for diagnostics
 - **Colors**: Colorblind-safe palette (Okabe-Ito derivatives): `#0072B2` (blue), `#D55E00` (vermillion), `#009E73` (teal), `#E69F00` (orange), `#56B4E9` (sky blue)
 
 ## Load Pre-computed Objects

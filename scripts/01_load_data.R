@@ -135,6 +135,7 @@ cafi_by_coral <- cafi_clean %>%
     n_trapezia      = sum(functional_group == "Trapezia"),
     n_resident_fish = sum(functional_group == "Resident Fish"),
     n_corallivore   = sum(functional_group == "Gastropod"),
+    n_galeropsis    = sum(str_detect(tolower(otu), "galeropsis"), na.rm = TRUE),
     n_other_crab    = sum(functional_group == "Other Crab"),
     n_shrimp        = sum(functional_group == "Shrimp"),
     n_other         = sum(functional_group == "Other"),

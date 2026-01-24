@@ -362,7 +362,8 @@ cat("\n    Model fit:\n")
 cat("      AIC:", round(AIC(m_abund_full), 1), "\n")
 cat("      Theta (dispersion):", round(m_abund_full$theta, 2), "\n")
 cat("      Residual deviance:", round(m_abund_full$deviance, 1),
-    "on", m_abund_full$df.residual, "df\n\n")
+    "on", m_abund_full$df.residual, "df\n")
+cat("      Pseudo-R² (McFadden):", round(calc_pseudo_r2(m_abund_full), 4), "\n\n")
 
 # 5.2 Full model for Species Richness
 cat("5.2 Full Model: Species Richness ~ All 4 Predictors\n")
@@ -734,28 +735,23 @@ cat("  Saved: individual figure files\n")
 cat("\nAll figures saved to:", FIG_DIR, "\n")
 
 # ============================================================================
-# PART 9B: PUBLICATION MULTIPANEL FIGURE WITH GLMM
+# PART 9B: PUBLICATION MULTIPANEL FIGURE WITH GLM
 # ============================================================================
 
 cat("\n------------------------------------------------------------\n")
 cat("PART 9B: PUBLICATION FIGURE - Abundance & Richness vs Predictors\n")
 cat("------------------------------------------------------------\n\n")
 
-# Load lme4 for GLMM and gt for publication tables
-if (!requireNamespace("lme4", quietly = TRUE)) {
-
-  install.packages("lme4")
-}
+# Load gt for publication tables
 if (!requireNamespace("gt", quietly = TRUE)) {
-
   install.packages("gt")
 }
-library(lme4)
 library(gt)
 
-cat("Fitting GLMM models with site as random effect...\n\n")
+cat("Fitting GLM models with site as fixed effect...\n")
+cat("(3 sites insufficient for random intercepts; Bolker et al. 2009)\n\n")
 
-# ---- MULTIPLE PREDICTOR GLMM Models ----
+# ---- MULTIPLE PREDICTOR GLM Models (fixed-effect site) ----
 # All 4 landscape predictors in one model, site as random effect
 # Scale predictors to improve convergence
 
@@ -767,30 +763,29 @@ landscape_data_scaled <- landscape_data %>%
     dist_scaled = scale(mean_neighbor_dist)[,1]
   )
 
-cat("Model 1: CAFI Abundance ~ 4 predictors + (1|site)\n")
-cat("         Using negative binomial GLMM (glmer.nb)\n")
-cat("         Predictors standardized (mean=0, SD=1)\n\n")
+cat("Model 1: CAFI Abundance ~ 4 predictors + site (fixed effect)\n")
+cat("         Using negative binomial GLM (glm.nb)\n")
+cat("         Predictors standardized (mean=0, SD=1)\n")
+cat("         Note: 3 sites insufficient for random intercepts (Bolker et al. 2009)\n\n")
 
-glmm_abundance <- glmer.nb(
+glmm_abundance <- MASS::glm.nb(
   total_cafi ~ log_vol_scaled + n_neighbors_scaled +
-    log_neigh_vol_scaled + dist_scaled + (1|site),
-  data = landscape_data_scaled,
-  control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
+    log_neigh_vol_scaled + dist_scaled + site,
+  data = landscape_data_scaled
 )
 
-cat("Model 2: Species Richness ~ 4 predictors + (1|site)\n")
-cat("         Using Poisson GLMM (glmer)\n")
+cat("Model 2: Species Richness ~ 4 predictors + site (fixed effect)\n")
+cat("         Using Poisson GLM (glm)\n")
 cat("         Predictors standardized (mean=0, SD=1)\n\n")
 
-glmm_richness <- glmer(
+glmm_richness <- glm(
   otu_richness ~ log_vol_scaled + n_neighbors_scaled +
-    log_neigh_vol_scaled + dist_scaled + (1|site),
+    log_neigh_vol_scaled + dist_scaled + site,
   family = poisson,
-  data = landscape_data_scaled,
-  control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
+  data = landscape_data_scaled
 )
 
-# ---- Extract GLMM Results ----
+# ---- Extract GLM Results ----
 extract_glmm_coefs <- function(model, response) {
   s <- summary(model)
   coefs <- s$coefficients
@@ -821,8 +816,7 @@ glmm_results <- bind_rows(
     Significant = p_value < 0.05,
     CI_lower = Beta - 1.96 * SE,
     CI_upper = Beta + 1.96 * SE,
-    n = nrow(landscape_data),
-    n_groups = 3  # 3 sites
+    n = nrow(landscape_data)
   )
 
 # Print model summaries
@@ -836,7 +830,7 @@ cat("RICHNESS MODEL SUMMARY:\n")
 cat("----------------------------------------\n")
 print(summary(glmm_richness))
 
-cat("\n\nGLMM Results (Full Models - All 4 Predictors):\n")
+cat("\n\nGLM Results (Full Models - All 4 Predictors + Site):\n")
 glmm_print <- glmm_results %>%
   mutate(across(c(Beta, SE, z_value, p_value), ~round(., 4))) %>%
   dplyr::select(Response, Predictor, Beta, SE, z_value, p_value, Significant)
@@ -848,6 +842,7 @@ cat("AIC-BASED MODEL SELECTION\n")
 cat("----------------------------------------\n\n")
 
 # Function to perform backward elimination based on AIC
+# Uses fixed-effect site (not random intercept) - 3 levels insufficient for RE
 backward_aic <- function(full_model, model_type = "nb") {
   current_model <- full_model
   current_aic <- AIC(current_model)
@@ -859,11 +854,17 @@ backward_aic <- function(full_model, model_type = "nb") {
   history <- list()
   step <- 0
 
+  # Get droppable terms from model formula (exclude intercept and site)
+  get_droppable_terms <- function(model) {
+    all_terms <- attr(terms(model), "term.labels")
+    # Don't drop the site fixed effect
+    all_terms[all_terms != "site"]
+  }
+
   repeat {
     step <- step + 1
 
-    # Get current fixed effects (excluding intercept)
-    fe <- names(fixef(current_model))[-1]  # Remove intercept
+    fe <- get_droppable_terms(current_model)
 
     if (length(fe) == 0) {
       cat("No more terms to drop.\n")
@@ -883,13 +884,9 @@ backward_aic <- function(full_model, model_type = "nb") {
 
       tryCatch({
         if (model_type == "nb") {
-          new_model <- glmer.nb(new_formula, data = landscape_data_scaled,
-                                control = glmerControl(optimizer = "bobyqa",
-                                                       optCtrl = list(maxfun = 100000)))
+          new_model <- MASS::glm.nb(new_formula, data = landscape_data_scaled)
         } else {
-          new_model <- glmer(new_formula, family = poisson, data = landscape_data_scaled,
-                             control = glmerControl(optimizer = "bobyqa",
-                                                    optCtrl = list(maxfun = 100000)))
+          new_model <- glm(new_formula, family = poisson, data = landscape_data_scaled)
         }
         drop_results <- rbind(drop_results,
                               data.frame(term = term, aic = AIC(new_model)))
@@ -913,13 +910,9 @@ backward_aic <- function(full_model, model_type = "nb") {
 
       new_formula <- update(formula(current_model), paste("~ . -", best_drop$term))
       if (model_type == "nb") {
-        current_model <- glmer.nb(new_formula, data = landscape_data_scaled,
-                                  control = glmerControl(optimizer = "bobyqa",
-                                                         optCtrl = list(maxfun = 100000)))
+        current_model <- MASS::glm.nb(new_formula, data = landscape_data_scaled)
       } else {
-        current_model <- glmer(new_formula, family = poisson, data = landscape_data_scaled,
-                               control = glmerControl(optimizer = "bobyqa",
-                                                      optCtrl = list(maxfun = 100000)))
+        current_model <- glm(new_formula, family = poisson, data = landscape_data_scaled)
       }
       current_aic <- AIC(current_model)
 
@@ -978,31 +971,48 @@ for (i in seq_along(vif_values)) {
 cat("\n     Max VIF:", round(max(vif_values), 2),
     ifelse(max(vif_values) < 5, " - No multicollinearity issues", " - Consider removing predictors"), "\n\n")
 
-# ---- 9C.2 Random Effects Variance & ICC ----
-cat("9C.2 Random Effects & Intraclass Correlation (ICC):\n\n")
+# ---- 9C.2 Site Effect Assessment ----
+cat("9C.2 Site Fixed Effect Assessment:\n\n")
 
-# Extract variance components
-var_abund <- as.data.frame(VarCorr(glmm_abundance_reduced))
-var_rich <- as.data.frame(VarCorr(glmm_richness_reduced))
-
+# For fixed-effect site, test whether site improves model fit (Type II Anova)
 cat("  ABUNDANCE MODEL (reduced):\n")
-cat("    Site variance (σ²_site):", round(var_abund$vcov[1], 4), "\n")
-cat("    Site SD:", round(var_abund$sdcor[1], 4), "\n")
-
-# ICC for negative binomial: site_var / (site_var + pi^2/3) approximation
-# More accurate: use conditional vs marginal R²
-icc_abund <- var_abund$vcov[1] / (var_abund$vcov[1] + pi^2/3)
-cat("    ICC (approximate):", round(icc_abund, 3),
-    ifelse(icc_abund < 0.05, " (minimal clustering)",
-           ifelse(icc_abund < 0.15, " (modest clustering)", " (substantial clustering)")), "\n\n")
+abund_anova <- tryCatch(
+  anova(glmm_abundance_reduced, test = "Chisq"),
+  error = function(e) NULL
+)
+if (!is.null(abund_anova) && "site" %in% rownames(abund_anova)) {
+  site_dev_abund <- abund_anova["site", "Deviance"]
+  site_p_abund <- abund_anova["site", "Pr(>Chi)"]
+  cat("    Site deviance:", round(abs(site_dev_abund), 2), "\n")
+  cat("    Site p-value:", format.pval(site_p_abund, 3), "\n")
+} else {
+  cat("    Site effect: included as fixed covariate\n")
+}
+# Approximate ICC from site coefficient variance
+site_coefs_abund <- coef(glmm_abundance_reduced)[grep("^site", names(coef(glmm_abundance_reduced)))]
+icc_abund <- ifelse(length(site_coefs_abund) > 0,
+                    var(c(0, site_coefs_abund)) / (var(c(0, site_coefs_abund)) + pi^2/3),
+                    0)
+cat("    Approximate ICC:", round(icc_abund, 3), "\n\n")
 
 cat("  RICHNESS MODEL (reduced):\n")
-cat("    Site variance (σ²_site):", round(var_rich$vcov[1], 4), "\n")
-cat("    Site SD:", round(var_rich$sdcor[1], 4), "\n")
-icc_rich <- var_rich$vcov[1] / (var_rich$vcov[1] + pi^2/3)
-cat("    ICC (approximate):", round(icc_rich, 3),
-    ifelse(icc_rich < 0.05, " (minimal clustering)",
-           ifelse(icc_rich < 0.15, " (modest clustering)", " (substantial clustering)")), "\n\n")
+rich_anova <- tryCatch(
+  anova(glmm_richness_reduced, test = "Chisq"),
+  error = function(e) NULL
+)
+if (!is.null(rich_anova) && "site" %in% rownames(rich_anova)) {
+  site_dev_rich <- rich_anova["site", "Deviance"]
+  site_p_rich <- rich_anova["site", "Pr(>Chi)"]
+  cat("    Site deviance:", round(abs(site_dev_rich), 2), "\n")
+  cat("    Site p-value:", format.pval(site_p_rich, 3), "\n")
+} else {
+  cat("    Site effect: included as fixed covariate\n")
+}
+site_coefs_rich <- coef(glmm_richness_reduced)[grep("^site", names(coef(glmm_richness_reduced)))]
+icc_rich <- ifelse(length(site_coefs_rich) > 0,
+                   var(c(0, site_coefs_rich)) / (var(c(0, site_coefs_rich)) + pi^2/3),
+                   0)
+cat("    Approximate ICC:", round(icc_rich, 3), "\n\n")
 
 # ---- 9C.3 Overdispersion Check ----
 cat("9C.3 Overdispersion Diagnostics:\n\n")
@@ -1010,15 +1020,15 @@ cat("9C.3 Overdispersion Diagnostics:\n\n")
 # For Poisson model (richness) - check overdispersion ratio
 resid_rich <- residuals(glmm_richness_reduced, type = "pearson")
 overdispersion_rich <- sum(resid_rich^2) / df.residual(glmm_richness_reduced)
-cat("  RICHNESS MODEL (Poisson GLMM):\n")
+cat("  RICHNESS MODEL (Poisson GLM):\n")
 cat("    Pearson χ²/df:", round(overdispersion_rich, 2), "\n")
 cat("    Interpretation:", ifelse(overdispersion_rich < 1.5, "No overdispersion - Poisson appropriate",
                                    ifelse(overdispersion_rich < 2, "Mild overdispersion - acceptable",
                                           "Overdispersion - consider negative binomial")), "\n\n")
 
 # For NB model (abundance) - theta parameter
-theta_abund <- getME(glmm_abundance_reduced, "glmer.nb.theta")
-cat("  ABUNDANCE MODEL (Negative Binomial GLMM):\n")
+theta_abund <- glmm_abundance_reduced$theta
+cat("  ABUNDANCE MODEL (Negative Binomial GLM):\n")
 cat("    Theta (dispersion):", round(theta_abund, 2), "\n")
 cat("    Interpretation:", ifelse(theta_abund > 10, "Low overdispersion (nearly Poisson)",
                                    ifelse(theta_abund > 2, "Moderate overdispersion",
@@ -1034,7 +1044,7 @@ n_sim <- 250
 
 # Abundance model residual simulation
 fitted_abund <- fitted(glmm_abundance_reduced)
-theta_val <- getME(glmm_abundance_reduced, "glmer.nb.theta")
+theta_val <- glmm_abundance_reduced$theta
 
 sim_abund <- matrix(rnbinom(n_sim * length(fitted_abund),
                             size = theta_val, mu = fitted_abund),
@@ -1076,7 +1086,7 @@ cat("    Interpretation:", ifelse(ks_test_rich$p.value > 0.05,
 # ---- 9C.5 Influential Observations ----
 cat("9C.5 Influential Observations (Cook's Distance analogue):\n\n")
 
-# For GLMM, use influence.ME if available, otherwise use approximate leverage
+# Calculate approximate Cook's D using leverage and Pearson residuals
 # Calculate hat values approximation from fixed effects
 X_abund <- model.matrix(glmm_abundance_reduced)
 hat_abund <- diag(X_abund %*% solve(t(X_abund) %*% X_abund) %*% t(X_abund))
@@ -1158,7 +1168,7 @@ p_qq_rich <- ggplot(data.frame(quantile_resid = quantile_resid_rich),
 # Combine diagnostic plots
 p_diagnostics <- (p_resid_abund | p_qq_abund) / (p_resid_rich | p_qq_rich) +
   plot_annotation(
-    title = "GLMM Residual Diagnostics",
+    title = "GLM Residual Diagnostics",
     subtitle = "Reduced models after AIC-based backward elimination"
   )
 
@@ -1170,7 +1180,7 @@ cat("  Saved: glmm_diagnostics.png\n\n")
 cat("9C.7 Diagnostic Summary:\n\n")
 
 diagnostics_summary <- tibble(
-  Model = c("Abundance (NB GLMM)", "Richness (Poisson GLMM)"),
+  Model = c("Abundance (NB GLM)", "Richness (Poisson GLM)"),
   `Max VIF` = rep(round(max(vif_values), 2), 2),
   `VIF Status` = rep(ifelse(max(vif_values) < 5, "OK", "High"), 2),
   ICC = c(round(icc_abund, 3), round(icc_rich, 3)),
@@ -1270,20 +1280,15 @@ cat("----------------------------------------\n")
 # Fit intermediate models for complete comparison
 cat("\nFitting intermediate models for AIC table...\n")
 
-# Abundance models
-m_abund_null <- glmer.nb(total_cafi ~ 1 + (1|site), data = landscape_data_scaled,
-                         control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-m_abund_vol <- glmer.nb(total_cafi ~ log_vol_scaled + (1|site), data = landscape_data_scaled,
-                        control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+# Abundance models (fixed-effect site)
+m_abund_null <- MASS::glm.nb(total_cafi ~ 1 + site, data = landscape_data_scaled)
+m_abund_vol <- MASS::glm.nb(total_cafi ~ log_vol_scaled + site, data = landscape_data_scaled)
 
-# Richness models
-m_rich_null <- glmer(otu_richness ~ 1 + (1|site), family = poisson, data = landscape_data_scaled,
-                     control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-m_rich_vol <- glmer(otu_richness ~ log_vol_scaled + (1|site), family = poisson, data = landscape_data_scaled,
-                    control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-m_rich_vol_dist <- glmer(otu_richness ~ log_vol_scaled + dist_scaled + (1|site), family = poisson,
-                         data = landscape_data_scaled,
-                         control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+# Richness models (fixed-effect site)
+m_rich_null <- glm(otu_richness ~ 1 + site, family = poisson, data = landscape_data_scaled)
+m_rich_vol <- glm(otu_richness ~ log_vol_scaled + site, family = poisson, data = landscape_data_scaled)
+m_rich_vol_dist <- glm(otu_richness ~ log_vol_scaled + dist_scaled + site,
+                       family = poisson, data = landscape_data_scaled)
 
 # Create AIC comparison dataframe
 aic_comparison <- tibble(
@@ -1337,7 +1342,7 @@ aic_gt_table <- aic_comparison %>%
   gt(groupname_col = "Response") %>%
   tab_header(
     title = md("**Table 2. AIC Model Comparison: Landscape Predictors of CAFI Communities**"),
-    subtitle = md("*Backward elimination via AIC from full GLMM with site as random effect*")
+    subtitle = md("*Backward elimination via AIC from full GLM with site as fixed effect*")
   ) %>%
   cols_label(
     Model = "Model",
@@ -1357,7 +1362,7 @@ aic_gt_table <- aic_comparison %>%
     locations = cells_body(rows = ΔAIC == "0.0")
   ) %>%
   tab_footnote(
-    footnote = "Abundance: Negative binomial GLMM; Richness: Poisson GLMM. All models include site as random intercept.",
+    footnote = "Abundance: Negative binomial GLM; Richness: Poisson GLM. All models include site as fixed effect.",
     locations = cells_column_labels(columns = AIC)
   ) %>%
   tab_footnote(
@@ -1584,7 +1589,7 @@ fig_multipanel <- (p_A | p_B | p_C | p_D) /
                   (p_E | p_F | p_G | p_H) +
   plot_annotation(
     title = "Landscape Predictors of CAFI Abundance and Richness",
-    subtitle = paste0("GLMM with site as random effect | N = ", nrow(landscape_data),
+    subtitle = paste0("GLM with site as fixed effect | N = ", nrow(landscape_data),
                       " corals with neighborhood surveys across 3 sites"),
     caption = "* indicates p < 0.05",
     theme = theme(
@@ -1633,8 +1638,8 @@ glmm_table <- glmm_results %>%
 gt_table <- glmm_table %>%
   gt(groupname_col = "Response") %>%
   tab_header(
-    title = md("**Table 1. GLMM: Landscape Effects on CAFI Communities (AIC-reduced)**"),
-    subtitle = md("*Backward elimination via AIC; site as random effect*")
+    title = md("**Table 1. GLM: Landscape Effects on CAFI Communities (AIC-reduced)**"),
+    subtitle = md("*Backward elimination via AIC; site as fixed effect*")
   ) %>%
   fmt_number(
     columns = c(`β`, SE, `z`),
@@ -1662,7 +1667,7 @@ gt_table <- glmm_table %>%
     )
   ) %>%
   tab_footnote(
-    footnote = "Abundance models: Negative binomial GLMM; Richness models: Poisson GLMM",
+    footnote = "Abundance models: Negative binomial GLM; Richness models: Poisson GLM. Site as fixed effect.",
     locations = cells_column_labels(columns = `β`)
   ) %>%
   tab_footnote(
@@ -1704,7 +1709,7 @@ save_table(glmm_results %>%
 cat("  Saved: glmm_landscape_results.csv\n\n")
 
 # Print summary
-cat("\nGLMM Summary:\n")
+cat("\nGLM Summary:\n")
 cat("  Significant predictors of Abundance:\n")
 sig_abund <- glmm_results %>% filter(Response == "Abundance", Significant)
 if (nrow(sig_abund) > 0) {

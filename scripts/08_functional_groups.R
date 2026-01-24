@@ -589,11 +589,11 @@ if (nrow(resident_fish) > 0) {
 # ############################################################################
 
 cat("============================================================\n")
-cat("PART C: GASTROPOD PATTERNS\n")
+cat("PART C: GASTROPOD PATTERNS (dominated by Galeropsis monodonta)\n")
 cat("============================================================\n\n")
 
-cat("Analyzing gastropods (all snails associated with coral colonies)...\n")
-cat("These consume coral tissue and may negatively affect coral health\n\n")
+cat("Analyzing gastropods associated with coral colonies...\n")
+cat("Dominated by Galeropsis monodonta (Coralliophilinae) — a coral tissue feeder\n\n")
 
 # Identify gastropods
 coral_eating_snails <- cafi_clean %>%
@@ -958,36 +958,15 @@ cat("============================================================\n")
 cat("PART E: SCALING PATTERNS BY TAXONOMIC GROUP\n")
 cat("============================================================\n\n")
 
-cat("Fitting power-law models for all taxonomic groups...\n\n")
+cat("Loading scaling results from script 05 (authoritative source)...\n\n")
 
-# Prepare scaling data for all taxonomic groups
-scaling_data <- coral_master %>%
-  filter(!is.na(volume), volume > 0) %>%
-  dplyr::select(coral_id, site, volume, n_trapezia, n_resident_fish, n_corallivore,
-         n_other_crab, n_shrimp, n_other)
+# Load pre-computed scaling results from 05_species_scaling_analysis.R
+scaling_results_obj <- load_object("scaling_analysis_results")
+taxonomic_scaling_results <- scaling_results_obj$models$functional_groups
 
-# Taxonomic group mappings
-taxonomic_groups <- list(
-  "Trapezia crabs" = "n_trapezia",
-  "Fish" = "n_resident_fish",
-  "Gastropods" = "n_corallivore",
-  "Other crabs" = "n_other_crab",
-  "Shrimps" = "n_shrimp",
-  "Other invertebrates" = "n_other"
-)
-
-# Fit models for each group
-taxonomic_scaling_results <- list()
-
-for (group_name in names(taxonomic_groups)) {
-  col_name <- taxonomic_groups[[group_name]]
-
-  group_data <- scaling_data %>%
-    dplyr::select(coral_id, site, volume, abundance = all_of(col_name))
-
-  result <- fit_functional_scaling(group_data, group_name)
-  taxonomic_scaling_results[[group_name]] <- result
-
+# Print summary
+for (group_name in names(taxonomic_scaling_results)) {
+  result <- taxonomic_scaling_results[[group_name]]
   if (result$converged && !is.na(result$beta)) {
     cat(sprintf("  %-25s beta = %6.3f [%5.2f, %5.2f], p vs 1: %s\n",
                 group_name, result$beta, result$ci_lower, result$ci_upper,
@@ -1028,9 +1007,9 @@ cat("Creating forest plot of taxonomic group scaling exponents...\n")
 
 # Interpretation colors (colorblind-safe)
 interp_colors <- c(
-  "Redistribution (beta < 1)" = "#D55E00",
-  "Field of Dreams (beta ~ 1)" = "#009E73",
-  "Super-linear (beta > 1)" = "#0072B2",
+  "Redistribution (\u03b2 < 1)" = "#D55E00",
+  "Field of Dreams (\u03b2 \u2248 1)" = "#009E73",
+  "Super-linear (\u03b2 > 1)" = "#0072B2",
   "Insufficient data" = "#999999"
 )
 

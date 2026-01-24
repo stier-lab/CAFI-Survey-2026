@@ -32,6 +32,7 @@ library(janitor)     # Data cleaning helpers
 library(MASS)        # Negative binomial GLM (glm.nb)
 library(vegan)       # Community ecology (diversity, NMDS, PERMANOVA)
 library(lme4)        # Mixed effects models (optional)
+library(MuMIn)       # R² for mixed models (r.squaredGLMM)
 library(broom)       # Tidy model outputs
 library(car)         # VIF and other diagnostics
 library(moments)     # Skewness, kurtosis
@@ -128,11 +129,12 @@ SITE_COLORS <- c(
   "MRB" = "#009E73"   # Green - Moorea Barrier Reef
 )
 
-# Functional group colors (matches functional_group column in data)
+# Taxonomic group colors
 FUNC_COLORS <- c(
   "Trapezia" = "#D55E00",        # Red-orange (mutualist crabs)
   "Resident Fish" = "#0072B2",   # Blue
-  "Gastropod" = "#CC79A7",  # Pink
+  "Gastropod" = "#CC79A7",       # Pink (all snails)
+  "Galeropsis" = "#CC79A7",      # Pink (dominant coral-feeding snail)
   "Other Crab" = "#009E73",      # Teal
   "Shrimp" = "#E69F00",          # Orange
   "Other" = "#999999"            # Gray

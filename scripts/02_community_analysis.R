@@ -490,6 +490,35 @@ cat("    Site effect: R² = ", round(perm_df["site", "R2"], 3),
     ", F = ", round(perm_df["site", "F"], 2),
     ", p = ", format.pval(perm_df["site", "Pr(>F)"], 3), "\n\n", sep = "")
 
+# Marginal PERMANOVA (Type III - order-independent, more robust)
+permanova_margin <- adonis2(comm_hell_aligned ~ log10(volume) + site,
+                            data = coral_for_perm,
+                            permutations = 999,
+                            method = "bray",
+                            by = "margin")
+perm_margin_df <- as.data.frame(permanova_margin)
+cat("    Marginal (Type III) PERMANOVA:\n")
+cat("    Volume: R² = ", round(perm_margin_df["log10(volume)", "R2"], 3),
+    ", F = ", round(perm_margin_df["log10(volume)", "F"], 2),
+    ", p = ", format.pval(perm_margin_df["log10(volume)", "Pr(>F)"], 3), "\n", sep = "")
+cat("    Site: R² = ", round(perm_margin_df["site", "R2"], 3),
+    ", F = ", round(perm_margin_df["site", "F"], 2),
+    ", p = ", format.pval(perm_margin_df["site", "Pr(>F)"], 3), "\n\n", sep = "")
+
+# Interaction PERMANOVA (volume × site)
+permanova_interaction <- adonis2(comm_hell_aligned ~ log10(volume) * site,
+                                 data = coral_for_perm,
+                                 permutations = 999,
+                                 method = "bray",
+                                 by = "terms")
+perm_int_df <- as.data.frame(permanova_interaction)
+cat("    Interaction test (Volume × Site):\n")
+if ("log10(volume):site" %in% rownames(perm_int_df)) {
+  cat("    R² = ", round(perm_int_df["log10(volume):site", "R2"], 3),
+      ", F = ", round(perm_int_df["log10(volume):site", "F"], 2),
+      ", p = ", format.pval(perm_int_df["log10(volume):site", "Pr(>F)"], 3), "\n\n", sep = "")
+}
+
 # 4.3 PERMDISP (test for homogeneity of dispersions)
 cat("4.3 PERMDISP (homogeneity of dispersions by site):\n")
 
@@ -648,13 +677,30 @@ cat("    Corals with ≥", MIN_RAREFACTION_DEPTH, "individuals:", sum(sufficient
     "/", length(sufficient_idx), "\n")
 cat("    Rarefaction depth:", min_depth, "individuals\n")
 
-# Rarefy to minimum depth (removes abundance confound)
-set.seed(42)  # Reproducibility
+# Iterated rarefaction (100 draws, average Bray-Curtis distances)
+# A single rarefaction draw introduces stochastic noise; averaging across
+# multiple draws provides a more robust estimate of abundance-controlled distances
+N_RAREFACTION_ITER <- 100
+cat("    Iterating rarefaction:", N_RAREFACTION_ITER, "draws at depth", min_depth, "\n")
+
+set.seed(42)
+dist_accumulator <- matrix(0, nrow = nrow(comm_for_rarefaction),
+                           ncol = nrow(comm_for_rarefaction))
+
+for (iter in 1:N_RAREFACTION_ITER) {
+  comm_rare_i <- vegan::rrarefy(comm_for_rarefaction, sample = min_depth)
+  comm_rare_hell_i <- decostand(comm_rare_i, method = "hellinger")
+  dist_accumulator <- dist_accumulator + as.matrix(vegdist(comm_rare_hell_i, method = "bray"))
+}
+
+# Average distance matrix across iterations
+dist_avg <- dist_accumulator / N_RAREFACTION_ITER
+bray_dist_rarefied <- as.dist(dist_avg)
+
+# Also keep a single rarefied matrix for downstream display
+set.seed(42)
 comm_rarefied <- vegan::rrarefy(comm_for_rarefaction, sample = min_depth)
 
-# Calculate Bray-Curtis on rarefied data (Hellinger transform first)
-comm_rarefied_hell <- decostand(comm_rarefied, method = "hellinger")
-bray_dist_rarefied <- vegdist(comm_rarefied_hell, method = "bray")
 cat("    Rarefied community matrix:", nrow(comm_rarefied), "corals x",
     ncol(comm_rarefied), "species\n\n")
 
@@ -704,9 +750,11 @@ cat("    F = ", round(disp_size_test$statistic, 2),
     ", df = ", paste(disp_size_test$df, collapse = ", "),
     ", p = ", format.pval(disp_size_test$pval, 3), "\n", sep = "")
 
-# Linear trend test: does distance increase with size class?
-distances_df$size_numeric <- as.numeric(distances_df$size_class)
-trend_model <- lm(distance_to_centroid ~ size_numeric, data = distances_df)
+# Linear trend test: does distance change with coral volume?
+# Use continuous log(volume) rather than ordinal size class to avoid
+# assuming equal spacing between tertile boundaries
+distances_df$size_numeric <- as.numeric(distances_df$size_class)  # kept for rarefied comparison
+trend_model <- lm(distance_to_centroid ~ log10(volume), data = distances_df)
 trend_summary <- summary(trend_model)
 
 cat("\n    Linear trend test (Small -> Medium -> Large):\n")
@@ -742,15 +790,16 @@ cat("    PERMDISP (rarefied): F = ", round(disp_size_rarefied_test$statistic, 2)
     ", df = ", paste(disp_size_rarefied_test$df, collapse = ", "),
     ", p = ", format.pval(disp_size_rarefied_test$pval, 3), "\n", sep = "")
 
-# Rarefied trend test
+# Rarefied trend test (iterated average distances)
 distances_rarefied_df <- data.frame(
   coral_id = names(disp_size_rarefied$distances),
   distance_to_centroid_rarefied = disp_size_rarefied$distances,
   size_class = coral_for_rarefaction$size_class,
   size_numeric = as.numeric(coral_for_rarefaction$size_class)
-)
+) %>%
+  left_join(coral_for_rarefaction %>% dplyr::select(coral_id, volume), by = "coral_id")
 
-trend_model_rarefied <- lm(distance_to_centroid_rarefied ~ size_numeric, data = distances_rarefied_df)
+trend_model_rarefied <- lm(distance_to_centroid_rarefied ~ log10(volume), data = distances_rarefied_df)
 trend_summary_rarefied <- summary(trend_model_rarefied)
 
 cat("    Trend (rarefied): β = ", round(coef(trend_model_rarefied)[2], 3),
@@ -1226,6 +1275,8 @@ results_list <- list(
     nmds_stress = nmds$stress,
     nmds_scores = nmds_scores,
     permanova = permanova,
+    permanova_margin = permanova_margin,
+    permanova_interaction = permanova_interaction,
     permdisp = disp_test
   ),
   # NEW: Composition divergence by size (parallels Stier et al. Fig 3B)

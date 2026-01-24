@@ -42,7 +42,7 @@
 #     08_functional_groups.R        - Functional group analysis (if exists)
 #     09_cafi_condition_feedbacks.R - CAFI-condition feedbacks (if exists)
 #
-#   Machine Learning (if exists):
+#   Machine Learning (exploratory, not in default pipeline):
 #     10_feature_engineering.R
 #     11_machine_learning.R
 #     12_model_evaluation.R
@@ -84,7 +84,7 @@ PIPELINE_SCRIPTS <- list(
     list(name = "09_cafi_condition_feedbacks.R", desc = "CAFI-condition feedbacks", required = FALSE)
   ),
 
-  # Machine Learning
+  # Machine Learning (exploratory - not in default pipeline)
   ml = list(
     list(name = "10_feature_engineering.R", desc = "Feature engineering", required = FALSE),
     list(name = "11_machine_learning.R", desc = "Machine learning models", required = FALSE),
@@ -305,11 +305,13 @@ format_time <- function(seconds) {
 #' @param verbose Print detailed progress (default TRUE)
 #' @param stop_on_error Stop on first error (default FALSE)
 #' @param sections Which sections to run: "all", "core", "extended", "ml", "publication"
+#'   Default runs core + extended + publication (excludes ML exploration).
+#'   Use sections = "all" to include ML scripts.
 #' @return List with timing and status for each script
 run_pipeline <- function(skip_completed = FALSE,
                          verbose = TRUE,
                          stop_on_error = FALSE,
-                         sections = "all") {
+                         sections = c("core", "extended", "publication")) {
 
   # Set working directory to project root
   if (requireNamespace("here", quietly = TRUE)) {
@@ -507,6 +509,16 @@ run_core_pipeline <- function(...) {
 #' Run extended analyses only (assumes core is complete)
 run_extended_analyses <- function(...) {
   run_pipeline(sections = "extended", ...)
+}
+
+#' Run ML exploration scripts only (not part of core hypothesis testing)
+run_ml_exploration <- function(...) {
+  run_pipeline(sections = "ml", ...)
+}
+
+#' Run everything including ML exploration
+run_full_pipeline <- function(...) {
+  run_pipeline(sections = "all", ...)
 }
 
 #' Check pipeline status without running

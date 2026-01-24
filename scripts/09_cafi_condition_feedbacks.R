@@ -15,8 +15,8 @@
 #     (predator defense, cleaning behavior, waste nutrient cycling)
 #   - Resident Fish (nutrient providers): Expect POSITIVE effect
 #     (ammonium excretion enhances zooxanthellae)
-#   - Gastropods (harmful): Expect NEGATIVE effect
-#     (tissue consumption reduces condition)
+#   - Galeropsis (tissue consumer): Expect NEGATIVE effect
+#     (Coralliophilinae — feeds on coral tissue and biofilm)
 #
 # DATA:
 #   - n=84 corals have position-corrected condition scores (PC1 of physiology)
@@ -152,6 +152,7 @@ functional_predictors <- cafi_clean %>%
     n_trapezia = sum(functional_group == "Trapezia", na.rm = TRUE),
     n_resident_fish = sum(functional_group == "Resident Fish", na.rm = TRUE),
     n_corallivore = sum(functional_group == "Gastropod", na.rm = TRUE),
+    n_galeropsis = sum(str_detect(tolower(otu), "galeropsis"), na.rm = TRUE),
     n_other_crab = sum(functional_group == "Other Crab", na.rm = TRUE),
     n_shrimp = sum(functional_group == "Shrimp", na.rm = TRUE),
 
@@ -201,8 +202,8 @@ cat("   Trapezia:", sum(analysis_data$n_trapezia),
     "(range:", min(analysis_data$n_trapezia), "-", max(analysis_data$n_trapezia), ")\n")
 cat("   Resident Fish:", sum(analysis_data$n_resident_fish),
     "(range:", min(analysis_data$n_resident_fish), "-", max(analysis_data$n_resident_fish), ")\n")
-cat("   Gastropods:", sum(analysis_data$n_corallivore),
-    "(range:", min(analysis_data$n_corallivore), "-", max(analysis_data$n_corallivore), ")\n\n")
+cat("   Galeropsis:", sum(analysis_data$n_galeropsis),
+    "(range:", min(analysis_data$n_galeropsis), "-", max(analysis_data$n_galeropsis), ")\n\n")
 
 # ============================================================================
 # 2. INITIALIZE RESULTS TRACKING
@@ -218,14 +219,15 @@ cat("============================================================\n")
 cat("PART A: CAFI -> CORAL CONDITION EFFECTS\n")
 cat("============================================================\n\n")
 
-# Function to run and summarize mixed model
+# Function to run and summarize linear model with fixed-effect site
+# Note: 3 sites is insufficient for random intercepts (Bolker et al. 2009 recommends >=5-6)
 run_condition_model <- function(data, predictor_name, predictor_col) {
-  # Build formula
-  formula_str <- paste("condition_score ~", predictor_col, "+ log_volume + (1|site)")
+  # Build formula with fixed-effect site (3 levels insufficient for RE)
+  formula_str <- paste("condition_score ~", predictor_col, "+ log_volume + site")
 
   tryCatch({
-    # Fit mixed model
-    model <- lmer(as.formula(formula_str), data = data, REML = FALSE)
+    # Fit linear model with site as fixed effect
+    model <- lm(as.formula(formula_str), data = data)
 
     # Extract coefficient info
     model_summary <- summary(model)
@@ -240,44 +242,34 @@ run_condition_model <- function(data, predictor_name, predictor_col) {
     estimate <- coef_table[pred_row, "Estimate"]
     se <- coef_table[pred_row, "Std. Error"]
     t_val <- coef_table[pred_row, "t value"]
-
-    # Calculate p-value using Satterthwaite approximation (from lmerTest)
-    # or approximate using large-sample z-distribution if lmerTest not available
-    if ("df" %in% colnames(coef_table) && !is.na(coef_table[pred_row, "df"])) {
-      df_val <- coef_table[pred_row, "df"]
-      p_val <- 2 * pt(-abs(t_val), df = df_val)
-    } else {
-      # Fall back to normal approximation (conservative for small samples)
-      df_val <- nrow(data) - length(coef(model)$site) - 3  # Approximate df
-      p_val <- 2 * pnorm(-abs(t_val))  # z-test approximation
-    }
+    df_val <- model$df.residual
+    p_val <- coef_table[pred_row, "Pr(>|t|)"]
 
     # 95% CI
-    ci_lower <- estimate - 1.96 * se
-    ci_upper <- estimate + 1.96 * se
+    ci_lower <- estimate - qt(0.975, df_val) * se
+    ci_upper <- estimate + qt(0.975, df_val) * se
 
-    # R-squared (marginal and conditional)
-    # Using MuMIn or manual calculation
-    r2_marg <- NA
-    r2_cond <- NA
-    if (requireNamespace("MuMIn", quietly = TRUE)) {
-      r2 <- MuMIn::r.squaredGLMM(model)
-      r2_marg <- r2[1]
-      r2_cond <- r2[2]
-    }
+    # Standardized β (effect in SD units)
+    sd_predictor <- sd(data[[predictor_col]], na.rm = TRUE)
+    sd_response <- sd(data$condition_score, na.rm = TRUE)
+    beta_std <- ifelse(sd_predictor > 0 & sd_response > 0,
+                       estimate * sd_predictor / sd_response, NA)
+
+    # R-squared (adjusted)
+    r2_adj <- model_summary$adj.r.squared
 
     result <- data.frame(
       direction = "CAFI -> Condition",
       predictor = predictor_name,
       estimate = estimate,
+      beta_std = beta_std,
       se = se,
       t_value = t_val,
       df = df_val,
       p_value = p_val,
       ci_lower = ci_lower,
       ci_upper = ci_upper,
-      r2_marginal = r2_marg,
-      r2_conditional = r2_cond,
+      r2_adj = r2_adj,
       n = nrow(data),
       significant = p_val < 0.05
     )
@@ -297,7 +289,7 @@ cafi_predictors <- list(
   c("Total CAFI", "total_cafi"),
   c("Trapezia abundance", "n_trapezia"),
   c("Resident Fish abundance", "n_resident_fish"),
-  c("Gastropod abundance", "n_corallivore"),
+  c("Galeropsis abundance", "n_galeropsis"),
   c("Species richness", "otu_richness"),
   c("Shannon diversity", "shannon")
 )
@@ -306,7 +298,7 @@ cafi_to_condition_results <- list()
 cafi_to_condition_models <- list()
 
 cat("Testing CAFI predictors of coral condition...\n")
-cat("Model: Condition ~ CAFI_metric + log(Volume) + (1|Site)\n\n")
+cat("Model: Condition ~ CAFI_metric + log(Volume) + Site (fixed effect)\n\n")
 
 for (pred in cafi_predictors) {
   cat("   Testing:", pred[1], "...\n")
@@ -346,6 +338,40 @@ for (i in 1:nrow(cafi_to_condition_df)) {
   fdr_star <- ifelse(row$significant_fdr, " *FDR-SIG*", "")
   cat(sprintf("   %-30s p = %.4f, p_FDR = %.4f%s\n",
               row$predictor, row$p_value, row$p_fdr, fdr_star))
+}
+cat("\n")
+
+# --- Model diagnostics for CAFI -> Condition models ---
+cat("Model Diagnostics (CAFI -> Condition):\n")
+cat("--------------------------------------\n")
+
+# VIF for the richness model (strongest signal)
+if ("Species richness" %in% names(cafi_to_condition_models)) {
+  richness_model <- cafi_to_condition_models[["Species richness"]]
+  if (requireNamespace("car", quietly = TRUE)) {
+    vif_vals <- car::vif(richness_model)
+    cat("   VIF (richness model):\n")
+    for (v in seq_along(vif_vals)) {
+      cat(sprintf("     %-20s VIF = %.2f %s\n",
+                  names(vif_vals)[v], vif_vals[v],
+                  ifelse(vif_vals[v] > 5, "WARNING: HIGH", "")))
+    }
+  }
+
+  # Residual normality (Shapiro-Wilk)
+  resids <- residuals(richness_model)
+  sw_test <- shapiro.test(resids)
+  cat(sprintf("   Shapiro-Wilk residual normality: W = %.4f, p = %.4f %s\n",
+              sw_test$statistic, sw_test$p.value,
+              ifelse(sw_test$p.value < 0.05, "(non-normal)", "(OK)")))
+
+  # Save diagnostic plot
+  png(file.path(fig_dir, "diagnostics_richness_model.png"),
+      width = 10, height = 8, units = "in", res = 200, bg = "white")
+  par(mfrow = c(2, 2))
+  plot(richness_model)
+  dev.off()
+  cat("   Saved: diagnostics_richness_model.png\n")
 }
 cat("\n")
 
@@ -424,7 +450,7 @@ cafi_responses <- list(
   c("Total CAFI", "total_cafi"),
   c("Trapezia abundance", "n_trapezia"),
   c("Resident Fish abundance", "n_resident_fish"),
-  c("Gastropod abundance", "n_corallivore"),
+  c("Galeropsis abundance", "n_galeropsis"),
   c("Species richness", "otu_richness"),
   c("Shannon diversity", "shannon")
 )
@@ -485,17 +511,17 @@ cat("============================================================\n\n")
 # Extract functional group effects for comparison
 functional_effects <- cafi_to_condition_df %>%
   filter(predictor %in% c("Trapezia abundance", "Resident Fish abundance",
-                          "Gastropod abundance")) %>%
+                          "Galeropsis abundance")) %>%
   mutate(
     functional_group = case_when(
       predictor == "Trapezia abundance" ~ "Trapezia\n(Crabs)",
       predictor == "Resident Fish abundance" ~ "Fish",
-      predictor == "Gastropod abundance" ~ "Gastropods"
+      predictor == "Galeropsis abundance" ~ "Galeropsis"
     ),
     expected_sign = case_when(
       predictor == "Trapezia abundance" ~ "positive",
       predictor == "Resident Fish abundance" ~ "positive",
-      predictor == "Gastropod abundance" ~ "negative"
+      predictor == "Galeropsis abundance" ~ "negative"
     ),
     observed_sign = ifelse(estimate > 0, "positive", "negative"),
     matches_hypothesis = expected_sign == observed_sign
@@ -761,7 +787,7 @@ cat("      Combined xanthids:", sum(analysis_data$n_xanthid_harmful > 0), "coral
 
 # F.2 Run models for each key species
 cat("F.2 Testing Key Species Effects on Coral Condition...\n")
-cat("    Model: Condition ~ Key_Species + log(Volume) + (1|Site)\n\n")
+cat("    Model: Condition ~ Key_Species + log(Volume) + Site (fixed effect)\n\n")
 
 # Define key species with expected directions from experimental paper
 key_species_predictors <- list(
@@ -822,6 +848,25 @@ for (sp in key_species_predictors) {
 # Combine key species results
 key_species_df <- bind_rows(key_species_results)
 
+# Apply FDR correction across key species tests (6 tests)
+if (nrow(key_species_df) > 0) {
+  key_species_df <- key_species_df %>%
+    mutate(
+      p_fdr = p.adjust(p_value, method = "BH"),
+      significant_fdr = p_fdr < 0.05,
+      significant = p_value < 0.05  # Keep unadjusted for reference
+    )
+
+  cat("\nFDR-corrected key species p-values (Benjamini-Hochberg):\n")
+  for (i in 1:nrow(key_species_df)) {
+    row <- key_species_df[i, ]
+    fdr_star <- ifelse(row$significant_fdr, " *FDR-SIG*", "")
+    cat(sprintf("   %-28s p = %.4f, p_FDR = %.4f%s\n",
+                row$predictor, row$p_value, row$p_fdr, fdr_star))
+  }
+  cat("\n")
+}
+
 # F.3 Summary comparison
 cat("F.3 Key Species Effects Summary:\n")
 cat("    =========================================================================\n")
@@ -846,7 +891,7 @@ for (i in 1:nrow(key_species_df)) {
     create_result_row(
       hypothesis = "H-key-species",
       question = paste("Does", row$predictor, "predict coral condition as in experiment?"),
-      test_name = "Linear mixed model (lmer)",
+      test_name = "Linear model (fixed-effect site)",
       test_statistic = row$t_value,
       df = as.character(round(row$df, 1)),
       p_value = row$p_value,
@@ -926,7 +971,7 @@ if (nrow(key_species_df) > 0) {
       predictor_clean = case_when(
         predictor == "Trapezia abundance" ~ "Trapezia (defenders)",
         predictor == "Resident Fish abundance" ~ "Resident Fish",
-        predictor == "Gastropod abundance" ~ "Gastropods (harmful)",
+        predictor == "Galeropsis abundance" ~ "Galeropsis (tissue consumer)",
         TRUE ~ predictor
       ),
       hypothesis_match = matches_hypothesis
@@ -977,7 +1022,7 @@ if (nrow(key_species_df) > 0) {
       subtitle = "Comparing a priori hypotheses from functional ecology and experimental paper",
       x = "",
       y = "Effect size (regression coefficient)",
-      caption = "Models: Condition ~ Predictor + log(Volume) + (1|Site)"
+      caption = "Models: Condition ~ Predictor + log(Volume) + Site"
     ) +
     theme_publication() +
     theme(legend.position = "right",
@@ -1111,8 +1156,9 @@ neighborhood_condition <- neighborhood_data %>%
   filter(!is.na(condition_score))
 
 if (nrow(neighborhood_condition) >= 20) {
-  m_condition_neighborhood <- lmer(
-    condition_score ~ log_volume_scaled * n_neighbors_scaled + (1|site),
+  # Fixed-effect site (3 levels insufficient for random intercepts)
+  m_condition_neighborhood <- lm(
+    condition_score ~ log_volume_scaled * n_neighbors_scaled + site,
     data = neighborhood_condition
   )
 
@@ -1120,20 +1166,15 @@ if (nrow(neighborhood_condition) >= 20) {
   coef_m2 <- as.data.frame(summary_m2$coefficients)
 
   cat("    log_volume (scaled):         β =", round(coef_m2["log_volume_scaled", "Estimate"], 3),
-      ", t =", round(coef_m2["log_volume_scaled", "t value"], 2), "\n")
+      ", t =", round(coef_m2["log_volume_scaled", "t value"], 2),
+      ", p =", round(coef_m2["log_volume_scaled", "Pr(>|t|)"], 4), "\n")
   cat("    n_neighbors (scaled):        β =", round(coef_m2["n_neighbors_scaled", "Estimate"], 3),
-      ", t =", round(coef_m2["n_neighbors_scaled", "t value"], 2), "\n")
+      ", t =", round(coef_m2["n_neighbors_scaled", "t value"], 2),
+      ", p =", round(coef_m2["n_neighbors_scaled", "Pr(>|t|)"], 4), "\n")
   cat("    Volume × Neighborhood:       β =", round(coef_m2["log_volume_scaled:n_neighbors_scaled", "Estimate"], 3),
-      ", t =", round(coef_m2["log_volume_scaled:n_neighbors_scaled", "t value"], 2), "\n\n")
+      ", t =", round(coef_m2["log_volume_scaled:n_neighbors_scaled", "t value"], 2),
+      ", p =", round(coef_m2["log_volume_scaled:n_neighbors_scaled", "Pr(>|t|)"], 4), "\n\n")
 
-  # Get p-values using lmerTest
-  pvals_m2 <- coef(summary(m_condition_neighborhood))
-  if ("Pr(>|t|)" %in% colnames(pvals_m2)) {
-    cat("    P-values (Satterthwaite):\n")
-    cat("      Volume: p =", round(pvals_m2["log_volume_scaled", "Pr(>|t|)"], 4), "\n")
-    cat("      Neighborhood: p =", round(pvals_m2["n_neighbors_scaled", "Pr(>|t|)"], 4), "\n")
-    cat("      Interaction: p =", round(pvals_m2["log_volume_scaled:n_neighbors_scaled", "Pr(>|t|)"], 4), "\n\n")
-  }
 } else {
   m_condition_neighborhood <- NULL
   cat("    Insufficient sample size for condition ~ neighborhood model\n\n")
@@ -1147,8 +1188,9 @@ neighborhood_full <- neighborhood_data %>%
   filter(!is.na(condition_score), !is.na(pc1_cafi))
 
 if (nrow(neighborhood_full) >= 20) {
-  m_full <- lmer(
-    condition_score ~ log_volume_scaled + n_neighbors_scaled + pc1_cafi_scaled + (1|site),
+  # Fixed-effect site (3 levels insufficient for random intercepts)
+  m_full <- lm(
+    condition_score ~ log_volume_scaled + n_neighbors_scaled + pc1_cafi_scaled + site,
     data = neighborhood_full %>%
       mutate(pc1_cafi_scaled = scale(pc1_cafi)[,1])
   )
@@ -1156,18 +1198,13 @@ if (nrow(neighborhood_full) >= 20) {
   summary_m3 <- summary(m_full)
   coef_m3 <- as.data.frame(summary_m3$coefficients)
 
-  cat("    log_volume (scaled):    β =", round(coef_m3["log_volume_scaled", "Estimate"], 3), "\n")
-  cat("    n_neighbors (scaled):   β =", round(coef_m3["n_neighbors_scaled", "Estimate"], 3), "\n")
-  cat("    PC1_CAFI (scaled):      β =", round(coef_m3["pc1_cafi_scaled", "Estimate"], 3), "\n")
-
-  # Get p-values
-  pvals_m3 <- coef(summary(m_full))
-  if ("Pr(>|t|)" %in% colnames(pvals_m3)) {
-    cat("\n    P-values:\n")
-    cat("      Volume: p =", round(pvals_m3["log_volume_scaled", "Pr(>|t|)"], 4), "\n")
-    cat("      Neighborhood: p =", round(pvals_m3["n_neighbors_scaled", "Pr(>|t|)"], 4), "\n")
-    cat("      PC1_CAFI: p =", round(pvals_m3["pc1_cafi_scaled", "Pr(>|t|)"], 4), "\n")
-  }
+  cat("    log_volume (scaled):    β =", round(coef_m3["log_volume_scaled", "Estimate"], 3),
+      ", p =", round(coef_m3["log_volume_scaled", "Pr(>|t|)"], 4), "\n")
+  cat("    n_neighbors (scaled):   β =", round(coef_m3["n_neighbors_scaled", "Estimate"], 3),
+      ", p =", round(coef_m3["n_neighbors_scaled", "Pr(>|t|)"], 4), "\n")
+  cat("    PC1_CAFI (scaled):      β =", round(coef_m3["pc1_cafi_scaled", "Estimate"], 3),
+      ", p =", round(coef_m3["pc1_cafi_scaled", "Pr(>|t|)"], 4), "\n")
+  cat("    Adjusted R²:", round(summary_m3$adj.r.squared, 4), "\n")
 } else {
   m_full <- NULL
   cat("    Insufficient sample size for full decomposition model\n")
@@ -1437,16 +1474,16 @@ p_trapezia <- ggplot(analysis_data, aes(x = n_trapezia, y = condition_score)) +
   theme_publication() +
   theme(legend.position = "none")
 
-# --- Panel C: Gastropods vs Condition ---
-p_corallivore <- ggplot(analysis_data, aes(x = n_corallivore, y = condition_score)) +
+# --- Panel C: Galeropsis vs Condition ---
+p_galeropsis <- ggplot(analysis_data, aes(x = n_galeropsis, y = condition_score)) +
   geom_jitter(aes(color = site), alpha = 0.6, width = 0.15, size = 2.5) +
   geom_smooth(method = "lm", color = "black", se = TRUE, linewidth = 1) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", alpha = 0.5) +
   scale_color_manual(values = SITE_COLORS, name = "Site") +
   labs(
-    title = "C. Gastropods (Harmful)",
-    subtitle = "Expected: negative (tissue consumption)",
-    x = "Gastropod abundance",
+    title = "C. Galeropsis (Tissue Consumer)",
+    subtitle = "Expected: negative (Coralliophilinae)",
+    x = "Galeropsis abundance",
     y = "Coral condition score"
   ) +
   theme_publication() +
@@ -1456,9 +1493,9 @@ p_corallivore <- ggplot(analysis_data, aes(x = n_corallivore, y = condition_scor
 forest_data <- functional_effects %>%
   mutate(
     functional_group = factor(functional_group,
-                               levels = c("Trapezia\n(Defenders)",
-                                          "Resident Fish\n(Nutrient Providers)",
-                                          "Gastropods"))
+                               levels = c("Trapezia\n(Crabs)",
+                                          "Fish",
+                                          "Galeropsis"))
   )
 
 # Add expected direction indicator
@@ -1519,7 +1556,7 @@ p_bidirectional <- ggplot(bidirectional_data,
 
 # --- Combine into manuscript figure ---
 # Following Stier et al. (2024) layout with PC1_CAFI as primary metric
-fig5_feedbacks <- (p_pc1_cafi | p_trapezia | p_corallivore) /
+fig5_feedbacks <- (p_pc1_cafi | p_trapezia | p_galeropsis) /
                    (p_forest | p_bidirectional) +
   plot_layout(heights = c(1, 1)) +
   plot_annotation(
@@ -1647,7 +1684,7 @@ for (i in 1:nrow(cafi_to_condition_df)) {
     create_result_row(
       hypothesis = "H-CAFI-condition",
       question = paste("Does", row$predictor, "predict coral condition?"),
-      test_name = "Linear mixed model (lmer)",
+      test_name = "Linear model (fixed-effect site)",
       test_statistic = row$t_value,
       df = as.character(round(row$df, 1)),
       p_value = row$p_value,

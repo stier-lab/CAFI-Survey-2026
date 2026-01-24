@@ -149,6 +149,7 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 20
       p_value = NA_real_,
       z_vs_1 = NA_real_,
       p_vs_1 = NA_real_,
+      pseudo_r2 = NA_real_,
       interpretation = "Insufficient data",
       model = NULL,
       converged = FALSE
@@ -194,6 +195,9 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 20
     z_vs_1 <- (beta - 1) / se
     p_vs_1 <- 2 * pnorm(-abs(z_vs_1))
 
+    # Pseudo-R² (McFadden's)
+    pseudo_r2 <- calc_pseudo_r2(model)
+
     # Interpret based on CI (whether 95% CI includes 1)
     # Following Stier et al. (2024) approach
     if (test_ci_upper < 1) {
@@ -220,6 +224,7 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 20
       p_value = p_val,
       z_vs_1 = z_vs_1,
       p_vs_1 = p_vs_1,
+      pseudo_r2 = pseudo_r2,
       interpretation = interpretation,
       model = model,
       converged = TRUE
@@ -466,7 +471,7 @@ cat("Testing scaling for functional groups...\n\n")
 functional_groups <- list(
   "Trapezia crabs" = "n_trapezia",
   "Fish" = "n_resident_fish",
-  "Gastropods" = "n_corallivore",
+  "Gastropods" = "n_corallivore",  # 73% Galeropsis monodonta (Coralliophilinae)
   "Other crabs" = "n_other_crab",
   "Shrimps" = "n_shrimp",
   "Other invertebrates" = "n_other"
