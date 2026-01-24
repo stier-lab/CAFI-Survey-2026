@@ -182,7 +182,7 @@ coral_clean <- coral_raw %>%
 
     # Volume
     volume     = coalesce(volume_lab, volume_field, length_lab * width_lab * height_lab),
-    log_volume = log10(volume + 1),
+    log_volume = log10(volume),  # volume > 0 guaranteed by filter
 
     # Dimensions
     height = coalesce(height_lab, height_field),
@@ -342,6 +342,15 @@ community_matrix <- cafi_clean %>%
   ) %>%
   column_to_rownames("coral_id") %>%
   as.matrix()
+
+# Add zero-CAFI corals (present in coral_master but absent from cafi_clean)
+missing_corals <- setdiff(coral_master$coral_id, rownames(community_matrix))
+if (length(missing_corals) > 0) {
+  zero_rows <- matrix(0, nrow = length(missing_corals), ncol = ncol(community_matrix),
+                      dimnames = list(missing_corals, colnames(community_matrix)))
+  community_matrix <- rbind(community_matrix, zero_rows)
+  cat("   Added", length(missing_corals), "zero-CAFI corals to community matrix\n")
+}
 
 cat("   Matrix:", nrow(community_matrix), "corals x", ncol(community_matrix), "OTUs\n\n")
 

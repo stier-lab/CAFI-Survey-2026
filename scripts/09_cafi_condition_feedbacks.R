@@ -245,15 +245,38 @@ run_condition_model <- function(data, predictor_name, predictor_col) {
     df_val <- model$df.residual
     p_val <- coef_table[pred_row, "Pr(>|t|)"]
 
-    # 95% CI
-    ci_lower <- estimate - qt(0.975, df_val) * se
-    ci_upper <- estimate + qt(0.975, df_val) * se
+    # Heteroscedasticity-robust SE (HC3 sandwich estimator)
+    se_robust <- se  # default
+    p_val_robust <- p_val
+    if (requireNamespace("sandwich", quietly = TRUE) &&
+        requireNamespace("lmtest", quietly = TRUE)) {
+      vcov_hc3 <- sandwich::vcovHC(model, type = "HC3")
+      robust_coefs <- lmtest::coeftest(model, vcov. = vcov_hc3)
+      se_robust <- robust_coefs[pred_row, "Std. Error"]
+      p_val_robust <- robust_coefs[pred_row, "Pr(>|t|)"]
+    }
 
-    # Standardized β (effect in SD units)
-    sd_predictor <- sd(data[[predictor_col]], na.rm = TRUE)
-    sd_response <- sd(data$condition_score, na.rm = TRUE)
-    beta_std <- ifelse(sd_predictor > 0 & sd_response > 0,
-                       estimate * sd_predictor / sd_response, NA)
+    # 95% CI (using robust SE)
+    ci_lower <- estimate - qt(0.975, df_val) * se_robust
+    ci_upper <- estimate + qt(0.975, df_val) * se_robust
+
+    # Partial standardized β: fit model on z-scored data
+    data_std <- data
+    data_std[[predictor_col]] <- scale(data_std[[predictor_col]])
+    data_std$condition_score <- scale(data_std$condition_score)
+    data_std$log_volume <- scale(data_std$log_volume)
+    model_std <- tryCatch(
+      lm(as.formula(formula_str), data = data_std),
+      error = function(e) NULL
+    )
+    beta_std <- if (!is.null(model_std)) {
+      coef(model_std)[pred_row]
+    } else {
+      # Fallback: semi-standardized
+      sd_predictor <- sd(data[[predictor_col]], na.rm = TRUE)
+      sd_response <- sd(data$condition_score, na.rm = TRUE)
+      ifelse(sd_predictor > 0 & sd_response > 0, estimate * sd_predictor / sd_response, NA)
+    }
 
     # R-squared (adjusted)
     r2_adj <- model_summary$adj.r.squared
@@ -264,14 +287,16 @@ run_condition_model <- function(data, predictor_name, predictor_col) {
       estimate = estimate,
       beta_std = beta_std,
       se = se,
+      se_robust = se_robust,
       t_value = t_val,
       df = df_val,
       p_value = p_val,
+      p_value_robust = p_val_robust,
       ci_lower = ci_lower,
       ci_upper = ci_upper,
       r2_adj = r2_adj,
       n = nrow(data),
-      significant = p_val < 0.05
+      significant = p_val_robust < 0.05  # Use robust p-value
     )
 
     return(list(model = model, result = result))
@@ -677,10 +702,20 @@ if (LAVAAN_AVAILABLE && n_complete >= 50) {
     }
 
     # Model fit
+    # NOTE: This path model is just-identified (saturated, df=0) with 3 observed variables
+    # and all possible paths. Fit indices are trivially perfect and uninformative.
+    model_df <- fitMeasures(path_fit, "df")
     fit_measures <- fitMeasures(path_fit, c("cfi", "rmsea", "srmr"))
-    cat("\n   Model Fit: CFI =", round(fit_measures["cfi"], 3),
-        ", RMSEA =", round(fit_measures["rmsea"], 3),
-        ", SRMR =", round(fit_measures["srmr"], 3), "\n\n")
+    cat("\n   Model df =", model_df,
+        ifelse(model_df == 0, " [SATURATED - fit indices uninformative]", ""), "\n")
+    if (model_df > 0) {
+      cat("   Model Fit: CFI =", round(fit_measures["cfi"], 3),
+          ", RMSEA =", round(fit_measures["rmsea"], 3),
+          ", SRMR =", round(fit_measures["srmr"], 3), "\n\n")
+    } else {
+      cat("   (CFI=1, RMSEA=0, SRMR=0 by definition for saturated model)\n")
+      cat("   Path coefficients and bootstrap CIs remain valid.\n\n")
+    }
 
     # Save path analysis results
     path_results_clean <- path_results %>%

@@ -176,7 +176,9 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 20
 
     if (requireNamespace("boot", quietly = TRUE) && n_nonzero >= 20) {
       suppressWarnings({
-        boot_result <- boot::boot(data, boot_scaling, R = n_boot)
+        # Stratify by site to maintain site proportions in each bootstrap replicate
+        boot_result <- boot::boot(data, boot_scaling, R = n_boot,
+                                  strata = factor(data$site))
         valid_betas <- boot_result$t[!is.na(boot_result$t)]
 
         if (length(valid_betas) >= n_boot * 0.8) {  # Require 80% successful fits
@@ -350,6 +352,43 @@ cat("  Test vs β = 1: z =", round(richness_result$z_vs_1, 2), ", p =", format.p
 cat("  Interpretation:", richness_result$interpretation, "\n\n")
 
 all_results$species_richness <- richness_result
+
+# ---- Model Diagnostics (DHARMa simulated residuals) ----
+cat("--- Model Diagnostics ---\n")
+if (requireNamespace("DHARMa", quietly = TRUE) && !is.null(total_result$model)) {
+  # Total abundance (NB GLM)
+  dharma_total <- DHARMa::simulateResiduals(total_result$model, n = 1000, plot = FALSE)
+  dharma_tests <- DHARMa::testResiduals(dharma_total, plot = FALSE)
+  cat("  TOTAL ABUNDANCE (NB GLM):\n")
+  cat("    Uniformity (KS): p =", format.pval(dharma_tests$uniformity$p.value, 3), "\n")
+  cat("    Dispersion: p =", format.pval(dharma_tests$dispersion$p.value, 3), "\n")
+  cat("    Zero-inflation: p =", format.pval(
+    DHARMa::testZeroInflation(dharma_total, plot = FALSE)$p.value, 3), "\n")
+
+  # Species richness (NB GLM)
+  if (!is.null(richness_result$model)) {
+    dharma_rich <- DHARMa::simulateResiduals(richness_result$model, n = 1000, plot = FALSE)
+    dharma_tests_rich <- DHARMa::testResiduals(dharma_rich, plot = FALSE)
+    cat("  SPECIES RICHNESS (NB GLM):\n")
+    cat("    Uniformity (KS): p =", format.pval(dharma_tests_rich$uniformity$p.value, 3), "\n")
+    cat("    Dispersion: p =", format.pval(dharma_tests_rich$dispersion$p.value, 3), "\n")
+    cat("    Zero-inflation: p =", format.pval(
+      DHARMa::testZeroInflation(dharma_rich, plot = FALSE)$p.value, 3), "\n")
+  }
+
+  # Save diagnostic plots
+  fig_dir <- file.path(PATHS$figures, "05_scaling")
+  dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+  png(file.path(fig_dir, "dharma_diagnostics.png"), width = 10, height = 5, units = "in", res = 200)
+  par(mfrow = c(1, 2))
+  plot(dharma_total, main = "Total CAFI (NB)")
+  if (!is.null(richness_result$model)) plot(dharma_rich, main = "Richness (NB)")
+  dev.off()
+  cat("  Saved: dharma_diagnostics.png\n")
+} else {
+  cat("  DHARMa not available or model not retained - skipping\n")
+}
+cat("\n")
 
 # ############################################################################
 #                    PART 3: SHANNON DIVERSITY SCALING
@@ -844,6 +883,28 @@ compile_results <- function(results_list) {
 }
 
 all_results_df <- compile_results(all_results)
+
+# Apply FDR correction within species-level tests (multiple testing)
+all_results_df <- all_results_df %>%
+  group_by(category) %>%
+  mutate(
+    p_vs_1_fdr = p.adjust(p_vs_1, method = "BH"),
+    significant_fdr = !is.na(p_vs_1_fdr) & p_vs_1_fdr < 0.05
+  ) %>%
+  ungroup()
+
+cat("FDR CORRECTION (Benjamini-Hochberg within category):\n")
+fdr_summary <- all_results_df %>%
+  filter(!is.na(p_vs_1)) %>%
+  group_by(category) %>%
+  summarise(
+    n_tests = n(),
+    n_sig_raw = sum(p_vs_1 < 0.05, na.rm = TRUE),
+    n_sig_fdr = sum(p_vs_1_fdr < 0.05, na.rm = TRUE),
+    .groups = "drop"
+  )
+print(fdr_summary)
+cat("\n")
 
 # Summary statistics
 valid_results <- all_results_df %>% filter(!is.na(beta))

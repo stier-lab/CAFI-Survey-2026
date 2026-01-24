@@ -209,15 +209,23 @@ The following quality measures are implemented:
 |-------|-----|--------|
 | Multiple testing (feedbacks) | FDR correction (Benjamini-Hochberg) | `09_cafi_condition_feedbacks.R` |
 | Multiple testing (key species) | FDR correction across 6 species tests | `09_cafi_condition_feedbacks.R` |
+| Multiple testing (scaling) | FDR correction within category (species/group) | `05_species_scaling_analysis.R` |
+| Multiple testing (network edges) | Pairwise cor.test p-values + FDR correction | `06_network_analysis.R` |
 | Abundance confound (composition) | Iterated rarefaction (100 draws, averaged) | `02_community_analysis.R` |
 | Volume confound (co-occurrence) | Residualized presence on log(volume) | `06_network_analysis.R` |
 | Random effects (k=3 sites) | Fixed-effect site throughout | `04`, `09` |
-| Bootstrap ignoring site | Site-stratified bootstrap | `05_species_scaling_analysis.R` |
+| Bootstrap ignoring site | Site-stratified bootstrap (`strata` argument) | `05_species_scaling_analysis.R` |
 | Log-log intercept bias | Mean of log-differences | `04_landscape_effects.R` |
-| Null model (network) | Configuration model (degree-preserving) | `06_network_analysis.R` |
+| Null model (network) | Configuration model (degree-preserving), unweighted for comparison | `06_network_analysis.R` |
 | NB convergence failure | Poisson fallback with logging | `04_landscape_effects.R` |
-| Effect size ambiguity | Adjusted R², standardized β, VIF | `04`, `05`, `09` |
-| Model diagnostics | VIF, Shapiro-Wilk, Cook's D | `09`, `04` |
+| Effect size ambiguity | Adjusted R², partial standardized β (z-scored), VIF | `04`, `05`, `09` |
+| Model diagnostics (GLM) | DHARMa simulated residuals, proper Cook's D, VIF | `04`, `05` |
+| Model diagnostics (LM) | Shapiro-Wilk, Breusch-Pagan via HC3 robust SEs | `09` |
+| Poisson overdispersion | Pearson X²/df check; auto-switch to quasipoisson | `02`, `04` |
+| Heteroscedasticity (count predictors) | HC3 sandwich robust standard errors | `09_cafi_condition_feedbacks.R` |
+| SEM saturation | Explicit df=0 check; fit indices suppressed when uninformative | `09_cafi_condition_feedbacks.R` |
+| Community matrix (zero-CAFI corals) | Added zero-abundance rows for all corals | `01_load_data.R` |
+| Log volume bias | Removed +1 offset (volume > 0 guaranteed) | `01_load_data.R` |
 | PERMANOVA Type I confound | Marginal (Type III) PERMANOVA | `02_community_analysis.R` |
 | Colorblind inaccessibility | Okabe-Ito palette | All figure scripts |
 
@@ -255,7 +263,7 @@ output/
 - **Site codes**: HAU (Hauru), MAT (Maatea), MRB (Barrier Reef)
 - **Volume**: Use `volume_field` (field estimate)
 - **Key columns**: `n_galeropsis` (Galeropsis count per coral), `n_corallivore` (all gastropods)
-- **Packages**: Use `dplyr::select()` explicitly (MASS conflict); car::vif() for diagnostics
+- **Packages**: Use `dplyr::select()` explicitly (MASS conflict); car::vif(), DHARMa, sandwich/lmtest for diagnostics
 - **Colors**: Colorblind-safe palette (Okabe-Ito derivatives): `#0072B2` (blue), `#D55E00` (vermillion), `#009E73` (teal), `#E69F00` (orange), `#56B4E9` (sky blue)
 
 ## Load Pre-computed Objects

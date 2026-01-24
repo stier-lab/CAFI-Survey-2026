@@ -161,7 +161,20 @@ m_rich_summary <- summary(m_rich_vol)
 
 cat("    β =", round(coef(m_rich_vol)["log10(volume)"], 3),
     ", z =", round(m_rich_summary$coefficients["log10(volume)", "z value"], 2),
-    ", p =", format.pval(m_rich_summary$coefficients["log10(volume)", "Pr(>|z|)"], 3), "\n\n")
+    ", p =", format.pval(m_rich_summary$coefficients["log10(volume)", "Pr(>|z|)"], 3), "\n")
+
+# Overdispersion check
+dispersion_ratio_rich <- sum(residuals(m_rich_vol, type = "pearson")^2) / m_rich_vol$df.residual
+cat("    Overdispersion (Pearson X²/df):", round(dispersion_ratio_rich, 2),
+    ifelse(dispersion_ratio_rich > 1.5, " [OVERDISPERSED]", " [OK]"), "\n")
+if (dispersion_ratio_rich > 1.5) {
+  m_rich_vol <- glm(otu_richness ~ log10(volume) + site, family = quasipoisson, data = landscape_data)
+  m_rich_summary <- summary(m_rich_vol)
+  cat("    Switched to quasi-Poisson: β =", round(coef(m_rich_vol)["log10(volume)"], 3),
+      ", t =", round(m_rich_summary$coefficients["log10(volume)", "t value"], 2),
+      ", p =", format.pval(m_rich_summary$coefficients["log10(volume)", "Pr(>|t|)"], 3), "\n")
+}
+cat("\n")
 
 # 1.3 Shannon Diversity vs Volume
 cat("1.3 Shannon Diversity ~ Coral Volume:\n")
@@ -1083,24 +1096,19 @@ cat("    Interpretation:", ifelse(ks_test_rich$p.value > 0.05,
                                    "Residuals uniform - model fit OK",
                                    "Residuals deviate from uniform - check model"), "\n\n")
 
-# ---- 9C.5 Influential Observations ----
-cat("9C.5 Influential Observations (Cook's Distance analogue):\n\n")
+# ---- 9C.5 Influential Observations (Cook's Distance) ----
+cat("9C.5 Influential Observations (Cook's Distance):\n\n")
 
-# Calculate approximate Cook's D using leverage and Pearson residuals
-# Calculate hat values approximation from fixed effects
-X_abund <- model.matrix(glmm_abundance_reduced)
-hat_abund <- diag(X_abund %*% solve(t(X_abund) %*% X_abund) %*% t(X_abund))
+# Use proper cooks.distance() for GLM objects
+cooks_abund <- cooks.distance(glmm_abundance_reduced)
 
-# Approximate Cook's D using Pearson residuals and leverage
-resid_abund <- residuals(glmm_abundance_reduced, type = "pearson")
-cooks_approx_abund <- (resid_abund^2 * hat_abund) / (ncol(X_abund) * (1 - hat_abund)^2)
-
-# Threshold: 4/n
+# Threshold: 4/n (standard cutoff)
 threshold <- 4 / nrow(landscape_data_scaled)
-influential_abund <- which(cooks_approx_abund > threshold)
+influential_abund <- which(cooks_abund > threshold)
 
-cat("  ABUNDANCE MODEL:\n")
+cat("  ABUNDANCE MODEL (NB GLM):\n")
 cat("    Threshold (4/n):", round(threshold, 4), "\n")
+cat("    Max Cook's D:", round(max(cooks_abund, na.rm = TRUE), 4), "\n")
 cat("    Influential points:", length(influential_abund), "of", nrow(landscape_data_scaled), "\n")
 if (length(influential_abund) > 0 && length(influential_abund) <= 5) {
   cat("    Coral IDs:", paste(landscape_data_scaled$coral_id[influential_abund], collapse = ", "), "\n")
@@ -1109,14 +1117,12 @@ cat("    Interpretation:", ifelse(length(influential_abund) / nrow(landscape_dat
                                    "Few influential points - results robust",
                                    "Consider sensitivity analysis"), "\n\n")
 
-# Same for richness
-X_rich <- model.matrix(glmm_richness_reduced)
-hat_rich <- diag(X_rich %*% solve(t(X_rich) %*% X_rich) %*% t(X_rich))
-resid_rich_pearson <- residuals(glmm_richness_reduced, type = "pearson")
-cooks_approx_rich <- (resid_rich_pearson^2 * hat_rich) / (ncol(X_rich) * (1 - hat_rich)^2)
-influential_rich <- which(cooks_approx_rich > threshold)
+# Richness model
+cooks_rich <- cooks.distance(glmm_richness_reduced)
+influential_rich <- which(cooks_rich > threshold)
 
-cat("  RICHNESS MODEL:\n")
+cat("  RICHNESS MODEL (Poisson GLM):\n")
+cat("    Max Cook's D:", round(max(cooks_rich, na.rm = TRUE), 4), "\n")
 cat("    Influential points:", length(influential_rich), "of", nrow(landscape_data_scaled), "\n")
 cat("    Interpretation:", ifelse(length(influential_rich) / nrow(landscape_data_scaled) < 0.05,
                                    "Few influential points - results robust",
@@ -1196,6 +1202,46 @@ print(diagnostics_summary)
 
 save_table(diagnostics_summary, "glmm_diagnostics_summary")
 cat("\n  Saved: glmm_diagnostics_summary.csv\n\n")
+
+# ---- 9C.8 DHARMa Simulated Residual Diagnostics ----
+cat("9C.8 DHARMa simulated residual diagnostics:\n")
+if (requireNamespace("DHARMa", quietly = TRUE)) {
+  # Abundance model (NB GLM)
+  dharma_abund <- DHARMa::simulateResiduals(glmm_abundance_reduced, n = 1000, plot = FALSE)
+  dharma_test_abund <- DHARMa::testResiduals(dharma_abund, plot = FALSE)
+
+  cat("  ABUNDANCE MODEL (NB GLM):\n")
+  cat("    KS test (uniformity): p =", format.pval(dharma_test_abund$uniformity$p.value, 3), "\n")
+  cat("    Dispersion test: p =", format.pval(dharma_test_abund$dispersion$p.value, 3), "\n")
+  cat("    Outlier test: p =", format.pval(dharma_test_abund$outliers$p.value, 3), "\n")
+
+  # Zero-inflation test
+  zi_test_abund <- DHARMa::testZeroInflation(dharma_abund, plot = FALSE)
+  cat("    Zero-inflation test: p =", format.pval(zi_test_abund$p.value, 3),
+      ifelse(zi_test_abund$p.value < 0.05, " [CONSIDER ZINB]", " [OK]"), "\n\n")
+
+  # Richness model (Poisson GLM)
+  dharma_rich <- DHARMa::simulateResiduals(glmm_richness_reduced, n = 1000, plot = FALSE)
+  dharma_test_rich <- DHARMa::testResiduals(dharma_rich, plot = FALSE)
+
+  cat("  RICHNESS MODEL (Poisson GLM):\n")
+  cat("    KS test (uniformity): p =", format.pval(dharma_test_rich$uniformity$p.value, 3), "\n")
+  cat("    Dispersion test: p =", format.pval(dharma_test_rich$dispersion$p.value, 3),
+      ifelse(dharma_test_rich$dispersion$p.value < 0.05, " [OVERDISPERSED]", " [OK]"), "\n")
+  cat("    Outlier test: p =", format.pval(dharma_test_rich$outliers$p.value, 3), "\n\n")
+
+  # Save DHARMa diagnostic plots
+  png(file.path(FIG_DIR, "dharma_diagnostics.png"), width = 10, height = 8, units = "in", res = 200)
+  par(mfrow = c(2, 2))
+  plot(dharma_abund, main = "Abundance (NB) - QQ")
+  DHARMa::plotResiduals(dharma_abund, main = "Abundance - Residuals vs Predicted")
+  plot(dharma_rich, main = "Richness (Poisson) - QQ")
+  DHARMa::plotResiduals(dharma_rich, main = "Richness - Residuals vs Predicted")
+  dev.off()
+  cat("  Saved: dharma_diagnostics.png\n\n")
+} else {
+  cat("  DHARMa package not available - install with install.packages('DHARMa')\n\n")
+}
 
 # ---- Extract Results from REDUCED Models ----
 cat("\n----------------------------------------\n")

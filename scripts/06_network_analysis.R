@@ -150,12 +150,48 @@ cor_matrix <- cor(residual_matrix, method = "spearman", use = "pairwise.complete
 # Handle NAs in correlation matrix
 cor_matrix[is.na(cor_matrix)] <- 0
 
-# 1.5 Extract significant positive associations (r > 0.3)
-# Using r = 0.3 threshold for moderate-to-strong positive associations
+# 1.5 Extract significant positive associations with FDR correction
+# Threshold: r > 0.3 AND FDR-corrected p < 0.05
 threshold <- 0.3
 
-# Get upper triangle indices for positive correlations above threshold
-edge_indices <- which(upper.tri(cor_matrix) & cor_matrix > threshold, arr.ind = TRUE)
+cat("     Computing pairwise p-values for FDR correction...\n")
+
+# Compute p-values for all pairs above threshold
+n_sp <- ncol(residual_matrix)
+p_matrix <- matrix(1, nrow = n_sp, ncol = n_sp)
+for (i in 1:(n_sp - 1)) {
+  for (j in (i + 1):n_sp) {
+    if (cor_matrix[i, j] > threshold) {
+      ct <- tryCatch(
+        cor.test(residual_matrix[, i], residual_matrix[, j], method = "spearman"),
+        error = function(e) list(p.value = 1)
+      )
+      p_matrix[i, j] <- ct$p.value
+      p_matrix[j, i] <- ct$p.value
+    }
+  }
+}
+
+# Extract pairs above threshold
+edge_indices_raw <- which(upper.tri(cor_matrix) & cor_matrix > threshold, arr.ind = TRUE)
+
+if (nrow(edge_indices_raw) > 0) {
+  # Get raw p-values for candidate edges
+  raw_pvals <- sapply(1:nrow(edge_indices_raw), function(k)
+    p_matrix[edge_indices_raw[k, 1], edge_indices_raw[k, 2]])
+
+  # Apply FDR correction (Benjamini-Hochberg)
+  fdr_pvals <- p.adjust(raw_pvals, method = "BH")
+
+  # Filter: retain only FDR-significant edges
+  sig_mask <- fdr_pvals < 0.05
+  edge_indices <- edge_indices_raw[sig_mask, , drop = FALSE]
+  n_dropped <- sum(!sig_mask)
+
+  cat("     Candidate edges (r > ", threshold, "):", nrow(edge_indices_raw), "\n")
+  cat("     Retained after FDR correction:", sum(sig_mask), "\n")
+  cat("     Dropped by FDR:", n_dropped, "\n")
+}
 
 if (nrow(edge_indices) > 0) {
 
@@ -170,7 +206,7 @@ if (nrow(edge_indices) > 0) {
       association = "positive"
     )
 
-  cat("     Significant positive associations:", nrow(edge_list), "\n")
+  cat("     FDR-significant positive associations:", nrow(edge_list), "\n")
   cat("     Mean correlation strength:", round(mean(edge_list$correlation), 3), "\n")
   cat("     Range:", round(min(edge_list$correlation), 3), "-",
       round(max(edge_list$correlation), 3), "\n\n")
@@ -268,11 +304,15 @@ transitivity_obs <- transitivity(g, type = "global")
 diameter_obs <- diameter(g)
 mean_distance_obs <- mean_distance(g)
 
-# Modularity via Louvain algorithm
+# Modularity via Louvain algorithm (weighted for community assignments)
 set.seed(42)  # For reproducibility
 communities_louvain <- cluster_louvain(g, weights = E(g)$weight)
 modularity_obs <- modularity(communities_louvain)
 n_modules <- length(unique(membership(communities_louvain)))
+
+# Unweighted modularity for null model comparison (null graphs are unweighted)
+communities_unweighted <- cluster_louvain(g)  # no weights
+modularity_obs_unweighted <- modularity(communities_unweighted)
 
 # Add module membership to nodes
 V(g)$module <- membership(communities_louvain)
@@ -289,7 +329,8 @@ cat("     Density:", round(density, 4), "\n")
 cat("     Transitivity (clustering):", round(transitivity_obs, 3), "\n")
 cat("     Diameter:", diameter_obs, "\n")
 cat("     Mean path length:", round(mean_distance_obs, 2), "\n")
-cat("     Modularity Q:", round(modularity_obs, 3), "\n")
+cat("     Modularity Q (weighted):", round(modularity_obs, 3), "\n")
+cat("     Modularity Q (unweighted, for null comparison):", round(modularity_obs_unweighted, 3), "\n")
 cat("     Number of modules:", n_modules, "\n")
 cat("     Mean degree:", round(mean_degree, 2), "\n")
 cat("     Median degree:", median_degree, "\n")
@@ -347,9 +388,10 @@ for (i in 1:n_permutations) {
 cat("\n4.2 Computing z-scores and p-values...\n\n")
 
 # Calculate statistics for null model comparison
+# Use unweighted observed modularity for fair comparison with unweighted null graphs
 null_comparison <- data.frame(
   metric = c("Modularity", "Transitivity", "Mean Path Length", "Diameter"),
-  observed = c(modularity_obs, transitivity_obs, mean_distance_obs, diameter_obs),
+  observed = c(modularity_obs_unweighted, transitivity_obs, mean_distance_obs, diameter_obs),
   null_mean = c(
     mean(null_metrics[, "modularity"], na.rm = TRUE),
     mean(null_metrics[, "transitivity"], na.rm = TRUE),
@@ -700,8 +742,9 @@ null_mod_df <- data.frame(
 
 p_modularity <- ggplot(null_mod_df, aes(x = modularity)) +
   geom_histogram(bins = 30, fill = "gray70", color = "white", alpha = 0.8) +
-  geom_vline(xintercept = modularity_obs, color = "#D55E00", linewidth = 1.2) +
-  annotate("text", x = modularity_obs, y = Inf, label = sprintf("Observed\nQ = %.2f", modularity_obs),
+  geom_vline(xintercept = modularity_obs_unweighted, color = "#D55E00", linewidth = 1.2) +
+  annotate("text", x = modularity_obs_unweighted, y = Inf,
+           label = sprintf("Observed\nQ = %.2f", modularity_obs_unweighted),
            vjust = 1.5, hjust = -0.1, color = "#D55E00", fontface = "bold") +
   labs(
     x = "Modularity (Q)",
@@ -765,11 +808,11 @@ cat("------------------------------------------------------------\n\n")
 # 8.1 Network metrics table
 network_metrics_df <- data.frame(
   metric = c("n_species", "n_edges", "density", "transitivity", "diameter",
-             "mean_path_length", "modularity", "n_modules", "mean_degree",
-             "median_degree", "max_degree"),
+             "mean_path_length", "modularity", "modularity_unweighted",
+             "n_modules", "mean_degree", "median_degree", "max_degree"),
   value = c(n_nodes, n_edges, density, transitivity_obs, diameter_obs,
-            mean_distance_obs, modularity_obs, n_modules, mean_degree,
-            median_degree, max_degree)
+            mean_distance_obs, modularity_obs, modularity_obs_unweighted,
+            n_modules, mean_degree, median_degree, max_degree)
 )
 
 # Add null model comparison
@@ -833,9 +876,10 @@ cat("  - Positive associations:", n_edges, "\n")
 cat("  - Network density:", round(density, 4), "\n")
 cat("  - Mean degree:", round(mean_degree, 2), "\n\n")
 
-cat("Non-random Structure (vs Erdos-Renyi null):\n")
-cat(sprintf("  - Modularity Q = %.2f (%.1fx null, z = %.1f, p < 0.001)\n",
-            modularity_obs,
+cat("Non-random Structure (vs configuration model null):\n")
+cat(sprintf("  - Modularity Q = %.2f (weighted), %.2f (unweighted)\n",
+            modularity_obs, modularity_obs_unweighted))
+cat(sprintf("  - Unweighted Q vs null: %.1fx null, z = %.1f, p < 0.001\n",
             null_comparison$ratio_to_null[null_comparison$metric == "Modularity"],
             null_comparison$z_score[null_comparison$metric == "Modularity"]))
 cat(sprintf("  - Transitivity = %.2f (%.1fx null, z = %.1f, p < 0.001)\n",

@@ -353,10 +353,24 @@ cat("3.3 Diversity vs Coral Size:\n")
 m_rich_vol <- glm(otu_richness ~ log10(volume), family = poisson, data = coral_master)
 m_rich_summary <- summary(m_rich_vol)
 
-cat("    Richness ~ log(Volume):\n")
+cat("    Richness ~ log(Volume) [Poisson GLM]:\n")
 cat("    β = ", round(coef(m_rich_vol)[2], 3),
     ", z = ", round(m_rich_summary$coefficients[2, "z value"], 2),
     ", p = ", format.pval(m_rich_summary$coefficients[2, "Pr(>|z|)"], 3), "\n", sep = "")
+
+# Overdispersion check: Pearson chi-squared / residual df
+dispersion_ratio <- sum(residuals(m_rich_vol, type = "pearson")^2) / m_rich_vol$df.residual
+cat("    Overdispersion ratio (Pearson X²/df):", round(dispersion_ratio, 2),
+    ifelse(dispersion_ratio > 1.5, " [OVERDISPERSED - use quasipoisson]", " [OK]"), "\n")
+if (dispersion_ratio > 1.5) {
+  # Refit with quasipoisson for corrected SEs
+  m_rich_vol_qp <- glm(otu_richness ~ log10(volume), family = quasipoisson, data = coral_master)
+  m_rich_qp_summary <- summary(m_rich_vol_qp)
+  cat("    Quasi-Poisson corrected: β = ", round(coef(m_rich_vol_qp)[2], 3),
+      ", t = ", round(m_rich_qp_summary$coefficients[2, "t value"], 2),
+      ", p = ", format.pval(m_rich_qp_summary$coefficients[2, "Pr(>|t|)"], 3), "\n", sep = "")
+}
+cat("\n")
 
 # Shannon vs volume
 m_shan_vol <- lm(shannon ~ log10(volume), data = coral_master)
