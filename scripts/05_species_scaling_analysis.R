@@ -415,15 +415,18 @@ if (nrow(shannon_data) >= 15) {
   shannon_t <- shannon_summary$coefficients["log10(volume)", "t value"]
   shannon_p <- shannon_summary$coefficients["log10(volume)", "Pr(>|t|)"]
 
-  # Test vs β = 1
-  shannon_t_vs_1 <- (shannon_beta - 1) / shannon_se
-  shannon_p_vs_1 <- 2 * pt(-abs(shannon_t_vs_1), df = shannon_summary$df[2])
+  # Test vs β = 0 (does Shannon diversity scale with volume at all?)
+  # Note: Testing vs β=1 is meaningless for Shannon H' because it is already
+
+  # log-transformed (H' = -Σ pi*ln(pi)). The relevant null is β=0 (no scaling).
+  shannon_t_vs_0 <- shannon_t  # standard t-test from lm() is already vs 0
+  shannon_p_vs_0 <- shannon_p
 
   cat("Results:\n")
   cat("  Scaling exponent β =", round(shannon_beta, 3), "\n")
   cat("  95% CI: [", round(shannon_ci[1], 3), ",", round(shannon_ci[2], 3), "]\n")
   cat("  R² =", round(shannon_summary$r.squared, 3), "\n")
-  cat("  Test vs β = 1: t =", round(shannon_t_vs_1, 2), ", p =", format.pval(shannon_p_vs_1, 3), "\n\n")
+  cat("  Test vs β = 0: t =", round(shannon_t_vs_0, 2), ", p =", format.pval(shannon_p_vs_0, 3), "\n\n")
 
   shannon_result <- list(
     response = "Shannon Diversity",
@@ -437,11 +440,12 @@ if (nrow(shannon_data) >= 15) {
     ci_upper = shannon_ci[2],
     z_value = shannon_t,
     p_value = shannon_p,
-    z_vs_1 = shannon_t_vs_1,
-    p_vs_1 = shannon_p_vs_1,
-    interpretation = ifelse(shannon_p_vs_1 < 0.05 && shannon_beta < 1, "Redistribution (β < 1)",
-                           ifelse(shannon_p_vs_1 < 0.05 && shannon_beta > 1, "Super-linear (β > 1)",
-                                  "Field of Dreams (β ≈ 1)")),
+    z_vs_1 = shannon_t_vs_0,
+    p_vs_1 = shannon_p_vs_0,
+    interpretation = ifelse(shannon_p_vs_0 < 0.05 && shannon_beta > 0,
+                           "Positive scaling (β > 0)",
+                           ifelse(shannon_p_vs_0 >= 0.05, "No significant scaling",
+                                  "Negative scaling (β < 0)")),
     model = shannon_model,
     converged = TRUE
   )

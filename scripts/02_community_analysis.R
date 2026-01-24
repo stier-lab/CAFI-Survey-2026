@@ -835,6 +835,80 @@ if (orig_sig && !rare_sig) {
 }
 cat("\n")
 
+# 4B.3b Rarefaction sensitivity: test at multiple depths
+cat("4B.3b Rarefaction Sensitivity (multiple depths):\n")
+cat("    Testing divergence trend robustness across rarefaction depths...\n")
+
+# Test at depths from min_depth up to the 25th percentile of sample depths
+# (to retain reasonable sample sizes)
+test_depths <- sort(unique(c(min_depth,
+                             seq(5, floor(quantile(sample_depths[sufficient_idx], 0.25)), by = 5))))
+test_depths <- test_depths[test_depths >= min_depth]
+
+if (length(test_depths) > 1) {
+  sensitivity_results <- data.frame(
+    depth = integer(), n_corals = integer(),
+    beta = numeric(), p_value = numeric(), significant = logical()
+  )
+
+  for (d in test_depths) {
+    # Filter to corals with at least d individuals
+    idx_d <- sample_depths >= d
+    if (sum(idx_d) < 20) next  # Need ≥20 corals for meaningful test
+
+    comm_d <- comm_aligned_raw[idx_d, ]
+    coral_d <- coral_for_perm[idx_d, ]
+
+    # Iterated rarefaction at depth d (fewer iterations for sensitivity)
+    set.seed(42)
+    dist_acc_d <- matrix(0, nrow = nrow(comm_d), ncol = nrow(comm_d))
+    for (iter in 1:50) {
+      comm_rare_d <- vegan::rrarefy(comm_d, sample = d)
+      comm_hell_d <- decostand(comm_rare_d, method = "hellinger")
+      dist_acc_d <- dist_acc_d + as.matrix(vegdist(comm_hell_d, method = "bray"))
+    }
+    dist_avg_d <- as.dist(dist_acc_d / 50)
+
+    # betadisper + trend test
+    disp_d <- betadisper(dist_avg_d, coral_d$size_class)
+    dist_df_d <- data.frame(
+      distance = disp_d$distances,
+      volume = coral_d$volume
+    )
+    trend_d <- lm(distance ~ log10(volume), data = dist_df_d)
+    trend_p_d <- summary(trend_d)$coefficients[2, "Pr(>|t|)"]
+
+    sensitivity_results <- rbind(sensitivity_results, data.frame(
+      depth = d, n_corals = sum(idx_d),
+      beta = coef(trend_d)[2], p_value = trend_p_d,
+      significant = trend_p_d < 0.05
+    ))
+  }
+
+  cat("    Depth | N corals | β        | p-value  | Significant\n")
+  cat("    ------|----------|----------|----------|------------\n")
+  for (i in 1:nrow(sensitivity_results)) {
+    r <- sensitivity_results[i, ]
+    cat(sprintf("    %5d | %8d | %8.4f | %8.4f | %s\n",
+                r$depth, r$n_corals, r$beta, r$p_value,
+                ifelse(r$significant, "Yes", "No")))
+  }
+
+  n_sig <- sum(sensitivity_results$significant)
+  cat(sprintf("\n    Summary: %d/%d depths show significant trend (p < 0.05)\n",
+              n_sig, nrow(sensitivity_results)))
+  if (n_sig == 0) {
+    cat("    → Divergence NOT significant at any rarefaction depth (robust null)\n\n")
+  } else if (n_sig == nrow(sensitivity_results)) {
+    cat("    → Divergence significant at ALL depths (robust signal)\n\n")
+  } else {
+    cat("    → Mixed: result depends on rarefaction depth (interpret cautiously)\n\n")
+  }
+} else {
+  cat("    Only one viable depth; skipping multi-depth sensitivity\n\n")
+  sensitivity_results <- NULL
+}
+
 # 4B.4 Pairwise comparisons
 cat("4B.4 Pairwise Tukey HSD for Distance to Centroid:\n")
 tukey_disp <- TukeyHSD(disp_size)
@@ -990,6 +1064,7 @@ divergence_results <- list(
     r2 = trend_summary_rarefied$r.squared
   ),
   rarefaction_robust = orig_sig && rare_sig,
+  rarefaction_sensitivity = if (exists("sensitivity_results") && !is.null(sensitivity_results)) sensitivity_results else NULL,
   tukey_hsd = tukey_disp$group,
   interpretation = paste0(
     "Community distinctness ", trend_sig, " ", trend_direction, " with coral size. ",

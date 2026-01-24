@@ -90,6 +90,11 @@ cat("   Physiology records:", nrow(physio_raw), "\n\n")
 
 cat("2. Cleaning CAFI data...\n")
 
+# Pre-check column existence (can't use names(.) inside case_when/mutate)
+has_search_term <- "search_term" %in% names(cafi_raw)
+has_code <- "code" %in% names(cafi_raw)
+has_cafi_size <- "cafi_size_mm" %in% names(cafi_raw)
+
 cafi_clean <- cafi_raw %>%
   filter(!is.na(coral_id)) %>%
   mutate(
@@ -97,13 +102,13 @@ cafi_clean <- cafi_raw %>%
 
     # Create OTU identifier
     otu = case_when(
-      "search_term" %in% names(.) & !is.na(search_term) & search_term != "" ~ str_trim(search_term),
-      "code" %in% names(.) & !is.na(code) ~ paste(type, code, sep = "_"),
+      has_search_term & !is.na(search_term) & search_term != "" ~ str_trim(search_term),
+      has_code & !is.na(code) ~ paste(type, code, sep = "_"),
       TRUE ~ type
     ),
 
     species = otu,
-    size_mm = if ("cafi_size_mm" %in% names(.)) as.numeric(cafi_size_mm) else NA_real_,
+    size_mm = if (has_cafi_size) as.numeric(cafi_size_mm) else NA_real_,
     abundance = 1,
 
     # Extract site from coral_id
@@ -243,6 +248,20 @@ coral_master <- coral_clean %>%
 
 cat("   Master dataset:", nrow(coral_master), "corals,", ncol(coral_master), "variables\n\n")
 
+# --- Data validation after join ---
+n_expected <- nrow(coral_clean)
+n_got <- nrow(coral_master)
+if (n_got != n_expected) {
+  warning(sprintf("JOIN VALIDATION: Expected %d rows after left_join but got %d (possible duplicate keys in cafi_by_coral)",
+                  n_expected, n_got))
+}
+n_dup <- sum(duplicated(coral_master$coral_id))
+if (n_dup > 0) {
+  warning(sprintf("JOIN VALIDATION: %d duplicate coral_ids detected after join", n_dup))
+}
+cat("   Validation: row count", ifelse(n_got == n_expected, "OK", "MISMATCH"),
+    "| duplicates:", n_dup, "\n\n")
+
 # ============================================================================
 # 5. POSITION-CORRECTED CONDITION SCORES
 # ============================================================================
@@ -324,6 +343,13 @@ if (nrow(physio_merged) > 20) {
 }
 
 cat("   Corals with condition:", sum(!is.na(coral_master$condition_score)), "\n\n")
+
+# --- Data validation after condition join ---
+n_after_cond <- nrow(coral_master)
+if (n_after_cond != n_expected) {
+  warning(sprintf("CONDITION JOIN: Row count changed from %d to %d (duplicate coral_ids in condition_scores?)",
+                  n_expected, n_after_cond))
+}
 
 # ============================================================================
 # 6. CREATE COMMUNITY MATRIX

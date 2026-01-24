@@ -25,7 +25,7 @@
 #
 # ANALYSES:
 #   A. CAFI -> Condition Effects (mixed models)
-#   B. Condition -> CAFI Effects (reverse causation test)
+#   B. Condition -> CAFI Effects (reverse direction test)
 #   C. Functional group-specific models
 #   D. Condition x Volume interaction
 #   E. Path analysis (if sample size supports)
@@ -401,11 +401,11 @@ if ("Species richness" %in% names(cafi_to_condition_models)) {
 cat("\n")
 
 # ============================================================================
-# PART B: CONDITION -> CAFI EFFECTS (REVERSE CAUSATION)
+# PART B: CONDITION -> CAFI EFFECTS (REVERSE DIRECTION)
 # ============================================================================
 
 cat("============================================================\n")
-cat("PART B: CONDITION -> CAFI EFFECTS (REVERSE CAUSATION TEST)\n")
+cat("PART B: CONDITION -> CAFI EFFECTS (REVERSE DIRECTION TEST)\n")
 cat("============================================================\n\n")
 
 cat("Testing if healthier corals attract more CAFI...\n")
@@ -1687,8 +1687,8 @@ condition_cafi_table <- condition_to_cafi_df %>%
   dplyr::select(direction, response, estimate, se, stat_type, stat_value,
          p_value, ci_95, n, significant)
 
-save_table(condition_cafi_table, "reverse_causation_models")
-cat("   Saved: reverse_causation_models.csv\n")
+save_table(condition_cafi_table, "reverse_direction_models")
+cat("   Saved: reverse_direction_models.csv\n")
 
 # --- Table 3: Functional group effects ---
 functional_table <- functional_effects %>%
@@ -1736,7 +1736,7 @@ for (i in 1:nrow(condition_to_cafi_df)) {
   row <- condition_to_cafi_df[i, ]
   stats_results <- bind_rows(stats_results,
     create_result_row(
-      hypothesis = "H-reverse-causation",
+      hypothesis = "H-reverse-direction",
       question = paste("Does condition predict", row$response, "?"),
       test_name = ifelse(row$stat_type == "z", "Negative binomial GLM", "Linear model"),
       test_statistic = row$stat_value,
@@ -1860,7 +1860,7 @@ cat("    - output/figures/feedbacks/functional_vs_key_species.png\n")
 cat("    - output/figures/feedbacks/neighborhood_effects.png (NEW)\n")
 cat("  Tables:\n")
 cat("    - output/tables/cafi_condition_models.csv\n")
-cat("    - output/tables/reverse_causation_models.csv\n")
+cat("    - output/tables/reverse_direction_models.csv\n")
 cat("    - output/tables/functional_effects.csv\n")
 cat("    - output/tables/key_species_effects.csv\n")
 cat("    - output/tables/neighborhood_effects.csv (NEW)\n")
