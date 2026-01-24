@@ -538,7 +538,7 @@ p_nmds_site <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2, color = site)) +
     caption = if (n_outliers > 0) paste0(n_outliers, " outlier(s) beyond axis limits") else NULL,
     color = "Site"
   ) +
-  coord_fixed(xlim = nmds1_lim, ylim = nmds2_lim, clip = "off")
+  coord_fixed(xlim = nmds1_lim, ylim = nmds2_lim, clip = "on")
 
 ggsave(file.path(FIG_DIR, "nmds_by_site.png"), p_nmds_site,
        width = 8, height = 6, dpi = 300, bg = "white")
@@ -551,7 +551,7 @@ p_nmds_size <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2, color = log_volume)
     subtitle = paste0("PERMANOVA: Volume R² = ", vol_r2, ", p = ", vol_p_text),
     caption = if (n_outliers > 0) paste0(n_outliers, " outlier(s) beyond axis limits") else NULL
   ) +
-  coord_fixed(xlim = nmds1_lim, ylim = nmds2_lim, clip = "off")
+  coord_fixed(xlim = nmds1_lim, ylim = nmds2_lim, clip = "on")
 
 ggsave(file.path(FIG_DIR, "nmds_by_volume.png"), p_nmds_size,
        width = 8, height = 6, dpi = 300, bg = "white")
@@ -892,11 +892,7 @@ fig_divergence <- p_divergence_boxplot + p_nmds_trajectory +
 
 ggsave(file.path(FIG_DIR, "composition_divergence_by_size.png"), fig_divergence,
        width = 14, height = 7, dpi = 300, bg = "white")
-# Also save manuscript version
-ggsave(file.path(PATHS$fig_manuscript, "fig4_composition.png"), fig_divergence,
-       width = 14, height = 7, dpi = 300, bg = "white")
-cat("    Saved: composition_divergence_by_size.png\n")
-cat("    Saved: fig4_composition.png (manuscript)\n\n")
+cat("    Saved: composition_divergence_by_size.png\n\n")
 
 # 4B.6 Add results to stats tracking
 cat("4B.6 Recording Statistical Results:\n")
@@ -1228,6 +1224,7 @@ results_list <- list(
   ),
   community = list(
     nmds_stress = nmds$stress,
+    nmds_scores = nmds_scores,
     permanova = permanova,
     permdisp = disp_test
   ),

@@ -13,26 +13,30 @@
 #   Figure 1: Study Design - Sites, sampling protocol, dataset summary
 #
 # Q1: SCALING - Does CAFI abundance scale proportionally with coral size?
-#   Figure 2: Size-Abundance Scaling
+#   Figure 2: Size-Abundance Scaling (created here)
 #     - Tests Field of Dreams (β=1) vs Redistribution (β<1)
-#     - Created here + 05_species_scaling_analysis.R
+#   Figure 3: Taxonomic Group Scaling (from 08_functional_groups.R)
+#     - Group-level scaling exponents, stacked composition
 #
 # Q2: COMPOSITION - What shapes community assembly?
-#   Figure 3: Community Composition (from 02_community_analysis.R)
-#     - PERMANOVA results, NMDS ordination
-#   Figure 4: Neighborhood Effects (from 04_landscape_effects.R)
-#     - Landscape predictors of abundance/diversity
+#   Figure 4: Community Composition (from 02_community_analysis.R)
+#     - Rarefaction control, size-divergence test, NMDS
 #
 # Q3: FEEDBACKS - Does CAFI community predict coral condition?
 #   Figure 5: CAFI-Condition Feedbacks (from 09_cafi_condition_feedbacks.R)
-#     - PC1_CAFI → PC1_Coral relationship
-#     - Taxonomic group effects (Trapezia, Fish, Gastropods)
+#     - Richness/Trapezia/Galeropsis effects on condition
+#
+# Q4: NEIGHBORHOOD - Does local coral density affect CAFI?
+#   No main figure (null result) → Supplement S7
 #
 # SUPPLEMENTARY:
 #   S1: Species accumulation curves
-#   S2: Spatial autocorrelation diagnostics
-#   S3: Variable importance (ML models)
-#   S4: Model diagnostics
+#   S2: Multi-metric PERMANOVA sensitivity
+#   S3: NMDS ordination by site/size
+#   S4: Spatial autocorrelation (Moran's I)
+#   S5: Composition divergence by size (null after rarefaction)
+#   S6: Species-level scaling forest plot
+#   S7: Neighborhood null results (Q4)
 #
 # ============================================================================
 #
@@ -41,10 +45,10 @@
 # OUTPUTS:
 #   output/figures/manuscript/fig1_study_design.png      (Overview)
 #   output/figures/manuscript/fig2_scaling.png           (Q1)
-#   output/figures/manuscript/fig3_composition.png       (Q2)
-#   output/figures/manuscript/fig4_neighborhood.png      (Q2)
+#   output/figures/manuscript/fig3_functional_groups.png (Q1 groups)
+#   output/figures/manuscript/fig4_composition_network.png (Q2)
 #   output/figures/manuscript/fig5_feedbacks.png         (Q3)
-#   output/figures/supplement/                           (Supplements)
+#   output/figures/supplement/figS1-S7                   (Supplements)
 #
 # Author: CAFI Survey Analysis Pipeline
 # Last Updated: 2026-01-22
@@ -471,153 +475,8 @@ if (nrow(scaling_data) >= 30) {
   cat("  Insufficient data for scaling analysis\n\n")
 }
 
-# ############################################################################
-#                    FIGURE 5: CONDITION PATTERNS (H4)
-# ############################################################################
-
-cat("============================================================\n")
-cat("FIGURE 5: Condition Patterns\n")
-cat("============================================================\n\n")
-
-# Check for condition data
-if ("condition_score" %in% names(coral_master) ||
-    "color_score" %in% names(coral_master)) {
-
-  # Use available condition metric
-  condition_col <- if ("condition_score" %in% names(coral_master)) {
-    "condition_score"
-  } else {
-    "color_score"
-  }
-
-  condition_data <- coral_master %>%
-    filter(!is.na(.data[[condition_col]])) %>%
-    mutate(condition = .data[[condition_col]])
-
-  if (nrow(condition_data) >= 30) {
-
-    # Panel A: Condition vs CAFI richness
-    panel_a <- condition_data %>%
-      ggplot(aes(x = otu_richness, y = condition, color = site)) +
-      geom_point(alpha = 0.7, size = 2.5) +
-      geom_smooth(aes(group = 1), method = "lm", se = TRUE,
-                  color = "black", linewidth = 1) +
-      scale_color_manual(values = SITE_COLORS, name = "Site") +
-      labs(
-        x = "CAFI Species Richness",
-        y = "Coral Condition Score",
-        title = "A. Diversity-Condition Relationship"
-      ) +
-      theme_manuscript() +
-      theme(legend.position = c(0.85, 0.2))
-
-    # Panel B: Condition by site (boxplot)
-    panel_b <- condition_data %>%
-      ggplot(aes(x = site, y = condition, fill = site)) +
-      geom_boxplot(alpha = 0.7, outlier.shape = 21) +
-      geom_jitter(width = 0.2, alpha = 0.4, size = 1.5) +
-      scale_fill_manual(values = SITE_COLORS, guide = "none") +
-      labs(
-        x = "Site",
-        y = "Coral Condition Score",
-        title = "B. Site-Level Condition"
-      ) +
-      theme_manuscript()
-
-    # Panel C: Condition vs functional group abundance
-    # Check for functional group columns
-    func_cols <- c("n_trapezia", "n_resident_fish", "n_corallivore")
-    available_func_cols <- func_cols[func_cols %in% names(condition_data)]
-
-    if (length(available_func_cols) > 0) {
-
-      func_effects <- condition_data %>%
-        dplyr::select(coral_id, condition, all_of(available_func_cols)) %>%
-        pivot_longer(cols = all_of(available_func_cols),
-                     names_to = "group", values_to = "abundance") %>%
-        mutate(
-          group = str_replace(group, "n_", "") %>%
-            str_replace_all("_", " ") %>%
-            str_to_title(),
-          group = ifelse(group == "Corallivore", "Gastropods", group)
-        )
-
-      panel_c <- func_effects %>%
-        ggplot(aes(x = abundance, y = condition)) +
-        geom_point(alpha = 0.5, size = 1.5) +
-        geom_smooth(method = "lm", se = TRUE, color = "#377EB8", linewidth = 1) +
-        facet_wrap(~ group, scales = "free_x", nrow = 1) +
-        labs(
-          x = "Functional Group Abundance",
-          y = "Coral Condition",
-          title = "C. Functional Group Effects on Condition"
-        ) +
-        theme_manuscript() +
-        theme(strip.text = element_text(face = "bold"))
-
-    } else {
-      panel_c <- ggplot() +
-        annotate("text", x = 0.5, y = 0.5,
-                 label = "Functional group data unavailable") +
-        theme_void() +
-        labs(title = "C. Functional Group Effects")
-    }
-
-    # Panel D: Effect sizes summary (if models exist)
-    panel_d <- ggplot() +
-      annotate("text", x = 0.5, y = 0.7,
-               label = "Effect Size Summary", fontface = "bold", size = 4) +
-      annotate("text", x = 0.5, y = 0.5,
-               label = "Trapezia: + (mutualist benefit)\nResident Fish: + (nutrient provision)\nGastropods: - (tissue damage)",
-               size = 3, lineheight = 1.5) +
-      annotate("text", x = 0.5, y = 0.25,
-               label = "Expected directions based on\nfunctional ecology",
-               size = 2.5, fontface = "italic", color = "gray50") +
-      scale_x_continuous(limits = c(0, 1)) +
-      scale_y_continuous(limits = c(0, 1)) +
-      theme_void() +
-      labs(title = "D. Predicted Effect Directions")
-
-    # Combine
-    fig5 <- (panel_a | panel_b) / (panel_c | panel_d) +
-      plot_layout(heights = c(1, 1)) +
-      plot_annotation(
-        title = "CAFI-Coral Condition Relationships",
-        subtitle = "Testing bidirectional feedbacks between community structure and host health",
-        caption = "Condition score reflects coral color/health. Higher = healthier coral.",
-        theme = theme(
-          plot.title = element_text(face = "bold", size = 14),
-          plot.subtitle = element_text(size = 11, color = "gray40"),
-          plot.caption = element_text(size = 9, color = "gray50", hjust = 0)
-        )
-      )
-
-    ggsave(file.path(MANUSCRIPT_DIR, "fig5_condition.png"), fig5,
-           width = 12, height = 10, dpi = 300, bg = "white")
-
-    cat("  Saved: fig5_condition.png\n\n")
-
-  } else {
-    cat("  Insufficient condition data (n =", nrow(condition_data), ")\n\n")
-  }
-
-} else {
-  cat("  No condition score variable found in coral_master\n")
-  cat("  Creating placeholder figure...\n\n")
-
-  # Create placeholder figure
-  fig5_placeholder <- ggplot() +
-    annotate("text", x = 0.5, y = 0.5,
-             label = "Figure 5: CAFI-Condition Patterns\n\nCondition data not available in current dataset.\nSee 09_cafi_condition_feedbacks.R for detailed analysis.",
-             size = 5, lineheight = 1.5) +
-    theme_void() +
-    theme(plot.margin = margin(50, 50, 50, 50))
-
-  ggsave(file.path(MANUSCRIPT_DIR, "fig5_condition.png"), fig5_placeholder,
-         width = 10, height = 8, dpi = 300, bg = "white")
-
-  cat("  Saved: fig5_condition.png (placeholder)\n\n")
-}
+# NOTE: Figure 5 (CAFI-Condition Feedbacks) is created by script 09.
+# See "ASSEMBLE FIGURES FROM OTHER SCRIPTS" section below.
 
 # ############################################################################
 #                    ASSEMBLE FIGURES FROM OTHER SCRIPTS
@@ -636,18 +495,151 @@ if (file.exists(fig3_src)) {
   cat("  Not yet generated - run script 08\n")
 }
 
-# Q2: COMPOSITION - Figure 4 (from 02_community_analysis.R)
-# Key result: Size-divergence disappears after rarefaction (abundance artifact)
-cat("\nQ2: Community Composition (Figure 4)...\n")
-fig4_src <- file.path(PATHS$fig_manuscript, "fig4_composition.png")
-fig4_alt <- file.path(PATHS$figures, "02_community", "composition_divergence_by_size.png")
-if (file.exists(fig4_src)) {
-  cat("  Found: fig4_composition.png (from script 02)\n")
-} else if (file.exists(fig4_alt)) {
-  file.copy(fig4_alt, file.path(MANUSCRIPT_DIR, "fig4_composition.png"), overwrite = TRUE)
-  cat("  Copied: composition_divergence_by_size.png -> fig4_composition.png\n")
+# ============================================================================
+# FIGURE 4: COMMUNITY ASSEMBLY (Q2)
+# Site effects + co-occurrence network + modularity + hub species
+# ============================================================================
+cat("\n============================================================\n")
+cat("FIGURE 4: Community Assembly (NMDS + Network)\n")
+cat("============================================================\n\n")
+
+network_results <- tryCatch(load_object("cafi_network"), error = function(e) NULL)
+community_results <- tryCatch(load_object("community_analysis_results"), error = function(e) NULL)
+
+if (!is.null(network_results) && !is.null(community_results) &&
+    !is.null(community_results$community$nmds_scores)) {
+
+  # Load igraph for graph operations
+  if (!requireNamespace("igraph", quietly = TRUE)) {
+    stop("igraph package required for Figure 4")
+  }
+  library(igraph)
+
+  # --- Panel A: NMDS by site ---
+  nmds_scores <- community_results$community$nmds_scores
+  perm_r2 <- community_results$community$permanova$R2[1]  # site R²
+  nmds_stress <- community_results$community$nmds_stress
+
+  p_a <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2, color = site)) +
+    geom_point(aes(size = log_volume), alpha = 0.7) +
+    stat_ellipse(level = 0.95, linetype = "dashed") +
+    scale_color_manual(values = SITE_COLORS, name = "Site") +
+    scale_size_continuous(range = c(1.5, 5), guide = "none") +
+    labs(title = "A. Composition by Reef Site",
+         subtitle = sprintf("PERMANOVA R\u00B2 = %.3f, p < 0.01 | Stress = %.3f",
+                            perm_r2, nmds_stress)) +
+    theme_manuscript() +
+    coord_fixed() +
+    theme(legend.position = c(0.85, 0.2))
+
+  # --- Panel B: Network by module (ggplot2, no ggraph) ---
+  g <- network_results$graph
+  layout <- network_results$fr_layout
+  node_df <- data.frame(
+    x = layout[,1], y = layout[,2],
+    species = igraph::V(g)$name,
+    module = factor(igraph::V(g)$module),
+    degree = igraph::degree(g)
+  )
+  el <- igraph::as_edgelist(g, names = FALSE)
+  edge_df <- data.frame(
+    x = layout[el[,1], 1], y = layout[el[,1], 2],
+    xend = layout[el[,2], 1], yend = layout[el[,2], 2],
+    weight = igraph::E(g)$weight
+  )
+  n_nodes <- igraph::vcount(g)
+  n_edges <- igraph::ecount(g)
+  modularity_obs <- network_results$network_metrics$value[
+    network_results$network_metrics$metric == "modularity"]
+  ratio_to_null <- network_results$null_comparison$ratio_to_null[
+    network_results$null_comparison$metric == "Modularity"]
+
+  # Label top-degree nodes
+  degree_threshold <- quantile(node_df$degree, 0.8)
+
+  p_b <- ggplot() +
+    geom_segment(data = edge_df,
+                 aes(x = x, y = y, xend = xend, yend = yend, alpha = weight),
+                 color = "gray60", linewidth = 0.3) +
+    geom_point(data = node_df,
+               aes(x = x, y = y, size = degree, fill = module),
+               shape = 21, color = "gray30", stroke = 0.3) +
+    scale_fill_brewer(palette = "Set2", name = "Module") +
+    scale_size_continuous(range = c(2, 8), name = "Degree") +
+    scale_alpha_continuous(range = c(0.1, 0.4), guide = "none") +
+    labs(title = "B. Co-occurrence Network",
+         subtitle = sprintf("%d species, %d edges | Q = %.2f (%.1fx null)",
+                            n_nodes, n_edges, modularity_obs, ratio_to_null)) +
+    theme_void() +
+    theme(plot.title = element_text(face = "bold", size = 11),
+          plot.subtitle = element_text(size = 9, color = "gray40"),
+          legend.position = "right",
+          plot.margin = margin(5, 5, 5, 5))
+
+  # Add labels if ggrepel available
+  if (requireNamespace("ggrepel", quietly = TRUE)) {
+    p_b <- p_b +
+      ggrepel::geom_text_repel(
+        data = node_df %>% filter(degree >= degree_threshold),
+        aes(x = x, y = y, label = species),
+        size = 2.2, max.overlaps = 12, segment.alpha = 0.3)
+  }
+
+  # --- Panel C: Modularity vs null ---
+  null_mod_df <- data.frame(modularity = network_results$null_metrics[, "modularity"])
+  mod_z <- network_results$null_comparison$z_score[
+    network_results$null_comparison$metric == "Modularity"]
+
+  p_c <- ggplot(null_mod_df, aes(x = modularity)) +
+    geom_histogram(bins = 30, fill = "gray70", color = "white", alpha = 0.8) +
+    geom_vline(xintercept = modularity_obs, color = "#D55E00", linewidth = 1.2) +
+    annotate("text", x = modularity_obs, y = Inf,
+             label = sprintf("Observed\nQ = %.2f\nz = %.1f", modularity_obs, mod_z),
+             vjust = 1.5, hjust = -0.1, color = "#D55E00", fontface = "bold", size = 3) +
+    labs(title = "C. Modularity vs Null Model",
+         subtitle = "1000 Erdos-Renyi random networks",
+         x = "Modularity (Q)", y = "Frequency") +
+    theme_manuscript()
+
+  # --- Panel D: Hub species ---
+  type_colors <- network_results$type_colors
+  p_d <- network_results$centrality %>%
+    arrange(desc(hub_score)) %>%
+    slice_head(n = 10) %>%
+    ggplot(aes(x = reorder(species, hub_score), y = hub_score, fill = type)) +
+    geom_col(alpha = 0.8, width = 0.7) +
+    coord_flip() +
+    scale_fill_manual(values = type_colors, name = "Type") +
+    labs(title = "D. Hub Species",
+         subtitle = "Connectivity + influence (top 10)",
+         x = NULL, y = "Hub Score") +
+    theme_manuscript() +
+    theme(legend.position = "bottom")
+
+  # --- Compose ---
+  fig4 <- (p_a | p_b) / (p_c | p_d) +
+    plot_layout(heights = c(1.2, 1)) +
+    plot_annotation(
+      title = "Figure 4: Community Assembly Structure",
+      subtitle = "Site pools and non-random co-occurrence shape CAFI composition",
+      caption = paste0(
+        "A: Bray-Curtis NMDS; ellipses = 95% CI by site. ",
+        "B: FR layout; node color = Louvain module, size = degree; edges = r > 0.3. ",
+        "C: Observed modularity vs 1000 random networks. ",
+        "D: Hub score = standardized degree + eigenvector centrality."),
+      theme = theme(
+        plot.title = element_text(face = "bold", size = 14),
+        plot.subtitle = element_text(size = 11, color = "gray40"),
+        plot.caption = element_text(size = 8, hjust = 0, color = "gray50")
+      )
+    )
+
+  ggsave(file.path(MANUSCRIPT_DIR, "fig4_composition_network.png"), fig4,
+         width = 14, height = 11, dpi = 300, bg = "white")
+  cat("  Saved: fig4_composition_network.png\n\n")
+
 } else {
-  cat("  Not yet generated - run script 02\n")
+  cat("  Network or community results not available - run scripts 02 and 06 first\n\n")
 }
 
 # Q3: FEEDBACKS - Figure 5 (from 09_cafi_condition_feedbacks.R)
@@ -713,53 +705,50 @@ if (exists("community_matrix") && nrow(community_matrix) > 10) {
   }
 }
 
-# S2: Copy spatial autocorrelation map if exists
+# S2: Multi-metric PERMANOVA sensitivity
+sensitivity_locations <- c(
+  file.path(PATHS$figures, "02_community", "permanova_metric_sensitivity.png")
+)
+sens_fig <- sensitivity_locations[file.exists(sensitivity_locations)][1]
+if (!is.na(sens_fig) && file.exists(sens_fig)) {
+  file.copy(sens_fig, file.path(SUPPLEMENT_DIR, "figS2_permanova_sensitivity.png"),
+            overwrite = TRUE)
+  cat("  Saved: figS2_permanova_sensitivity.png\n")
+}
+
+# S3: NMDS ordination by site/size
+nmds_locations <- c(
+  file.path(PATHS$figures, "02_community", "nmds_by_site.png"),
+  file.path(PATHS$figures, "02_community", "nmds_ordination.png")
+)
+nmds_fig <- nmds_locations[file.exists(nmds_locations)][1]
+if (!is.na(nmds_fig) && file.exists(nmds_fig)) {
+  file.copy(nmds_fig, file.path(SUPPLEMENT_DIR, "figS3_nmds_ordination.png"),
+            overwrite = TRUE)
+  cat("  Saved: figS3_nmds_ordination.png\n")
+}
+
+# S4: Spatial autocorrelation (Moran's I)
 spatial_map_locations <- c(
   file.path(PATHS$figures, "07_spatial", "spatial_autocorrelation_map.png"),
   file.path(PATHS$figures, "spatial_autocorrelation_map.png")
 )
 spatial_map <- spatial_map_locations[file.exists(spatial_map_locations)][1]
 if (!is.na(spatial_map) && file.exists(spatial_map)) {
-  file.copy(spatial_map, file.path(SUPPLEMENT_DIR, "figS2_spatial_autocorrelation.png"),
+  file.copy(spatial_map, file.path(SUPPLEMENT_DIR, "figS4_spatial_autocorrelation.png"),
             overwrite = TRUE)
-  cat("  Saved: figS2_spatial_autocorrelation.png\n")
+  cat("  Saved: figS4_spatial_autocorrelation.png\n")
 }
 
-# S3: Copy variable importance if exists (check multiple locations)
-var_imp_locations <- c(
-  file.path(PATHS$figures, "10_features", "feature_importance.png"),
-  file.path(PATHS$figures, "machine_learning", "variable_importance.png")
+# S5: Composition divergence by size (former main figure - null after rarefaction)
+divergence_locations <- c(
+  file.path(PATHS$figures, "02_community", "composition_divergence_by_size.png")
 )
-var_imp_fig <- var_imp_locations[file.exists(var_imp_locations)][1]
-if (!is.na(var_imp_fig) && file.exists(var_imp_fig)) {
-  file.copy(var_imp_fig, file.path(SUPPLEMENT_DIR, "figS3_variable_importance.png"),
+div_fig <- divergence_locations[file.exists(divergence_locations)][1]
+if (!is.na(div_fig) && file.exists(div_fig)) {
+  file.copy(div_fig, file.path(SUPPLEMENT_DIR, "figS5_composition_divergence.png"),
             overwrite = TRUE)
-  cat("  Saved: figS3_variable_importance.png\n")
-}
-
-# S4: Copy model diagnostics if exists
-diag_locations <- c(
-  file.path(PATHS$figures, "12_evaluation", "residual_diagnostics.png"),
-  file.path(PATHS$figures, "residual_diagnostics.png")
-)
-diag_fig <- diag_locations[file.exists(diag_locations)][1]
-if (!is.na(diag_fig) && file.exists(diag_fig)) {
-  file.copy(diag_fig, file.path(SUPPLEMENT_DIR, "figS4_model_diagnostics.png"),
-            overwrite = TRUE)
-  cat("  Saved: figS4_model_diagnostics.png\n")
-}
-
-# S5: Network analysis (co-occurrence network by module)
-network_locations <- c(
-  file.path(PATHS$figures, "06_network", "network_by_module.png"),
-  file.path(PATHS$figures, "06_network", "network_visualization.png"),
-  file.path(PATHS$fig_manuscript, "fig4_network.png")
-)
-network_fig <- network_locations[file.exists(network_locations)][1]
-if (!is.na(network_fig) && file.exists(network_fig)) {
-  file.copy(network_fig, file.path(SUPPLEMENT_DIR, "figS5_network_analysis.png"),
-            overwrite = TRUE)
-  cat("  Saved: figS5_network_analysis.png\n")
+  cat("  Saved: figS5_composition_divergence.png\n")
 }
 
 # S6: Species-level scaling forest plot
@@ -774,29 +763,171 @@ if (!is.na(species_fig) && file.exists(species_fig)) {
   cat("  Saved: figS6_species_scaling.png\n")
 }
 
-# S7: NMDS ordination by site
-nmds_locations <- c(
-  file.path(PATHS$figures, "02_community", "nmds_by_site.png"),
-  file.path(PATHS$figures, "02_community", "nmds_ordination.png")
+# S7: Neighborhood null results (Q4)
+# Assemble panels showing non-significant neighborhood effects
+neighborhood_fig_locations <- c(
+  file.path(PATHS$figures, "04_effects", "abundance_vs_neighbors.png")
 )
-nmds_fig <- nmds_locations[file.exists(nmds_locations)][1]
-if (!is.na(nmds_fig) && file.exists(nmds_fig)) {
-  file.copy(nmds_fig, file.path(SUPPLEMENT_DIR, "figS7_nmds_ordination.png"),
+neighbor_fig <- neighborhood_fig_locations[file.exists(neighborhood_fig_locations)][1]
+if (!is.na(neighbor_fig) && file.exists(neighbor_fig)) {
+  file.copy(neighbor_fig, file.path(SUPPLEMENT_DIR, "figS7_neighborhood_null.png"),
             overwrite = TRUE)
-  cat("  Saved: figS7_nmds_ordination.png\n")
+  cat("  Saved: figS7_neighborhood_null.png\n")
+} else {
+  # Create minimal neighborhood null figure from coral_master data
+  if ("n_neighbors" %in% names(coral_master)) {
+    neighbor_data <- coral_master %>% filter(!is.na(n_neighbors))
+    if (nrow(neighbor_data) >= 20) {
+      p_s7a <- ggplot(neighbor_data, aes(x = n_neighbors, y = total_cafi)) +
+        geom_point(alpha = 0.6, color = "#0072B2") +
+        geom_smooth(method = "lm", se = TRUE, color = "black") +
+        labs(x = "Number of Neighbors (5m)", y = "Total CAFI Abundance",
+             title = "A. CAFI Abundance vs Neighborhood Density (NS)") +
+        theme_manuscript()
+
+      p_s7b <- if ("condition_score" %in% names(neighbor_data)) {
+        ggplot(neighbor_data %>% filter(!is.na(condition_score)),
+               aes(x = n_neighbors, y = condition_score)) +
+          geom_point(alpha = 0.6, color = "#D55E00") +
+          geom_smooth(method = "lm", se = TRUE, color = "black") +
+          labs(x = "Number of Neighbors (5m)", y = "Coral Condition Score",
+               title = "B. Coral Condition vs Neighborhood Density (NS)") +
+          theme_manuscript()
+      } else {
+        ggplot() + theme_void() + labs(title = "B. Condition data unavailable")
+      }
+
+      fig_s7 <- p_s7a | p_s7b
+      fig_s7 <- fig_s7 + plot_annotation(
+        title = "Figure S7: Neighborhood Density Does Not Predict CAFI or Condition",
+        subtitle = "Q4 null result: coral density within 5m radius is not significant (n = 61 corals with spatial data)",
+        theme = theme(plot.title = element_text(face = "bold", size = 12),
+                      plot.subtitle = element_text(size = 10, color = "gray40"))
+      )
+
+      ggsave(file.path(SUPPLEMENT_DIR, "figS7_neighborhood_null.png"), fig_s7,
+             width = 12, height = 5, dpi = 300, bg = "white")
+      cat("  Saved: figS7_neighborhood_null.png (created from data)\n")
+    }
+  }
 }
 
-# S8: Multi-metric PERMANOVA sensitivity
-sensitivity_locations <- c(
-  file.path(PATHS$figures, "02_community", "permanova_metric_sensitivity.png")
-)
-sens_fig <- sensitivity_locations[file.exists(sensitivity_locations)][1]
-if (!is.na(sens_fig) && file.exists(sens_fig)) {
-  file.copy(sens_fig, file.path(SUPPLEMENT_DIR, "figS8_permanova_sensitivity.png"),
-            overwrite = TRUE)
-  cat("  Saved: figS8_permanova_sensitivity.png\n")
+cat("\n")
+
+# ############################################################################
+#                    RESULTS TABLE & SAMPLE SIZES
+# ############################################################################
+
+cat("============================================================\n")
+cat("COMPILING MANUSCRIPT RESULTS TABLE\n")
+cat("============================================================\n\n")
+
+# --- Unified Results Table ---
+# Compiles all key statistical results across Q1-Q4
+
+results_rows <- list()
+
+# Q1: Scaling (from script 05)
+tryCatch({
+  scaling_obj <- load_object("scaling_analysis_results")
+  comm_result <- scaling_obj$models$total_abundance
+  if (!is.null(comm_result) && comm_result$converged) {
+    results_rows[[length(results_rows) + 1]] <- tibble(
+      Question = "Q1", Hypothesis = "Redistribution", Test = "NB GLM",
+      Predictor = "log10(volume)", Beta_R2 = comm_result$beta,
+      CI_lower = comm_result$ci_lower, CI_upper = comm_result$ci_upper,
+      p_value = comm_result$p_vs_1, p_FDR = NA_real_,
+      n = comm_result$n_corals, Interpretation = comm_result$interpretation
+    )
+  }
+}, error = function(e) cat("  [Skip] Scaling results not available\n"))
+
+# Q2: Composition (from saved PERMANOVA results)
+tryCatch({
+  community_results <- load_object("community_analysis_results")
+  if (!is.null(community_results$permanova)) {
+    perm <- community_results$permanova
+    results_rows[[length(results_rows) + 1]] <- tibble(
+      Question = "Q2", Hypothesis = "Site effects", Test = "PERMANOVA",
+      Predictor = "site", Beta_R2 = perm$R2[which(rownames(perm) == "site")],
+      CI_lower = NA_real_, CI_upper = NA_real_,
+      p_value = perm$`Pr(>F)`[which(rownames(perm) == "site")],
+      p_FDR = NA_real_, n = 114, Interpretation = "Significant"
+    )
+  }
+}, error = function(e) cat("  [Skip] PERMANOVA results not available\n"))
+
+# Q3: Feedbacks (from script 09 outputs)
+tryCatch({
+  feedback_table <- read_csv(file.path(PATHS$tables, "cafi_condition_models.csv"),
+                             show_col_types = FALSE)
+  if (nrow(feedback_table) > 0) {
+    for (i in 1:nrow(feedback_table)) {
+      row <- feedback_table[i, ]
+      results_rows[[length(results_rows) + 1]] <- tibble(
+        Question = "Q3", Hypothesis = paste0(row$predictor, "->condition"),
+        Test = "LMM", Predictor = row$predictor,
+        Beta_R2 = row$estimate, CI_lower = row$ci_lower, CI_upper = row$ci_upper,
+        p_value = row$p_value,
+        p_FDR = if ("p_fdr" %in% names(row)) row$p_fdr else NA_real_,
+        n = row$n, Interpretation = ifelse(row$significant, "Significant", "NS")
+      )
+    }
+  }
+}, error = function(e) cat("  [Skip] Feedback results not available\n"))
+
+# Q4: Neighborhood (from script 04)
+tryCatch({
+  landscape_models <- load_object("landscape_models")
+  if (!is.null(landscape_models$abundance_full)) {
+    coefs <- summary(landscape_models$abundance_full)$coefficients
+    if ("n_neighbors" %in% rownames(coefs)) {
+      results_rows[[length(results_rows) + 1]] <- tibble(
+        Question = "Q4", Hypothesis = "Neighborhood->CAFI",
+        Test = "NB GLM", Predictor = "n_neighbors",
+        Beta_R2 = coefs["n_neighbors", "Estimate"],
+        CI_lower = NA_real_, CI_upper = NA_real_,
+        p_value = coefs["n_neighbors", "Pr(>|z|)"],
+        p_FDR = NA_real_, n = 61, Interpretation = "NS"
+      )
+    }
+  }
+}, error = function(e) cat("  [Skip] Landscape model results not available\n"))
+
+# Compile and save
+if (length(results_rows) > 0) {
+  manuscript_results <- bind_rows(results_rows)
+  save_table(manuscript_results, "manuscript_results_summary")
+  cat("  Saved: manuscript_results_summary.csv (", nrow(manuscript_results), " results)\n\n")
+} else {
+  cat("  No pre-computed results available. Run analysis scripts first.\n\n")
 }
 
+# --- Sample Size Table ---
+cat("Sample sizes by analysis:\n")
+
+sample_sizes <- tibble(
+  Analysis = c("Scaling (Q1)", "PERMANOVA (Q2)", "Rarefaction (Q2)",
+               "Condition feedbacks (Q3)", "Neighborhood (Q4)"),
+  Total_N = c(
+    nrow(coral_master),
+    nrow(coral_master),
+    sum(coral_master$total_cafi >= 5, na.rm = TRUE),
+    sum(!is.na(coral_master$condition_score)),
+    sum(!is.na(coral_master$n_neighbors))
+  ),
+  Subset_Reason = c(
+    "All corals with volume",
+    "All corals with CAFI",
+    "Corals with >= 5 CAFI (rarefaction depth)",
+    "Corals with physiology data",
+    "Corals in 5m neighborhood survey"
+  )
+)
+
+save_table(sample_sizes, "sample_sizes")
+cat("  Saved: sample_sizes.csv\n")
+print(sample_sizes, n = Inf)
 cat("\n")
 
 # ############################################################################
@@ -825,15 +956,18 @@ cat("  Fig 3: Taxonomic group scaling (Trapezia vs Fish vs Gastropods)\n")
 q1_figs <- manuscript_figs[grepl("fig[23]_", manuscript_figs)]
 for (fig in sort(q1_figs)) cat("    ", fig, "\n")
 
-cat("\nQ2: COMPOSITION (Do larger corals = more distinct communities?):\n")
-cat("  Fig 4: Composition divergence by size + rarefaction null\n")
+cat("\nQ2: COMPOSITION (What structures CAFI composition?):\n")
+cat("  Fig 4: NMDS by site + co-occurrence network + modularity + hub species\n")
 q2_figs <- manuscript_figs[grepl("fig4_", manuscript_figs)]
 for (fig in sort(q2_figs)) cat("    ", fig, "\n")
 
 cat("\nQ3: FEEDBACKS (Does CAFI identity predict coral condition?):\n")
-cat("  Fig 5: PC1_CAFI, functional group effects, bidirectional test\n")
+cat("  Fig 5: Richness, Trapezia, Galeropsis effects on condition\n")
 q3_figs <- manuscript_figs[grepl("fig5_", manuscript_figs)]
 for (fig in sort(q3_figs)) cat("    ", fig, "\n")
+
+cat("\nQ4: NEIGHBORHOOD (Does local coral density affect CAFI?):\n")
+cat("  No main figure (null result) -> Figure S7\n")
 
 cat("\nSUPPLEMENTARY FIGURES (", length(supplement_figs), "):\n")
 for (fig in sort(supplement_figs)) {

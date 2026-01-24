@@ -705,9 +705,9 @@ p_manuscript <- (p_degree + p_modularity) / (p_hubs + p_modules) +
     )
   )
 
-ggsave(file.path(PATHS$fig_manuscript, "fig4_network.png"), p_manuscript,
+ggsave(file.path(fig_dir, "network_panels.png"), p_manuscript,
        width = 12, height = 10, dpi = 300, bg = "white")
-cat("     Saved: fig4_network.png (manuscript)\n")
+cat("     Saved: network_panels.png\n")
 
 # ============================================================================
 # PART 8: SAVE OUTPUTS
@@ -763,7 +763,11 @@ network_results <- list(
   centrality = centrality_df,
   module_summary = module_summary,
   network_metrics = network_metrics_full,
-  edge_list = edge_list
+  edge_list = edge_list,
+  fr_layout = layout_fr,
+  null_metrics = null_metrics,
+  module_taxonomy = module_taxonomy,
+  type_colors = type_colors
 )
 
 save_object(network_results, "cafi_network")
