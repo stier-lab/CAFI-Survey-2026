@@ -944,27 +944,68 @@ cat("\nBY CATEGORY:\n")
 print(category_summary)
 cat("\n")
 
-# T-test for species-level results
-species_betas <- valid_results %>%
-  filter(category == "Species") %>%
-  pull(beta)
+# Meta-analytic approach: weighted mean of species betas
+# Note: Simple t-test is inappropriate because species betas have different
+# precision (SEs) and share the same coral volume predictor (non-independence)
+species_data <- valid_results %>%
+  filter(category == "Species", !is.na(se), se > 0)
 
-if (length(species_betas) >= 3) {
-  t_test <- t.test(species_betas, mu = 1)
-  cat("\nSPECIES-LEVEL T-TEST (H0: mean β = 1):\n")
-  cat("  Mean β =", round(mean(species_betas), 3), "±", round(sd(species_betas)/sqrt(length(species_betas)), 3), "\n")
-  cat("  t =", round(t_test$statistic, 2), ", df =", round(t_test$parameter, 1),
-      ", p =", format.pval(t_test$p.value, 3), "\n")
+if (nrow(species_data) >= 3) {
+  # Inverse-variance weighting (more precise estimates get more weight)
+  weights <- 1 / (species_data$se^2)
+  weighted_mean_beta <- sum(species_data$beta * weights) / sum(weights)
+  weighted_se <- sqrt(1 / sum(weights))
 
-  if (t_test$p.value < 0.05 && mean(species_betas) < 1) {
+  # 95% CI for weighted mean
+  weighted_ci_lower <- weighted_mean_beta - 1.96 * weighted_se
+  weighted_ci_upper <- weighted_mean_beta + 1.96 * weighted_se
+
+  # Z-test: does weighted mean differ from 1?
+  z_stat <- (weighted_mean_beta - 1) / weighted_se
+  p_val_weighted <- 2 * pnorm(-abs(z_stat))
+
+  cat("\nSPECIES-LEVEL WEIGHTED META-ANALYSIS (H0: mean β = 1):\n")
+  cat("  Weighted mean β =", round(weighted_mean_beta, 3), "\n")
+  cat("  95% CI: [", round(weighted_ci_lower, 3), ",", round(weighted_ci_upper, 3), "]\n")
+  cat("  z =", round(z_stat, 2), ", p =", format.pval(p_val_weighted, 3), "\n")
+  cat("  n species:", nrow(species_data), "\n")
+
+  # Heterogeneity: I² statistic
+  Q_stat <- sum(weights * (species_data$beta - weighted_mean_beta)^2)
+  df_Q <- nrow(species_data) - 1
+  I2 <- max(0, (Q_stat - df_Q) / Q_stat) * 100
+  cat("  Heterogeneity: I² =", round(I2, 1), "% (Q =", round(Q_stat, 1), ", df =", df_Q, ")\n")
+
+  if (p_val_weighted < 0.05 && weighted_mean_beta < 1) {
     cat("  Conclusion: Species on average show REDISTRIBUTION (β < 1)\n")
-  } else if (t_test$p.value < 0.05 && mean(species_betas) > 1) {
+  } else if (p_val_weighted < 0.05 && weighted_mean_beta > 1) {
     cat("  Conclusion: Species on average show SUPER-LINEAR scaling (β > 1)\n")
   } else {
     cat("  Conclusion: Species on average support FIELD OF DREAMS (β ≈ 1)\n")
   }
+
+  # Also report unweighted t-test for comparison (with caveat)
+  species_betas <- species_data$beta
+  t_test <- t.test(species_betas, mu = 1)
+  cat("\n  [Unweighted t-test for comparison - interpret cautiously due to precision heterogeneity]\n")
+  cat("  Unweighted mean β =", round(mean(species_betas), 3), "±", round(sd(species_betas)/sqrt(length(species_betas)), 3), "\n")
+  cat("  t =", round(t_test$statistic, 2), ", df =", round(t_test$parameter, 1),
+      ", p =", format.pval(t_test$p.value, 3), "\n")
+
+  # Store for summary
+  meta_results <- list(
+    weighted_mean = weighted_mean_beta,
+    weighted_se = weighted_se,
+    weighted_ci = c(weighted_ci_lower, weighted_ci_upper),
+    z_stat = z_stat,
+    p_val = p_val_weighted,
+    I2 = I2,
+    n_species = nrow(species_data)
+  )
 } else {
   t_test <- NULL
+  meta_results <- NULL
+  species_betas <- NULL
 }
 
 # ############################################################################
@@ -1332,9 +1373,11 @@ cat("   β =", round(richness_result$beta, 3), "[", round(richness_result$ci_low
 cat("   Interpretation:", richness_result$interpretation, "\n\n")
 
 cat("3. SPECIES-LEVEL PATTERNS:\n")
-if (!is.null(t_test)) {
-  cat("   Mean β =", round(mean(species_betas), 3), "\n")
-  cat("   T-test (H0: β = 1): p =", format.pval(t_test$p.value, 3), "\n")
+if (!is.null(meta_results)) {
+  cat("   Weighted mean β =", round(meta_results$weighted_mean, 3), "\n")
+  cat("   95% CI: [", round(meta_results$weighted_ci[1], 3), ",", round(meta_results$weighted_ci[2], 3), "]\n")
+  cat("   Meta-analysis (H0: β = 1): p =", format.pval(meta_results$p_val, 3), "\n")
+  cat("   Heterogeneity I² =", round(meta_results$I2, 1), "%\n")
 }
 cat("   Distribution:\n")
 for (i in 1:nrow(interpretation_summary)) {

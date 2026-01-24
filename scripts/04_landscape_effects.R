@@ -954,6 +954,15 @@ glmm_richness_reduced <- backward_aic(glmm_richness, "poisson")
 cat("\nReduced Richness Model:\n")
 print(summary(glmm_richness_reduced))
 
+# --- Statistical note: Post-selection inference ---
+cat("\n")
+cat("*** STATISTICAL NOTE: POST-SELECTION INFERENCE ***\n")
+cat("The p-values and CIs above are from models AFTER AIC-based variable selection.\n")
+cat("This can bias p-values downward and CIs narrower than they should be.\n")
+cat("For robust inference, compare with full model p-values (Part 9 above) and\n")
+cat("interpret marginal results (0.01 < p < 0.10) cautiously.\n")
+cat("Cross-validation (Part 9C.9) provides out-of-sample predictive assessment.\n\n")
+
 # ============================================================================
 # PART 9C: MODEL DIAGNOSTICS (Publication-Ready)
 # ============================================================================
@@ -1241,6 +1250,69 @@ if (requireNamespace("DHARMa", quietly = TRUE)) {
   cat("  Saved: dharma_diagnostics.png\n\n")
 } else {
   cat("  DHARMa package not available - install with install.packages('DHARMa')\n\n")
+}
+
+# ---- 9C.9 Leave-One-Out Cross-Validation ----
+cat("9C.9 Leave-One-Out Cross-Validation (LOOCV):\n")
+cat("     Assesses out-of-sample predictive performance with n =", nrow(landscape_data_scaled), "\n\n")
+
+# LOOCV for abundance model
+loocv_abund <- tryCatch({
+  preds <- numeric(nrow(landscape_data_scaled))
+  for (i in 1:nrow(landscape_data_scaled)) {
+    train_data <- landscape_data_scaled[-i, ]
+    test_data <- landscape_data_scaled[i, , drop = FALSE]
+
+    # Fit on training data
+    m_cv <- glm.nb(total_cafi ~ log_volume_scaled + site, data = train_data)
+
+    # Predict on held-out observation
+    preds[i] <- predict(m_cv, newdata = test_data, type = "response")
+  }
+
+  obs <- landscape_data_scaled$total_cafi
+  rmse <- sqrt(mean((obs - preds)^2))
+  mae <- mean(abs(obs - preds))
+  cor_cv <- cor(obs, preds, method = "spearman")
+
+  list(rmse = rmse, mae = mae, cor = cor_cv, preds = preds, success = TRUE)
+}, error = function(e) list(success = FALSE, error = e$message))
+
+if (loocv_abund$success) {
+  cat("  Abundance (NB) LOOCV:\n")
+  cat("    RMSE:", round(loocv_abund$rmse, 2), "individuals\n")
+  cat("    MAE:", round(loocv_abund$mae, 2), "individuals\n")
+  cat("    Spearman r (obs vs pred):", round(loocv_abund$cor, 3), "\n\n")
+} else {
+  cat("  Abundance LOOCV failed:", loocv_abund$error, "\n\n")
+}
+
+# LOOCV for richness model
+loocv_rich <- tryCatch({
+  preds <- numeric(nrow(landscape_data_scaled))
+  for (i in 1:nrow(landscape_data_scaled)) {
+    train_data <- landscape_data_scaled[-i, ]
+    test_data <- landscape_data_scaled[i, , drop = FALSE]
+
+    m_cv <- glm(otu_richness ~ log_volume_scaled + site, family = poisson, data = train_data)
+    preds[i] <- predict(m_cv, newdata = test_data, type = "response")
+  }
+
+  obs <- landscape_data_scaled$otu_richness
+  rmse <- sqrt(mean((obs - preds)^2))
+  mae <- mean(abs(obs - preds))
+  cor_cv <- cor(obs, preds, method = "spearman")
+
+  list(rmse = rmse, mae = mae, cor = cor_cv, preds = preds, success = TRUE)
+}, error = function(e) list(success = FALSE, error = e$message))
+
+if (loocv_rich$success) {
+  cat("  Richness (Poisson) LOOCV:\n")
+  cat("    RMSE:", round(loocv_rich$rmse, 2), "species\n")
+  cat("    MAE:", round(loocv_rich$mae, 2), "species\n")
+  cat("    Spearman r (obs vs pred):", round(loocv_rich$cor, 3), "\n\n")
+} else {
+  cat("  Richness LOOCV failed:", loocv_rich$error, "\n\n")
 }
 
 # ---- Extract Results from REDUCED Models ----

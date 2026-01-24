@@ -350,6 +350,9 @@ for (pred in cafi_predictors) {
 cafi_to_condition_df <- bind_rows(cafi_to_condition_results)
 
 # Apply FDR correction for multiple testing (7 CAFI metrics tested)
+# NOTE: FDR is applied within predictor families (CAFI→Condition, Condition→CAFI,
+# Key Species) rather than across all 20 tests. This assumes the three directions
+# represent distinct hypotheses. A more conservative approach would pool all tests.
 cafi_to_condition_df <- cafi_to_condition_df %>%
   mutate(
     p_fdr = p.adjust(p_value, method = "BH"),
@@ -357,7 +360,7 @@ cafi_to_condition_df <- cafi_to_condition_df %>%
     significant = p_value < 0.05  # Keep unadjusted for reference
   )
 
-cat("\nFDR-corrected significance (Benjamini-Hochberg):\n")
+cat("\nFDR-corrected significance (Benjamini-Hochberg, within CAFI→Condition family):\n")
 for (i in 1:nrow(cafi_to_condition_df)) {
   row <- cafi_to_condition_df[i, ]
   fdr_star <- ifelse(row$significant_fdr, " *FDR-SIG*", "")
@@ -516,6 +519,7 @@ for (resp in cafi_responses) {
 condition_to_cafi_df <- bind_rows(condition_to_cafi_results)
 
 # Apply FDR correction for multiple testing (7 reverse tests)
+# (Same family-wise approach as CAFI→Condition; see note above)
 condition_to_cafi_df <- condition_to_cafi_df %>%
   mutate(
     p_fdr = p.adjust(p_value, method = "BH"),
@@ -523,7 +527,7 @@ condition_to_cafi_df <- condition_to_cafi_df %>%
     significant = p_value < 0.05
   )
 
-cat("\nFDR-corrected significance (Benjamini-Hochberg):\n")
+cat("\nFDR-corrected significance (Benjamini-Hochberg, within Condition→CAFI family):\n")
 for (i in 1:nrow(condition_to_cafi_df)) {
   row <- condition_to_cafi_df[i, ]
   fdr_star <- ifelse(row$significant_fdr, " *FDR-SIG*", "")
@@ -1216,6 +1220,30 @@ if (nrow(neighborhood_condition) >= 20) {
   cat("    Volume × Neighborhood:       β =", round(coef_m2["log_volume_scaled:n_neighbors_scaled", "Estimate"], 3),
       ", t =", round(coef_m2["log_volume_scaled:n_neighbors_scaled", "t value"], 2),
       ", p =", round(coef_m2["log_volume_scaled:n_neighbors_scaled", "Pr(>|t|)"], 4), "\n\n")
+
+  # Post-hoc power analysis for n_neighbors null result
+  # Using the observed effect size and sample size to assess what effect we could have detected
+  n_cond <- nrow(neighborhood_cond)
+  beta_neighbors <- coef_m2["n_neighbors_scaled", "Estimate"]
+  se_neighbors <- coef_m2["n_neighbors_scaled", "Std. Error"]
+  residual_sd <- summary_m2$sigma
+
+  # Minimum detectable effect (MDE) at 80% power, α = 0.05, two-sided
+  # For standardized predictor: MDE ≈ 2.8 * σ_resid / sqrt(n)
+  critical_t <- qt(0.975, df = n_cond - 5)  # 5 params: intercept, vol, neighbors, interaction, 2 sites
+  power_80_effect <- critical_t * se_neighbors + 0.84 * se_neighbors  # 80% power approximation
+
+  cat("  POST-HOC POWER ANALYSIS (neighborhood effect on condition):\n")
+  cat("    Sample size: n =", n_cond, "\n")
+  cat("    Observed β =", round(beta_neighbors, 3), "(SE =", round(se_neighbors, 3), ")\n")
+  cat("    Residual SD =", round(residual_sd, 3), "\n")
+  cat("    Minimum detectable effect (80% power, α = 0.05): |β| ≥", round(power_80_effect, 3), "\n")
+  if (abs(beta_neighbors) < power_80_effect) {
+    cat("    → Study was UNDERPOWERED to detect effects smaller than", round(power_80_effect, 3), "\n")
+    cat("    → The null result should be interpreted as 'insufficient evidence', not 'no effect'\n\n")
+  } else {
+    cat("    → Study had adequate power; null result suggests truly small/absent effect\n\n")
+  }
 
 } else {
   m_condition_neighborhood <- NULL
