@@ -443,8 +443,15 @@ run_reverse_model <- function(data, response_name, response_col, use_nb = TRUE) 
       stat_val <- t_val
     }
 
-    ci_lower <- estimate - 1.96 * se
-    ci_upper <- estimate + 1.96 * se
+    # Use t-quantile for linear models (small-sample correction), z for NB GLMs
+    if (stat_type == "t") {
+      df_resid <- model_summary$df[2]
+      crit_val <- qt(0.975, df_resid)
+    } else {
+      crit_val <- 1.96  # Wald z for NB GLM
+    }
+    ci_lower <- estimate - crit_val * se
+    ci_upper <- estimate + crit_val * se
 
     result <- data.frame(
       direction = "Condition -> CAFI",
@@ -1792,7 +1799,7 @@ if (nrow(sig_reverse) > 0) {
   }
 } else {
   cat("   Condition does not significantly predict any CAFI metric\n")
-  cat("   (Reverse causation not supported)\n")
+  cat("   (Reverse direction not supported)\n")
 }
 cat("\n")
 
@@ -1845,7 +1852,7 @@ cat("INTERPRETATION:\n")
 cat("---------------\n")
 cat("1. CAFI effects on condition: Correlational evidence only\n")
 cat("2. Experimental manipulation needed to establish causation\n")
-cat("3. Reverse causation test: If condition predicts CAFI,\n")
+cat("3. Reverse direction test: If condition predicts CAFI,\n")
 cat("   then healthier corals may attract more associates\n")
 cat("4. Bidirectional feedbacks possible but require longitudinal data\n")
 cat("5. Key species: Survey results compared to experimental predictions\n\n")

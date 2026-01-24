@@ -121,8 +121,16 @@ cafi_clean <- cafi_raw %>%
 
     # Functional group
     functional_group = map2_chr(otu, type, assign_functional_group)
-  ) %>%
-  filter(!is.na(site))
+  )
+
+# Check for unmatched coral_ids before filtering
+n_no_site <- sum(is.na(cafi_clean$site))
+if (n_no_site > 0) {
+  warning(sprintf("DATA LOSS: %d CAFI records dropped (coral_id did not match MRB/HAU/MAT pattern)",
+                  n_no_site))
+  cat("   WARNING:", n_no_site, "records dropped (unrecognized coral_id pattern)\n")
+}
+cafi_clean <- cafi_clean %>% filter(!is.na(site))
 
 cat("   Clean records:", nrow(cafi_clean), "\n")
 cat("   Unique OTUs:", n_distinct(cafi_clean$otu), "\n")
@@ -151,7 +159,7 @@ cafi_by_coral <- cafi_clean %>%
     n_fish    = sum(type == "fish"),
     n_snails  = sum(type == "snail"),
 
-    mean_cafi_size = mean(size_mm, na.rm = TRUE),
+    mean_cafi_size = if (all(is.na(size_mm))) NA_real_ else mean(size_mm, na.rm = TRUE),
     .groups = "drop"
   )
 
@@ -246,6 +254,10 @@ coral_master <- coral_clean %>%
     shannon_diversity = shannon
   )
 
+# Log size class boundaries for reproducibility
+size_breaks <- quantile(coral_master$volume, c(0, 0.33, 0.67, 1), na.rm = TRUE)
+cat("   Size class breaks (volume cm³):", paste(round(size_breaks, 1), collapse = " | "), "\n")
+cat("   Size class distribution:", paste(table(coral_master$size_class), collapse = "/"), "\n")
 cat("   Master dataset:", nrow(coral_master), "corals,", ncol(coral_master), "variables\n\n")
 
 # --- Data validation after join ---

@@ -87,8 +87,9 @@ cat("\n    Kruskal-Wallis H:", round(kw_test$statistic, 2),
     ", df:", kw_test$parameter,
     ", p:", format.pval(kw_test$p.value, 3), "\n")
 
-# Effect size (epsilon-squared)
-epsilon_sq <- kw_test$statistic / (nrow(coral_master) - 1)
+# Effect size (epsilon-squared): (H - k + 1) / (N - k)
+k_groups <- length(unique(coral_master$site))
+epsilon_sq <- (kw_test$statistic - k_groups + 1) / (nrow(coral_master) - k_groups)
 cat("    Effect size (epsilon²):", round(epsilon_sq, 3),
     ifelse(epsilon_sq < 0.01, "(negligible)",
            ifelse(epsilon_sq < 0.06, "(small)",
@@ -1160,9 +1161,9 @@ sensitivity_results <- lapply(names(distance_configs), function(metric_name) {
 
     trend_df <- data.frame(
       dist_to_centroid = disp_result$distances,
-      size_numeric = as.numeric(coral_nz$size_class)
+      log_volume = log10(coral_nz$volume)
     )
-    trend_lm <- lm(dist_to_centroid ~ size_numeric, data = trend_df)
+    trend_lm <- lm(dist_to_centroid ~ log_volume, data = trend_df)
     trend_s <- summary(trend_lm)
     trend_beta <- coef(trend_lm)[2]
     trend_p <- trend_s$coefficients[2, "Pr(>|t|)"]
