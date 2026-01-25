@@ -116,9 +116,19 @@ cat("     Species retained:", ncol(comm_filtered), "of", ncol(comm_binary), "\n\
 # use deviance residuals as volume-corrected presence values.
 cat("1.2 Residualizing species presence on coral volume...\n")
 
+# Filter to corals that exist in coral_master (some community matrix rows may not match)
+matched_corals <- rownames(comm_filtered) %in% coral_master$coral_id
+if (sum(!matched_corals) > 0) {
+  cat("     Excluding", sum(!matched_corals), "corals not in coral_master\n")
+  comm_filtered <- comm_filtered[matched_corals, , drop = FALSE]
+}
+
 # Get volume for each coral (rows of community_matrix match coral_master)
 volume_vec <- coral_master$volume_field[match(rownames(comm_filtered), coral_master$coral_id)]
 log_volume <- log10(volume_vec)
+
+# Verify no NAs in volume
+stopifnot("All corals must have volume" = !any(is.na(log_volume)))
 
 # Compute deviance residuals for each species
 residual_matrix <- matrix(NA, nrow = nrow(comm_filtered), ncol = ncol(comm_filtered))
