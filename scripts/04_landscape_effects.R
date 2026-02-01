@@ -71,7 +71,7 @@ landscape_data <- coral_master %>%
   ) %>%
   mutate(
     # Log transformations
-    log_volume = log10(volume),
+    log_volume = log(volume),
     log_cafi = log10(total_cafi + 1),
 
     # Proximity in meters
@@ -132,18 +132,18 @@ cat("------------------------------------------------------------\n\n")
 # 1.1 CAFI Abundance vs Volume (Power-law)
 cat("1.1 CAFI Abundance ~ Coral Volume:\n")
 
-m_abund_vol <- glm.nb(total_cafi ~ log10(volume) + site, data = landscape_data)
+m_abund_vol <- glm.nb(total_cafi ~ log(volume) + site, data = landscape_data)
 m_summary <- summary(m_abund_vol)
 
-slope <- coef(m_abund_vol)["log10(volume)"]
-slope_se <- sqrt(vcov(m_abund_vol)["log10(volume)", "log10(volume)"])
-slope_ci <- confint(m_abund_vol)["log10(volume)", ]
+slope <- coef(m_abund_vol)["log(volume)"]
+slope_se <- sqrt(vcov(m_abund_vol)["log(volume)", "log(volume)"])
+slope_ci <- confint(m_abund_vol)["log(volume)", ]
 
 cat("    Scaling exponent (β):", round(slope, 3), "\n")
 cat("    95% CI: [", round(slope_ci[1], 3), ",", round(slope_ci[2], 3), "]\n")
 cat("    SE:", round(slope_se, 3), "\n")
-cat("    z-value:", round(m_summary$coefficients["log10(volume)", "z value"], 2), "\n")
-cat("    p-value:", format.pval(m_summary$coefficients["log10(volume)", "Pr(>|z|)"], 3), "\n")
+cat("    z-value:", round(m_summary$coefficients["log(volume)", "z value"], 2), "\n")
+cat("    p-value:", format.pval(m_summary$coefficients["log(volume)", "Pr(>|z|)"], 3), "\n")
 
 # Test β ≠ 1
 z_vs_1 <- (slope - 1) / slope_se
@@ -156,35 +156,35 @@ cat("    Interpretation:", ifelse(p_vs_1 < 0.05 & slope < 1, "Propagule dilution
 # 1.2 Species Richness vs Volume
 cat("1.2 Species Richness ~ Coral Volume:\n")
 
-m_rich_vol <- glm(otu_richness ~ log10(volume) + site, family = poisson, data = landscape_data)
+m_rich_vol <- glm(otu_richness ~ log(volume) + site, family = poisson, data = landscape_data)
 m_rich_summary <- summary(m_rich_vol)
 
-cat("    β =", round(coef(m_rich_vol)["log10(volume)"], 3),
-    ", z =", round(m_rich_summary$coefficients["log10(volume)", "z value"], 2),
-    ", p =", format.pval(m_rich_summary$coefficients["log10(volume)", "Pr(>|z|)"], 3), "\n")
+cat("    β =", round(coef(m_rich_vol)["log(volume)"], 3),
+    ", z =", round(m_rich_summary$coefficients["log(volume)", "z value"], 2),
+    ", p =", format.pval(m_rich_summary$coefficients["log(volume)", "Pr(>|z|)"], 3), "\n")
 
 # Overdispersion check
 dispersion_ratio_rich <- sum(residuals(m_rich_vol, type = "pearson")^2) / m_rich_vol$df.residual
 cat("    Overdispersion (Pearson X²/df):", round(dispersion_ratio_rich, 2),
     ifelse(dispersion_ratio_rich > 1.5, " [OVERDISPERSED]", " [OK]"), "\n")
 if (dispersion_ratio_rich > 1.5) {
-  m_rich_vol <- glm(otu_richness ~ log10(volume) + site, family = quasipoisson, data = landscape_data)
+  m_rich_vol <- glm(otu_richness ~ log(volume) + site, family = quasipoisson, data = landscape_data)
   m_rich_summary <- summary(m_rich_vol)
-  cat("    Switched to quasi-Poisson: β =", round(coef(m_rich_vol)["log10(volume)"], 3),
-      ", t =", round(m_rich_summary$coefficients["log10(volume)", "t value"], 2),
-      ", p =", format.pval(m_rich_summary$coefficients["log10(volume)", "Pr(>|t|)"], 3), "\n")
+  cat("    Switched to quasi-Poisson: β =", round(coef(m_rich_vol)["log(volume)"], 3),
+      ", t =", round(m_rich_summary$coefficients["log(volume)", "t value"], 2),
+      ", p =", format.pval(m_rich_summary$coefficients["log(volume)", "Pr(>|t|)"], 3), "\n")
 }
 cat("\n")
 
 # 1.3 Shannon Diversity vs Volume
 cat("1.3 Shannon Diversity ~ Coral Volume:\n")
 
-m_shan_vol <- lm(shannon ~ log10(volume) + site, data = landscape_data)
+m_shan_vol <- lm(shannon ~ log(volume) + site, data = landscape_data)
 m_shan_summary <- summary(m_shan_vol)
 
-cat("    β =", round(coef(m_shan_vol)["log10(volume)"], 3),
-    ", t(", m_shan_summary$df[2], ") =", round(m_shan_summary$coefficients["log10(volume)", "t value"], 2),
-    ", p =", format.pval(m_shan_summary$coefficients["log10(volume)", "Pr(>|t|)"], 3),
+cat("    β =", round(coef(m_shan_vol)["log(volume)"], 3),
+    ", t(", m_shan_summary$df[2], ") =", round(m_shan_summary$coefficients["log(volume)", "t value"], 2),
+    ", p =", format.pval(m_shan_summary$coefficients["log(volume)", "Pr(>|t|)"], 3),
     ", R² =", round(m_shan_summary$r.squared, 3), "\n\n")
 
 # Figure: Size effects panel
@@ -236,7 +236,7 @@ cat("------------------------------------------------------------\n\n")
 # 2.1 Neighbor count effect on abundance
 cat("2.1 Neighbor Count Effect:\n")
 
-m_neighbors <- glm.nb(total_cafi ~ n_neighbors + log10(volume) + site, data = landscape_data)
+m_neighbors <- glm.nb(total_cafi ~ n_neighbors + log(volume) + site, data = landscape_data)
 m_neigh_summary <- summary(m_neighbors)
 
 cat("    β =", round(coef(m_neighbors)["n_neighbors"], 4),
@@ -244,7 +244,7 @@ cat("    β =", round(coef(m_neighbors)["n_neighbors"], 4),
     ", p =", format.pval(m_neigh_summary$coefficients["n_neighbors", "Pr(>|z|)"], 3), "\n")
 
 # Does adding neighbors improve model?
-m_size_only <- glm.nb(total_cafi ~ log10(volume) + site, data = landscape_data)
+m_size_only <- glm.nb(total_cafi ~ log(volume) + site, data = landscape_data)
 lrt <- anova(m_size_only, m_neighbors, test = "Chisq")
 cat("    LRT vs size-only: χ² =", round(lrt$`LR stat.`[2], 2),
     ", p =", format.pval(lrt$`Pr(Chi)`[2], 3), "\n\n")
@@ -287,7 +287,7 @@ cat("------------------------------------------------------------\n\n")
 # 3.1 Total neighbor volume
 cat("3.1 Total Neighbor Volume Effect:\n")
 
-m_neigh_vol <- glm.nb(total_cafi ~ log10(total_neighbor_volume + 1) + log10(volume) + site,
+m_neigh_vol <- glm.nb(total_cafi ~ log10(total_neighbor_volume + 1) + log(volume) + site,
                       data = landscape_data)
 m_nvol_summary <- summary(m_neigh_vol)
 
@@ -320,7 +320,7 @@ cat("------------------------------------------------------------\n\n")
 # 4.1 Mean neighbor distance
 cat("4.1 Mean Neighbor Distance Effect:\n")
 
-m_distance <- glm.nb(total_cafi ~ mean_neighbor_dist + log10(volume) + site, data = landscape_data)
+m_distance <- glm.nb(total_cafi ~ mean_neighbor_dist + log(volume) + site, data = landscape_data)
 m_dist_summary <- summary(m_distance)
 
 cat("    β =", round(coef(m_distance)["mean_neighbor_dist"], 5),
@@ -355,14 +355,14 @@ cat("------------------------------------------------------------\n\n")
 # 5.1 Full model for CAFI Abundance
 cat("5.1 Full Model: CAFI Abundance ~ All 4 Predictors\n")
 
-m_abund_full <- glm.nb(total_cafi ~ log10(volume) + n_neighbors +
+m_abund_full <- glm.nb(total_cafi ~ log(volume) + n_neighbors +
                         log10(total_neighbor_volume + 1) + mean_neighbor_dist + site,
                        data = landscape_data)
 m_abund_full_summary <- summary(m_abund_full)
 
 cat("\n    Coefficients:\n")
 coef_table <- data.frame(
-  Predictor = c("log10(volume)", "n_neighbors", "log10(neighbor_vol)", "mean_neighbor_dist"),
+  Predictor = c("log(volume)", "n_neighbors", "log10(neighbor_vol)", "mean_neighbor_dist"),
   Beta = round(coef(m_abund_full)[2:5], 4),
   SE = round(m_abund_full_summary$coefficients[2:5, "Std. Error"], 4),
   z = round(m_abund_full_summary$coefficients[2:5, "z value"], 2),
@@ -381,14 +381,14 @@ cat("      Pseudo-R² (McFadden):", round(calc_pseudo_r2(m_abund_full), 4), "\n\
 # 5.2 Full model for Species Richness
 cat("5.2 Full Model: Species Richness ~ All 4 Predictors\n")
 
-m_rich_full <- glm(otu_richness ~ log10(volume) + n_neighbors +
+m_rich_full <- glm(otu_richness ~ log(volume) + n_neighbors +
                     log10(total_neighbor_volume + 1) + mean_neighbor_dist + site,
                    family = poisson, data = landscape_data)
 m_rich_full_summary <- summary(m_rich_full)
 
 cat("\n    Coefficients:\n")
 coef_table_rich <- data.frame(
-  Predictor = c("log10(volume)", "n_neighbors", "log10(neighbor_vol)", "mean_neighbor_dist"),
+  Predictor = c("log(volume)", "n_neighbors", "log10(neighbor_vol)", "mean_neighbor_dist"),
   Beta = round(coef(m_rich_full)[2:5], 4),
   SE = round(m_rich_full_summary$coefficients[2:5, "Std. Error"], 4),
   z = round(m_rich_full_summary$coefficients[2:5, "z value"], 2),
@@ -405,14 +405,14 @@ cat("\n    Overdispersion ratio:", round(overdispersion, 2),
 # 5.3 Full model for Shannon Diversity
 cat("5.3 Full Model: Shannon H' ~ All 4 Predictors\n")
 
-m_shan_full <- lm(shannon ~ log10(volume) + n_neighbors +
+m_shan_full <- lm(shannon ~ log(volume) + n_neighbors +
                    log10(total_neighbor_volume + 1) + mean_neighbor_dist + site,
                   data = landscape_data)
 m_shan_full_summary <- summary(m_shan_full)
 
 cat("\n    Coefficients:\n")
 coef_table_shan <- data.frame(
-  Predictor = c("log10(volume)", "n_neighbors", "log10(neighbor_vol)", "mean_neighbor_dist"),
+  Predictor = c("log(volume)", "n_neighbors", "log10(neighbor_vol)", "mean_neighbor_dist"),
   Beta = round(coef(m_shan_full)[2:5], 4),
   SE = round(m_shan_full_summary$coefficients[2:5, "Std. Error"], 4),
   t = round(m_shan_full_summary$coefficients[2:5, "t value"], 2),
@@ -445,13 +445,13 @@ calc_r2 <- function(model, null) {
 cat("6.1 CAFI Abundance Models:\n\n")
 
 m_null <- glm.nb(total_cafi ~ site, data = landscape_data)
-m_size <- glm.nb(total_cafi ~ log10(volume) + site, data = landscape_data)
-m_size_neighbors <- glm.nb(total_cafi ~ log10(volume) + n_neighbors + site,
+m_size <- glm.nb(total_cafi ~ log(volume) + site, data = landscape_data)
+m_size_neighbors <- glm.nb(total_cafi ~ log(volume) + n_neighbors + site,
                            data = landscape_data)
-m_size_neigh_vol <- glm.nb(total_cafi ~ log10(volume) + n_neighbors +
+m_size_neigh_vol <- glm.nb(total_cafi ~ log(volume) + n_neighbors +
                             log10(total_neighbor_volume + 1) + site,
                            data = landscape_data)
-m_full <- glm.nb(total_cafi ~ log10(volume) + n_neighbors +
+m_full <- glm.nb(total_cafi ~ log(volume) + n_neighbors +
                   log10(total_neighbor_volume + 1) + mean_neighbor_dist + site,
                  data = landscape_data)
 
@@ -514,9 +514,9 @@ cat("    Neighborhood adds:", round(delta_r2 * 100, 2), "% additional R²\n\n")
 cat("6.2 Species Richness Models:\n\n")
 
 m_rich_null <- glm(otu_richness ~ site, family = poisson, data = landscape_data)
-m_rich_size <- glm(otu_richness ~ log10(volume) + site, family = poisson,
+m_rich_size <- glm(otu_richness ~ log(volume) + site, family = poisson,
                    data = landscape_data)
-m_rich_full <- glm(otu_richness ~ log10(volume) + n_neighbors +
+m_rich_full <- glm(otu_richness ~ log(volume) + n_neighbors +
                     log10(total_neighbor_volume + 1) + mean_neighbor_dist + site,
                    family = poisson, data = landscape_data)
 
@@ -533,8 +533,8 @@ cat("    LRT (Size vs Full): χ² =", round(lrt_rich$Deviance[2], 2),
 cat("6.3 Shannon Diversity Models:\n\n")
 
 m_shan_null <- lm(shannon ~ site, data = landscape_data)
-m_shan_size <- lm(shannon ~ log10(volume) + site, data = landscape_data)
-m_shan_full <- lm(shannon ~ log10(volume) + n_neighbors +
+m_shan_size <- lm(shannon ~ log(volume) + site, data = landscape_data)
+m_shan_full <- lm(shannon ~ log(volume) + n_neighbors +
                    log10(total_neighbor_volume + 1) + mean_neighbor_dist + site,
                   data = landscape_data)
 
@@ -560,14 +560,14 @@ cat("Does the effect of neighborhood depend on coral size?\n\n")
 # 7.1 Size × Neighbor count interaction
 cat("7.1 Abundance ~ Size × Neighbor Count:\n")
 
-m_int_neighbors <- glm.nb(total_cafi ~ log10(volume) * n_neighbors + site,
+m_int_neighbors <- glm.nb(total_cafi ~ log(volume) * n_neighbors + site,
                           data = landscape_data)
 m_int_neigh_summary <- summary(m_int_neighbors)
 
-int_coef <- coef(m_int_neighbors)["log10(volume):n_neighbors"]
-int_se <- m_int_neigh_summary$coefficients["log10(volume):n_neighbors", "Std. Error"]
-int_z <- m_int_neigh_summary$coefficients["log10(volume):n_neighbors", "z value"]
-int_p <- m_int_neigh_summary$coefficients["log10(volume):n_neighbors", "Pr(>|z|)"]
+int_coef <- coef(m_int_neighbors)["log(volume):n_neighbors"]
+int_se <- m_int_neigh_summary$coefficients["log(volume):n_neighbors", "Std. Error"]
+int_z <- m_int_neigh_summary$coefficients["log(volume):n_neighbors", "z value"]
+int_p <- m_int_neigh_summary$coefficients["log(volume):n_neighbors", "Pr(>|z|)"]
 
 cat("    Interaction β =", round(int_coef, 4),
     ", z =", round(int_z, 2),
@@ -579,12 +579,12 @@ cat("    Interpretation:", ifelse(int_p < 0.05,
 # 7.2 Size × Neighbor volume interaction
 cat("7.2 Abundance ~ Size × Neighbor Volume:\n")
 
-m_int_vol <- glm.nb(total_cafi ~ log10(volume) * log10(total_neighbor_volume + 1) + site,
+m_int_vol <- glm.nb(total_cafi ~ log(volume) * log10(total_neighbor_volume + 1) + site,
                     data = landscape_data)
 m_int_vol_summary <- summary(m_int_vol)
 
-int_coef_vol <- coef(m_int_vol)["log10(volume):log10(total_neighbor_volume + 1)"]
-int_p_vol <- m_int_vol_summary$coefficients["log10(volume):log10(total_neighbor_volume + 1)", "Pr(>|z|)"]
+int_coef_vol <- coef(m_int_vol)["log(volume):log10(total_neighbor_volume + 1)"]
+int_p_vol <- m_int_vol_summary$coefficients["log(volume):log10(total_neighbor_volume + 1)", "Pr(>|z|)"]
 
 cat("    Interaction β =", round(int_coef_vol, 4),
     ", p =", format.pval(int_p_vol, 3), "\n")
@@ -595,12 +595,12 @@ cat("    Interpretation:", ifelse(int_p_vol < 0.05,
 # 7.3 Size × Distance interaction
 cat("7.3 Abundance ~ Size × Distance:\n")
 
-m_int_dist <- glm.nb(total_cafi ~ log10(volume) * mean_neighbor_dist + site,
+m_int_dist <- glm.nb(total_cafi ~ log(volume) * mean_neighbor_dist + site,
                      data = landscape_data)
 m_int_dist_summary <- summary(m_int_dist)
 
-int_coef_dist <- coef(m_int_dist)["log10(volume):mean_neighbor_dist"]
-int_p_dist <- m_int_dist_summary$coefficients["log10(volume):mean_neighbor_dist", "Pr(>|z|)"]
+int_coef_dist <- coef(m_int_dist)["log(volume):mean_neighbor_dist"]
+int_p_dist <- m_int_dist_summary$coefficients["log(volume):mean_neighbor_dist", "Pr(>|z|)"]
 
 cat("    Interaction β =", round(int_coef_dist, 6),
     ", p =", format.pval(int_p_dist, 3), "\n")
@@ -624,18 +624,18 @@ for (fg in functional_groups) {
     cat(paste0("8.", which(functional_groups == fg), " ", gsub("n_", "", fg), ":\n"))
 
     fg_model <- tryCatch({
-      glm.nb(as.formula(paste(fg, "~ log10(volume) + n_neighbors + site")),
+      glm.nb(as.formula(paste(fg, "~ log(volume) + n_neighbors + site")),
              data = landscape_data)
     }, error = function(e) {
       cat("    [Note: NB failed for", fg, "- using Poisson fallback]\n")
-      glm(as.formula(paste(fg, "~ log10(volume) + n_neighbors + site")),
+      glm(as.formula(paste(fg, "~ log(volume) + n_neighbors + site")),
           family = poisson, data = landscape_data)
     })
 
     fg_summary <- summary(fg_model)
 
-    vol_coef <- coef(fg_model)["log10(volume)"]
-    vol_p <- fg_summary$coefficients["log10(volume)", ncol(fg_summary$coefficients)]
+    vol_coef <- coef(fg_model)["log(volume)"]
+    vol_p <- fg_summary$coefficients["log(volume)", ncol(fg_summary$coefficients)]
     neigh_coef <- coef(fg_model)["n_neighbors"]
     neigh_p <- fg_summary$coefficients["n_neighbors", ncol(fg_summary$coefficients)]
 
@@ -694,11 +694,11 @@ cat("  Saved: landscape_effects_summary.png\n")
 # Create coefficient forest plot
 coef_data <- tibble(
   predictor = c("Coral Volume", "Neighbor Count", "Neighbor Volume", "Neighbor Distance"),
-  beta = c(coef(m_abund_full)["log10(volume)"],
+  beta = c(coef(m_abund_full)["log(volume)"],
            coef(m_abund_full)["n_neighbors"],
            coef(m_abund_full)["log10(total_neighbor_volume + 1)"],
            coef(m_abund_full)["mean_neighbor_dist"]),
-  se = c(m_abund_full_summary$coefficients["log10(volume)", "Std. Error"],
+  se = c(m_abund_full_summary$coefficients["log(volume)", "Std. Error"],
          m_abund_full_summary$coefficients["n_neighbors", "Std. Error"],
          m_abund_full_summary$coefficients["log10(total_neighbor_volume + 1)", "Std. Error"],
          m_abund_full_summary$coefficients["mean_neighbor_dist", "Std. Error"]),
@@ -735,6 +735,13 @@ ggsave(file.path(FIG_DIR, "abundance_vs_volume.png"), p_size_abund,
        width = 7, height = 5, dpi = 300, bg = "white")
 ggsave(file.path(FIG_DIR, "abundance_vs_neighbors.png"), p_neighbor_count,
        width = 7, height = 5, dpi = 300, bg = "white")
+
+# Supplement S7: Neighborhood null results
+supplement_dir <- file.path(PATHS$figures, "supplement")
+dir.create(supplement_dir, showWarnings = FALSE, recursive = TRUE)
+ggsave(file.path(supplement_dir, "figS7_neighborhood_null.png"), p_neighbor_count,
+       width = 7, height = 5, dpi = 300, bg = "white")
+
 ggsave(file.path(FIG_DIR, "abundance_vs_neighbor_volume.png"), p_neighbor_vol,
        width = 7, height = 5, dpi = 300, bg = "white")
 ggsave(file.path(FIG_DIR, "abundance_vs_isolation.png"), p_isolation,
@@ -770,7 +777,7 @@ cat("(3 sites insufficient for random intercepts; Bolker et al. 2009)\n\n")
 
 landscape_data_scaled <- landscape_data %>%
   mutate(
-    log_vol_scaled = scale(log10(volume))[,1],
+    log_vol_scaled = scale(log(volume))[,1],
     n_neighbors_scaled = scale(n_neighbors)[,1],
     log_neigh_vol_scaled = scale(log10(total_neighbor_volume + 1))[,1],
     dist_scaled = scale(mean_neighbor_dist)[,1]
@@ -1038,6 +1045,10 @@ cat("    Approximate ICC:", round(icc_rich, 3), "\n\n")
 
 # ---- 9C.3 Overdispersion Check ----
 cat("9C.3 Overdispersion Diagnostics:\n\n")
+
+# Pearson residuals for diagnostic plots
+resid_abund <- residuals(glmm_abundance_reduced, type = "pearson")
+resid_rich_pearson <- residuals(glmm_richness_reduced, type = "pearson")
 
 # For Poisson model (richness) - check overdispersion ratio
 resid_rich <- residuals(glmm_richness_reduced, type = "pearson")
@@ -1528,8 +1539,8 @@ glmm_full_results <- bind_rows(
 )
 
 # Mark which predictors are in the reduced models
-retained_abundance <- names(fixef(glmm_abundance_reduced))[-1]  # Remove intercept
-retained_richness <- names(fixef(glmm_richness_reduced))[-1]
+retained_abundance <- names(coef(glmm_abundance_reduced))[-1]  # Remove intercept
+retained_richness <- names(coef(glmm_richness_reduced))[-1]
 
 # Map back to display names
 name_map_reverse <- c(
@@ -1873,11 +1884,11 @@ univariate_results <- tibble(
          m_neigh_summary$coefficients["n_neighbors", "Std. Error"],
          m_nvol_summary$coefficients["log10(total_neighbor_volume + 1)", "Std. Error"],
          m_dist_summary$coefficients["mean_neighbor_dist", "Std. Error"]),
-  z_value = c(m_summary$coefficients["log10(volume)", "z value"],
+  z_value = c(m_summary$coefficients["log(volume)", "z value"],
               m_neigh_summary$coefficients["n_neighbors", "z value"],
               m_nvol_summary$coefficients["log10(total_neighbor_volume + 1)", "z value"],
               m_dist_summary$coefficients["mean_neighbor_dist", "z value"]),
-  p_value = c(m_summary$coefficients["log10(volume)", "Pr(>|z|)"],
+  p_value = c(m_summary$coefficients["log(volume)", "Pr(>|z|)"],
               m_neigh_summary$coefficients["n_neighbors", "Pr(>|z|)"],
               m_nvol_summary$coefficients["log10(total_neighbor_volume + 1)", "Pr(>|z|)"],
               m_dist_summary$coefficients["mean_neighbor_dist", "Pr(>|z|)"])
@@ -1898,7 +1909,7 @@ cat("10.2 Creating full model results table...\n")
 
 full_model_results <- tibble(
   Response = rep(c("Abundance", "Richness", "Shannon"), each = 4),
-  Predictor = rep(c("log10(volume)", "n_neighbors",
+  Predictor = rep(c("log(volume)", "n_neighbors",
                     "log10(neighbor_vol)", "mean_neighbor_dist"), 3),
   Beta = c(
     coef(m_abund_full)[2:5],

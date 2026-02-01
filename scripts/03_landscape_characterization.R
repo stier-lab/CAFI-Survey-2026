@@ -70,7 +70,7 @@ landscape_data <- coral_master %>%
     !is.na(n_neighbors)  # Filters to ONLY neighborhood-surveyed corals
   ) %>%
   mutate(
-    log_volume = log10(volume),
+    log_volume = log(volume),
     has_neighbors = n_neighbors > 0,
 
     # Recalculate derived indices

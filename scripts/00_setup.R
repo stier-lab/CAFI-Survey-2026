@@ -124,10 +124,13 @@ theme_set(theme_publication())
 
 # Site color palette (consistent across all figures)
 SITE_COLORS <- c(
-  "HAU" = "#E69F00",  # Orange - Hauru (fringing)
-  "MAT" = "#56B4E9",  # Blue - Maatea (back-reef)
-  "MRB" = "#009E73"   # Green - Moorea Barrier Reef
+  "HAU" = "#9B7EB8",  # Muted purple - Hauru (fringing)
+  "MAT" = "#7B9BAE",  # Cool slate - Maatea (back-reef)
+  "MRB" = "#7AAC6D"   # Sage green - Moorea Barrier Reef
 )
+# NOTE: Palette chosen to avoid confusion with scaling-class colors in Fig 2C
+# (Redirection = blue #5A8FAF, Super-linear = vermillion #D55E00).
+# Previous Okabe-Ito palette (orange/blue/teal) conflicted with those semantics.
 
 # Taxonomic group colors
 FUNC_COLORS <- c(

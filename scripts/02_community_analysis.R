@@ -123,18 +123,18 @@ ggsave(file.path(FIG_DIR, "abundance_by_site.png"), p_abundance_site,
 # 1.4 Abundance vs coral volume
 cat("1.4 Abundance vs Coral Volume (Power Law):\n")
 
-m_abundance_vol <- glm.nb(total_cafi ~ log10(volume) + site, data = coral_master)
+m_abundance_vol <- glm.nb(total_cafi ~ log(volume) + site, data = coral_master)
 m_summary <- summary(m_abundance_vol)
 
-slope <- coef(m_abundance_vol)["log10(volume)"]
-slope_se <- sqrt(vcov(m_abundance_vol)["log10(volume)", "log10(volume)"])
-slope_ci <- confint(m_abundance_vol)["log10(volume)", ]
+slope <- coef(m_abundance_vol)["log(volume)"]
+slope_se <- sqrt(vcov(m_abundance_vol)["log(volume)", "log(volume)"])
+slope_ci <- confint(m_abundance_vol)["log(volume)", ]
 
 cat("    Scaling exponent (β):", round(slope, 3), "\n")
 cat("    95% CI: [", round(slope_ci[1], 3), ",", round(slope_ci[2], 3), "]\n")
 cat("    SE:", round(slope_se, 3), "\n")
-cat("    z-value:", round(m_summary$coefficients["log10(volume)", "z value"], 2), "\n")
-cat("    p-value:", format.pval(m_summary$coefficients["log10(volume)", "Pr(>|z|)"], 3), "\n")
+cat("    z-value:", round(m_summary$coefficients["log(volume)", "z value"], 2), "\n")
+cat("    p-value:", format.pval(m_summary$coefficients["log(volume)", "Pr(>|z|)"], 3), "\n")
 
 # Test if β differs from 1 (Field of Dreams)
 z_vs_1 <- (slope - 1) / slope_se
@@ -351,7 +351,7 @@ if (aov_summary$`Pr(>F)`[1] < 0.05) {
 cat("3.3 Diversity vs Coral Size:\n")
 
 # Richness vs volume
-m_rich_vol <- glm(otu_richness ~ log10(volume), family = poisson, data = coral_master)
+m_rich_vol <- glm(otu_richness ~ log(volume), family = poisson, data = coral_master)
 m_rich_summary <- summary(m_rich_vol)
 
 cat("    Richness ~ log(Volume) [Poisson GLM]:\n")
@@ -365,7 +365,7 @@ cat("    Overdispersion ratio (Pearson X²/df):", round(dispersion_ratio, 2),
     ifelse(dispersion_ratio > 1.5, " [OVERDISPERSED - use quasipoisson]", " [OK]"), "\n")
 if (dispersion_ratio > 1.5) {
   # Refit with quasipoisson for corrected SEs
-  m_rich_vol_qp <- glm(otu_richness ~ log10(volume), family = quasipoisson, data = coral_master)
+  m_rich_vol_qp <- glm(otu_richness ~ log(volume), family = quasipoisson, data = coral_master)
   m_rich_qp_summary <- summary(m_rich_vol_qp)
   cat("    Quasi-Poisson corrected: β = ", round(coef(m_rich_vol_qp)[2], 3),
       ", t = ", round(m_rich_qp_summary$coefficients[2, "t value"], 2),
@@ -374,7 +374,7 @@ if (dispersion_ratio > 1.5) {
 cat("\n")
 
 # Shannon vs volume
-m_shan_vol <- lm(shannon ~ log10(volume), data = coral_master)
+m_shan_vol <- lm(shannon ~ log(volume), data = coral_master)
 m_shan_summary <- summary(m_shan_vol)
 
 cat("    Shannon ~ log(Volume):\n")
@@ -445,6 +445,12 @@ p_accum <- ggplot(accum_df, aes(x = sites, y = richness)) +
 ggsave(file.path(FIG_DIR, "species_accumulation.png"), p_accum,
        width = 7, height = 5, dpi = 300, bg = "white")
 
+# Supplement S1: Species accumulation curve
+supplement_dir <- file.path(PATHS$figures, "supplement")
+dir.create(supplement_dir, showWarnings = FALSE, recursive = TRUE)
+ggsave(file.path(supplement_dir, "figS1_species_accumulation.png"), p_accum,
+       width = 7, height = 5, dpi = 300, bg = "white")
+
 # ============================================================================
 # PART 4: BETA DIVERSITY & COMMUNITY STRUCTURE
 # ============================================================================
@@ -487,7 +493,7 @@ coral_for_perm <- coral_master %>%
 # Raw community matrix aligned to coral_for_perm (used in Part 4B & 4C)
 comm_aligned_raw <- community_matrix[coral_for_perm$coral_id, ]
 
-permanova <- adonis2(comm_hell_aligned ~ log10(volume) + site,
+permanova <- adonis2(comm_hell_aligned ~ log(volume) + site,
                      data = coral_for_perm,
                      permutations = 999,
                      method = "bray",
@@ -496,42 +502,42 @@ permanova <- adonis2(comm_hell_aligned ~ log10(volume) + site,
 cat("\n")
 print(permanova)
 
-# Extract individual term results (rows now include: log10(volume), site, Residual, Total)
+# Extract individual term results (rows now include: log(volume), site, Residual, Total)
 perm_df <- as.data.frame(permanova)
-cat("\n    Volume effect: R² = ", round(perm_df["log10(volume)", "R2"], 3),
-    ", F = ", round(perm_df["log10(volume)", "F"], 2),
-    ", p = ", format.pval(perm_df["log10(volume)", "Pr(>F)"], 3), "\n", sep = "")
+cat("\n    Volume effect: R² = ", round(perm_df["log(volume)", "R2"], 3),
+    ", F = ", round(perm_df["log(volume)", "F"], 2),
+    ", p = ", format.pval(perm_df["log(volume)", "Pr(>F)"], 3), "\n", sep = "")
 cat("    Site effect: R² = ", round(perm_df["site", "R2"], 3),
     ", F = ", round(perm_df["site", "F"], 2),
     ", p = ", format.pval(perm_df["site", "Pr(>F)"], 3), "\n\n", sep = "")
 
 # Marginal PERMANOVA (Type III - order-independent, more robust)
-permanova_margin <- adonis2(comm_hell_aligned ~ log10(volume) + site,
+permanova_margin <- adonis2(comm_hell_aligned ~ log(volume) + site,
                             data = coral_for_perm,
                             permutations = 999,
                             method = "bray",
                             by = "margin")
 perm_margin_df <- as.data.frame(permanova_margin)
 cat("    Marginal (Type III) PERMANOVA:\n")
-cat("    Volume: R² = ", round(perm_margin_df["log10(volume)", "R2"], 3),
-    ", F = ", round(perm_margin_df["log10(volume)", "F"], 2),
-    ", p = ", format.pval(perm_margin_df["log10(volume)", "Pr(>F)"], 3), "\n", sep = "")
+cat("    Volume: R² = ", round(perm_margin_df["log(volume)", "R2"], 3),
+    ", F = ", round(perm_margin_df["log(volume)", "F"], 2),
+    ", p = ", format.pval(perm_margin_df["log(volume)", "Pr(>F)"], 3), "\n", sep = "")
 cat("    Site: R² = ", round(perm_margin_df["site", "R2"], 3),
     ", F = ", round(perm_margin_df["site", "F"], 2),
     ", p = ", format.pval(perm_margin_df["site", "Pr(>F)"], 3), "\n\n", sep = "")
 
 # Interaction PERMANOVA (volume × site)
-permanova_interaction <- adonis2(comm_hell_aligned ~ log10(volume) * site,
+permanova_interaction <- adonis2(comm_hell_aligned ~ log(volume) * site,
                                  data = coral_for_perm,
                                  permutations = 999,
                                  method = "bray",
                                  by = "terms")
 perm_int_df <- as.data.frame(permanova_interaction)
 cat("    Interaction test (Volume × Site):\n")
-if ("log10(volume):site" %in% rownames(perm_int_df)) {
-  cat("    R² = ", round(perm_int_df["log10(volume):site", "R2"], 3),
-      ", F = ", round(perm_int_df["log10(volume):site", "F"], 2),
-      ", p = ", format.pval(perm_int_df["log10(volume):site", "Pr(>F)"], 3), "\n\n", sep = "")
+if ("log(volume):site" %in% rownames(perm_int_df)) {
+  cat("    R² = ", round(perm_int_df["log(volume):site", "R2"], 3),
+      ", F = ", round(perm_int_df["log(volume):site", "F"], 2),
+      ", p = ", format.pval(perm_int_df["log(volume):site", "Pr(>F)"], 3), "\n\n", sep = "")
 }
 
 # 4.3 PERMDISP (test for homogeneity of dispersions)
@@ -556,8 +562,8 @@ if (!is.null(disp_test$pval) && !is.na(disp_test$pval)) {
 site_r2 <- round(perm_df["site", "R2"], 2)
 site_p <- perm_df["site", "Pr(>F)"]
 site_p_text <- if (!is.na(site_p)) format.pval(site_p, 3) else "< 0.001"
-vol_r2 <- round(perm_df["log10(volume)", "R2"], 2)
-vol_p <- perm_df["log10(volume)", "Pr(>F)"]
+vol_r2 <- round(perm_df["log(volume)", "R2"], 2)
+vol_p <- perm_df["log(volume)", "Pr(>F)"]
 vol_p_text <- if (!is.na(vol_p)) format.pval(vol_p, 3) else "< 0.001"
 
 # Compute axis limits excluding extreme outliers (>3 IQR from median)
@@ -585,6 +591,12 @@ p_nmds_site <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2, color = site)) +
   coord_fixed(xlim = nmds1_lim, ylim = nmds2_lim, clip = "on")
 
 ggsave(file.path(FIG_DIR, "nmds_by_site.png"), p_nmds_site,
+       width = 8, height = 6, dpi = 300, bg = "white")
+
+# Supplement S3: NMDS ordination by site
+supplement_dir <- file.path(PATHS$figures, "supplement")
+dir.create(supplement_dir, showWarnings = FALSE, recursive = TRUE)
+ggsave(file.path(supplement_dir, "figS3_nmds_ordination.png"), p_nmds_site,
        width = 8, height = 6, dpi = 300, bg = "white")
 
 p_nmds_size <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2, color = log_volume)) +
@@ -769,7 +781,7 @@ cat("    F = ", round(disp_size_test$statistic, 2),
 # Use continuous log(volume) rather than ordinal size class to avoid
 # assuming equal spacing between tertile boundaries
 distances_df$size_numeric <- as.numeric(distances_df$size_class)  # kept for rarefied comparison
-trend_model <- lm(distance_to_centroid ~ log10(volume), data = distances_df)
+trend_model <- lm(distance_to_centroid ~ log(volume), data = distances_df)
 trend_summary <- summary(trend_model)
 
 cat("\n    Linear trend test (Small -> Medium -> Large):\n")
@@ -814,7 +826,7 @@ distances_rarefied_df <- data.frame(
 ) %>%
   left_join(coral_for_rarefaction %>% dplyr::select(coral_id, volume), by = "coral_id")
 
-trend_model_rarefied <- lm(distance_to_centroid_rarefied ~ log10(volume), data = distances_rarefied_df)
+trend_model_rarefied <- lm(distance_to_centroid_rarefied ~ log(volume), data = distances_rarefied_df)
 trend_summary_rarefied <- summary(trend_model_rarefied)
 
 cat("    Trend (rarefied): β = ", round(coef(trend_model_rarefied)[2], 3),
@@ -876,7 +888,7 @@ if (length(test_depths) > 1) {
       distance = disp_d$distances,
       volume = coral_d$volume
     )
-    trend_d <- lm(distance ~ log10(volume), data = dist_df_d)
+    trend_d <- lm(distance ~ log(volume), data = dist_df_d)
     trend_p_d <- summary(trend_d)$coefficients[2, "Pr(>|t|)"]
 
     sensitivity_results <- rbind(sensitivity_results, data.frame(
@@ -979,7 +991,7 @@ arrow_data <- data.frame(
 p_nmds_trajectory <- ggplot() +
   # Individual points colored by size class
   geom_point(data = nmds_with_size,
-             aes(x = NMDS1, y = NMDS2, fill = size_class, size = log10(volume)),
+             aes(x = NMDS1, y = NMDS2, fill = size_class, size = log(volume)),
              shape = 21, alpha = 0.6, color = "gray30") +
   # Ellipses for each size class
   stat_ellipse(data = nmds_with_size,
@@ -1030,7 +1042,14 @@ fig_divergence <- p_divergence_boxplot + p_nmds_trajectory +
 
 ggsave(file.path(FIG_DIR, "composition_divergence_by_size.png"), fig_divergence,
        width = 14, height = 7, dpi = 300, bg = "white")
-cat("    Saved: composition_divergence_by_size.png\n\n")
+cat("    Saved: composition_divergence_by_size.png\n")
+
+# Supplement S5: Composition divergence by size
+supplement_dir <- file.path(PATHS$figures, "supplement")
+dir.create(supplement_dir, showWarnings = FALSE, recursive = TRUE)
+ggsave(file.path(supplement_dir, "figS5_composition_divergence.png"), fig_divergence,
+       width = 14, height = 7, dpi = 300, bg = "white")
+cat("    Saved: figS5_composition_divergence.png (supplement)\n\n")
 
 # 4B.6 Add results to stats tracking
 cat("4B.6 Recording Statistical Results:\n")
@@ -1130,7 +1149,7 @@ sensitivity_results <- lapply(names(distance_configs), function(metric_name) {
 
   # PERMANOVA
   perm_result <- tryCatch({
-    adonis2(d ~ log10(volume) + site, data = coral_nz,
+    adonis2(d ~ log(volume) + site, data = coral_nz,
             permutations = 999, by = "terms")
   }, error = function(e) NULL)
 
@@ -1140,8 +1159,8 @@ sensitivity_results <- lapply(names(distance_configs), function(metric_name) {
   }
 
   perm_df <- as.data.frame(perm_result)
-  vol_r2 <- perm_df["log10(volume)", "R2"]
-  vol_p <- perm_df["log10(volume)", "Pr(>F)"]
+  vol_r2 <- perm_df["log(volume)", "R2"]
+  vol_p <- perm_df["log(volume)", "Pr(>F)"]
   site_r2 <- perm_df["site", "R2"]
   site_p <- perm_df["site", "Pr(>F)"]
 
@@ -1241,7 +1260,14 @@ p_sensitivity <- ggplot(sensitivity_long, aes(x = R2, y = Metric, color = Term, 
 
 ggsave(file.path(FIG_DIR, "permanova_metric_sensitivity.png"), p_sensitivity,
        width = 8, height = 5, dpi = 300, bg = "white")
-cat("  Saved: permanova_metric_sensitivity.png\n\n")
+cat("  Saved: permanova_metric_sensitivity.png\n")
+
+# Supplement S2: PERMANOVA sensitivity
+supplement_dir <- file.path(PATHS$figures, "supplement")
+dir.create(supplement_dir, showWarnings = FALSE, recursive = TRUE)
+ggsave(file.path(supplement_dir, "figS2_permanova_sensitivity.png"), p_sensitivity,
+       width = 8, height = 5, dpi = 300, bg = "white")
+cat("  Saved: figS2_permanova_sensitivity.png (supplement)\n\n")
 
 # Store in results
 sensitivity_summary <- list(

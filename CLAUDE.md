@@ -23,9 +23,9 @@ This **observational survey** complements a parallel **experimental study** that
 
 | Question | Script | Key Result |
 |----------|--------|------------|
-| **Q1: SCALING** | `05_species_scaling_analysis.R` | Abundance β=1.20 (marginal super-linear); Richness z=0.79 (sublinear); density dilution |
+| **Q1: SCALING** | `05_species_scaling_analysis.R` | Abundance β=0.52 (sublinear, Redirection); Richness z=0.34 (sublinear); density dilution |
 | **Q2: COMPOSITION** | `02_community_analysis.R` + `06_network_analysis.R` | Site pools structure composition; co-occurrence reveals non-random modular assembly |
-| **Q3: FEEDBACKS** | `09_cafi_condition_feedbacks.R` | Species richness → condition (p=0.008, p_FDR=0.053 marginal) |
+| **Q3: FEEDBACKS** | `09_cafi_condition_feedbacks.R` | **No CAFI metric predicts condition**; raw richness signal is abundance artifact (rarefied p=0.45) |
 | **Q4: NEIGHBORHOOD** | `04_landscape_effects.R` | n_neighbors NOT significant for CAFI or condition |
 
 ---
@@ -34,20 +34,24 @@ This **observational survey** complements a parallel **experimental study** that
 
 **Hypotheses tested:**
 - **Field of Dreams (β = 1)**: Abundance scales proportionally—"if you build it, they will come"
-- **Propagule Redistribution (β < 1)**: Abundance scales sublinearly—larger corals dilute per-capita colonization
+- **Propagule Redirection (β < 1)**: Abundance scales sublinearly—larger corals dilute per-capita colonization
 - **Super-linear (β > 1)**: Larger corals attract disproportionately more settlers
 
 **Methods:**
-- Negative binomial GLM: `total_cafi ~ log10(volume) + site`
-- Bootstrap 95% CI on scaling exponent (stratified by site)
-- Species-level scaling for key CAFI taxa
+- Negative binomial GLM: `total_cafi ~ log(volume) + site` (natural log; coefficient = power-law exponent)
+- Poisson GLM for species richness: `richness ~ log(volume) + site`
+- Bootstrap 95% CI on scaling exponent (2,000 iterations, stratified by site)
+- Species-level scaling for 10 most prevalent CAFI taxa
 
 **Key findings:**
-- Total CAFI abundance: β = 1.20 [1.01, 1.40] — marginally super-linear
-- Species richness (SAR): z = 0.79 [0.69, 0.89] — **sublinear, consistent with Redistribution**
-- Density dilution: per-capita CAFI density decreases with size (slope = -0.42)
-- Trapezia: β ≈ 0.99 (Field of Dreams); Fish: β ≈ 1.71 (super-linear)
-- Interpretation: species accumulate sublinearly despite super-linear total abundance
+- Total CAFI abundance: β = 0.52 [0.44, 0.61] — **sublinear (Propagule Redirection)**
+- Species richness (SAR): z = 0.34 [0.30, 0.39] — **sublinear (Redirection)**
+- Density dilution: per-capita CAFI density decreases with size (slope = -0.48)
+- 7/10 top species: Redirection (β < 1); 3/10: Field of Dreams (CI spans 1); 0/10: super-linear
+- Obligate symbionts (Trapezia, Alpheus): consistently sublinear scaling
+- Interpretation: finite propagule pools diluted across larger corals; both abundance and richness support Redirection
+
+**NOTE**: Previous reports of β = 1.20 were based on a log-base mismatch: the model used log10(volume) as predictor with a natural-log link, inflating coefficients by ln(10) ≈ 2.303. Corrected 2026-01-30.
 
 ### Q2: Composition — What structures CAFI community composition?
 
@@ -80,18 +84,25 @@ This **observational survey** complements a parallel **experimental study** that
 
 **Methods:**
 - PCA on CAFI abundances → PC1_CAFI; PCA on physiology → PC1_Coral
+- **Position correction**: Physiological traits regressed on stump_length + nubbin_length before PCA (removes tissue gradient sampling artifact: smaller corals required sampling more of branch, including low-density tips)
 - Linear models with fixed-effect site: condition ~ CAFI predictors + log_volume + site
 - FDR correction (Benjamini-Hochberg) across predictor families
 - Key species models: condition ~ species presence + log(volume) + site (FDR-corrected)
+- **Rarefied richness test**: Expected species richness at n=20 individuals (removes abundance confound)
 - Standardized β (effect in SD units); VIF diagnostics
 - Note: 3 sites insufficient for random intercepts (Bolker et al. 2009)
 
 **Key findings:**
-- **Species richness → condition**: p = 0.008, p_FDR = 0.053 (marginal, strongest signal)
-- Total abundance and PC1_CAFI do NOT significantly predict condition after FDR
-- Key species: *Trapezia* shows positive trend but NS; *Galeropsis* negative (tissue consumer)
-- Richness-condition link suggests **community complexity** may matter for coral health
+- **Species richness → condition**: Raw richness shows trend (p = 0.055), BUT this is an **ABUNDANCE ARTIFACT**
+  - Richness correlates strongly with total CAFI abundance (r = 0.84)
+  - **Rarefied richness** (controlling for sampling intensity) shows NO relationship (p = 0.45)
+  - Correlation with abundance: raw r = 0.84, rarefied r = −0.05
+  - Conclusion: apparent diversity effect disappears when abundance confound is removed
+- Total abundance, PC1_CAFI, and individual CAFI metrics do NOT predict condition (all p > 0.10)
+- Key species: *Trapezia* shows positive trend but NS; *Galeropsis* positive (not negative as expected)
+- Functional group effect directions match expectations (Trapezia +, Fish +) but none are significant
 - No predictor from condition→CAFI direction survives FDR correction
+- **Landscape factors (size, neighborhood, site) also do NOT predict condition** (all p > 0.30)
 
 **Note on *Galeropsis monodonta***: This coralliophiline snail (Muricidae) dominates gastropod assemblages (73% of all gastropods = 356/489 individuals). It feeds on coral tissue (subfamily Coralliophilinae). Used as species-level predictor `n_galeropsis` instead of all gastropods combined.
 
@@ -141,7 +152,7 @@ Located in `scripts/` folder. Run in order via `run_full_pipeline.R`.
 #### Q1: SCALING
 | Script | Analysis | Output |
 |--------|----------|--------|
-| `05_species_scaling_analysis.R` | NB GLM scaling with bootstrap CI | Field of Dreams vs Redistribution |
+| `05_species_scaling_analysis.R` | NB GLM scaling with bootstrap CI | Field of Dreams vs Redirection |
 
 #### Q2: COMPOSITION (Fig 4: NMDS + Network + Modularity + Hubs)
 | Script | Analysis | Output |
@@ -170,20 +181,37 @@ Located in `scripts/` folder. Run in order via `run_full_pipeline.R`.
 | `11_machine_learning.R` | Random Forest, XGBoost models |
 | `12_model_evaluation.R` | Cross-validation, diagnostics |
 
-### Publication
+### Publication Figures (embedded in analysis scripts — no separate figure script)
+
+Each manuscript figure is created by its source analysis script with **dual saves**: once to the analysis output directory, once to `output/figures/manuscript/` or `output/figures/supplement/`.
+
+| Figure | Script | Description |
+|--------|--------|-------------|
+| **Fig 1** | `01_load_data.R` | Study design: satellite map + volume/neighborhood histograms |
+| **Fig 2** | `05_species_scaling_analysis.R` | Scaling: abundance + richness GLMs + species forest plot |
+| **Fig 3** | `08_functional_groups.R` | Taxonomic group scaling and composition |
+| **Fig 4** | `06_network_analysis.R` | Network: circular hero layout + 4 guild sub-networks |
+| **Fig 5** | `09_cafi_condition_feedbacks.R` | CAFI-condition feedback models |
+| **S1** | `02_community_analysis.R` | Species accumulation curves |
+| **S2** | `02_community_analysis.R` | PERMANOVA metric sensitivity |
+| **S3** | `02_community_analysis.R` | NMDS ordination by site/size |
+| **S4** | `07_spatial_autocorrelation.R` | Spatial autocorrelation (Moran's I) |
+| **S5** | `02_community_analysis.R` | Composition divergence by size |
+| **S6** | `05_species_scaling_analysis.R` | Species-level scaling forest plot |
+| **S7** | `04_landscape_effects.R` | Neighborhood null results |
+
 | Script | Purpose |
 |--------|---------|
-| `13_manuscript_figures.R` | Publication figures (5 main + 7 supplementary), results table, sample sizes |
 | `run_full_pipeline.R` | Pipeline orchestrator with logging |
 
-**Note**: `scripts/archive/` contains deprecated scripts for reference only.
+**Note**: `scripts/archive/` contains deprecated scripts (including former `13_manuscript_figures.R`) for reference only.
 
 ## Key Commands
 
 ### Run Pipeline
 ```r
 source("scripts/run_full_pipeline.R")
-run_pipeline()           # Core + extended + publication (default)
+run_pipeline()           # Core + extended (default; figures created by each script)
 run_full_pipeline()      # Everything including ML exploration
 run_ml_exploration()     # ML scripts only (exploratory)
 run_core_pipeline()      # Core hypothesis-testing scripts only
@@ -226,8 +254,9 @@ The following quality measures are implemented:
 | SEM saturation | Explicit df=0 check; fit indices suppressed when uninformative | `09_cafi_condition_feedbacks.R` |
 | Community matrix (zero-CAFI corals) | Added zero-abundance rows for all corals | `01_load_data.R` |
 | Log volume bias | Removed +1 offset (volume > 0 guaranteed) | `01_load_data.R` |
+| Tissue sampling artifact (condition) | Regress physio traits on stump_length + nubbin_length | `01_load_data.R` |
 | PERMANOVA Type I confound | Marginal (Type III) PERMANOVA | `02_community_analysis.R` |
-| Colorblind inaccessibility | Okabe-Ito palette | All figure scripts |
+| Colorblind inaccessibility | Okabe-Ito palette; Fig 2 site colors shifted to avoid scaling-class overlap | All figure scripts |
 
 ## Output Structure
 
@@ -238,7 +267,7 @@ output/
 │   │   ├── fig1_study_design.png
 │   │   ├── fig2_scaling.png
 │   │   ├── fig3_functional_groups.png
-│   │   ├── fig4_composition_network.png
+│   │   ├── fig4_network.png
 │   │   └── fig5_feedbacks.png
 │   ├── supplement/          # Supplementary figures (figS1-S7)
 │   ├── 02_community/        # Community analysis figures
@@ -264,7 +293,23 @@ output/
 - **Volume**: Use `volume_field` (field estimate)
 - **Key columns**: `n_galeropsis` (Galeropsis count per coral), `n_corallivore` (all gastropods)
 - **Packages**: Use `dplyr::select()` explicitly (MASS conflict); car::vif(), DHARMa, sandwich/lmtest for diagnostics
-- **Colors**: Colorblind-safe palette (Okabe-Ito derivatives): `#0072B2` (blue), `#D55E00` (vermillion), `#009E73` (teal), `#E69F00` (orange), `#56B4E9` (sky blue)
+- **Colors**: Two semantic palettes, chosen to avoid cross-figure confusion:
+
+  **Site palette** (`SITE_COLORS` in `00_setup.R`; used globally across all figures):
+  | Site | Hex | Description |
+  |------|-----|-------------|
+  | HAU | `#9B7EB8` | Muted purple — Hauru (fringing) |
+  | MAT | `#7B9BAE` | Cool slate — Maatea (back-reef) |
+  | MRB | `#7AAC6D` | Sage green — Barrier Reef |
+
+  **Scaling-class palette** (Figure 2 Panel C):
+  | Class | Hex | Usage |
+  |-------|-----|-------|
+  | Redirection (β < 1) | `#5A8FAF` | Muted blue |
+  | Field of Dreams (CI overlaps 1) | `gray55` | Neutral — consistent with null |
+  | Super-linear (CI > 1) | `#D55E00` | Vermillion accent — distinctive result |
+
+  Site palette deliberately avoids blue and orange/vermillion to prevent confusion with scaling-class semantics.
 
 ## Load Pre-computed Objects
 ```r

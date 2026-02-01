@@ -362,6 +362,12 @@ p_spatial_overview <- ggplot(spatial_data, aes(x = long, y = lat)) +
 
 save_figure(p_spatial_overview, "spatial_autocorrelation_map", width = 12, height = 8, script_dir = "07_spatial")
 
+# Supplement S4: Spatial autocorrelation
+supplement_dir <- file.path(PATHS$figures, "supplement")
+dir.create(supplement_dir, showWarnings = FALSE, recursive = TRUE)
+ggsave(file.path(supplement_dir, "figS4_spatial_autocorrelation.png"), p_spatial_overview,
+       width = 12, height = 8, dpi = 300, bg = "white")
+
 # ============================================================================
 # DISTANCE-DECAY ANALYSIS (MANTEL TEST)
 # ============================================================================

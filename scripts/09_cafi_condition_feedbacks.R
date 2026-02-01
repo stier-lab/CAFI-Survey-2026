@@ -29,13 +29,20 @@
 #   C. Functional group-specific models
 #   D. Condition x Volume interaction
 #   E. Path analysis (if sample size supports)
+#   F. Key species from experimental paper
+#   G. Neighborhood effects (analog to experimental treatment)
+#   H. Landscape-only effects on condition (no CAFI predictors)
 #
 # OUTPUTS:
 #   - output/figures/manuscript/fig5_feedbacks.png
-#   - output/figures/cafi_condition_effects.png
-#   - output/figures/functional_effects_forest.png
+#   - output/figures/feedbacks/cafi_condition_effects.png
+#   - output/figures/feedbacks/functional_effects_forest.png
+#   - output/figures/feedbacks/landscape_condition_effects.png (Part H)
 #   - output/tables/cafi_condition_models.csv
 #   - output/tables/functional_effects.csv
+#   - output/tables/landscape_condition_effects.csv (Part H)
+#   - output/tables/landscape_model_comparison.csv (Part H)
+#   - output/tables/site_condition_means.csv (Part H)
 #   - output/tables/path_analysis.csv (if implemented)
 #
 # DEPENDENCIES: 00_setup.R, 01_load_data.R
@@ -180,7 +187,7 @@ analysis_data <- condition_scores %>%
             by = "coral_id") %>%
   filter(!is.na(condition_score), !is.na(total_cafi), !is.na(volume)) %>%
   mutate(
-    log_volume = log10(volume),
+    log_volume = log(volume),
     sqrt_volume = sqrt(volume),
     site = factor(site),
     # Standardize condition score for comparable effect sizes
@@ -402,6 +409,171 @@ if ("Species richness" %in% names(cafi_to_condition_models)) {
   cat("   Saved: diagnostics_richness_model.png\n")
 }
 cat("\n")
+
+# ============================================================================
+# PART A2: RICHNESS-ABUNDANCE ARTIFACT TEST
+# ============================================================================
+# The species richness → condition signal may be driven by abundance, not diversity.
+# Here we test this by comparing raw vs rarefied richness effects.
+
+cat("============================================================\n")
+cat("PART A2: RICHNESS-ABUNDANCE ARTIFACT TEST\n")
+cat("============================================================\n\n")
+
+cat("Testing whether richness → condition is an abundance artifact...\n")
+cat("Correlation between richness and abundance: r =",
+    round(cor(analysis_data$otu_richness, analysis_data$total_cafi), 3), "\n\n")
+
+# --- Compute rarefied richness ---
+cat("Computing rarefied richness...\n")
+comm_matrix <- load_object("community_matrix")
+abund <- rowSums(comm_matrix)
+
+# Rarefy at n=20 (reasonable depth that keeps most corals)
+rarefy_depth <- 20
+has_enough <- abund >= rarefy_depth
+n_kept <- sum(has_enough)
+cat(sprintf("  Rarefying to n=%d individuals (keeps %d of %d corals)\n",
+    rarefy_depth, n_kept, length(has_enough)))
+
+comm_sub <- comm_matrix[has_enough, ]
+rare_rich <- rarefy(comm_sub, sample = rarefy_depth)
+
+# Match to analysis data
+analysis_data_rare <- analysis_data %>%
+  filter(coral_id %in% names(rare_rich)) %>%
+  mutate(rarefied_richness = rare_rich[coral_id])
+
+cat(sprintf("  Sample size with condition + rarefied richness: n = %d\n\n",
+    nrow(analysis_data_rare)))
+
+# --- Test raw vs rarefied richness ---
+cat("Comparing raw vs rarefied richness effects on condition:\n")
+cat("------------------------------------------------------------\n\n")
+
+# Model 1: Raw richness (on full sample)
+m_raw_full <- lm(condition_score ~ otu_richness + site, data = analysis_data)
+s_raw_full <- summary(m_raw_full)
+p_raw_full <- s_raw_full$coefficients["otu_richness", "Pr(>|t|)"]
+b_raw_full <- coef(m_raw_full)["otu_richness"]
+
+cat(sprintf("RAW RICHNESS (full sample, n=%d):\n", nrow(analysis_data)))
+cat(sprintf("  β = %.4f, SE = %.4f, p = %.4f %s\n\n",
+    b_raw_full,
+    s_raw_full$coefficients["otu_richness", "Std. Error"],
+    p_raw_full,
+    ifelse(p_raw_full < 0.05, "*", "")))
+
+# Model 2: Raw richness (on subset with n≥20)
+m_raw_sub <- lm(condition_score ~ otu_richness + site, data = analysis_data_rare)
+s_raw_sub <- summary(m_raw_sub)
+p_raw_sub <- s_raw_sub$coefficients["otu_richness", "Pr(>|t|)"]
+b_raw_sub <- coef(m_raw_sub)["otu_richness"]
+
+cat(sprintf("RAW RICHNESS (subsample n≥20, n=%d):\n", nrow(analysis_data_rare)))
+cat(sprintf("  β = %.4f, SE = %.4f, p = %.4f %s\n\n",
+    b_raw_sub,
+    s_raw_sub$coefficients["otu_richness", "Std. Error"],
+    p_raw_sub,
+    ifelse(p_raw_sub < 0.05, "*", "")))
+
+# Model 3: Rarefied richness
+m_rare <- lm(condition_score ~ rarefied_richness + site, data = analysis_data_rare)
+s_rare <- summary(m_rare)
+p_rare <- s_rare$coefficients["rarefied_richness", "Pr(>|t|)"]
+b_rare <- coef(m_rare)["rarefied_richness"]
+
+cat(sprintf("RAREFIED RICHNESS (n=%d, depth=%d):\n", nrow(analysis_data_rare), rarefy_depth))
+cat(sprintf("  β = %.4f, SE = %.4f, p = %.4f %s\n\n",
+    b_rare,
+    s_rare$coefficients["rarefied_richness", "Std. Error"],
+    p_rare,
+    ifelse(p_rare < 0.05, "*", "")))
+
+# Model 4: Abundance on subset
+m_abund_sub <- lm(condition_score ~ total_cafi + site, data = analysis_data_rare)
+s_abund_sub <- summary(m_abund_sub)
+p_abund_sub <- s_abund_sub$coefficients["total_cafi", "Pr(>|t|)"]
+
+cat(sprintf("ABUNDANCE (subsample, n=%d):\n", nrow(analysis_data_rare)))
+cat(sprintf("  β = %.4f, SE = %.4f, p = %.4f %s\n\n",
+    coef(m_abund_sub)["total_cafi"],
+    s_abund_sub$coefficients["total_cafi", "Std. Error"],
+    p_abund_sub,
+    ifelse(p_abund_sub < 0.05, "*", "")))
+
+# Correlations
+cat("Correlations (subsample with n≥20):\n")
+cor_raw_abund <- cor(analysis_data_rare$otu_richness, analysis_data_rare$total_cafi)
+cor_rare_abund <- cor(analysis_data_rare$rarefied_richness, analysis_data_rare$total_cafi)
+cat(sprintf("  Raw richness vs abundance: r = %.3f\n", cor_raw_abund))
+cat(sprintf("  Rarefied richness vs abundance: r = %.3f\n\n", cor_rare_abund))
+
+# --- Interpretation ---
+cat("=== INTERPRETATION ===\n")
+if (p_raw_full < 0.1 && p_rare > 0.1) {
+  cat("The richness → condition signal is likely an ABUNDANCE ARTIFACT.\n")
+  cat("Raw richness shows a trend (p = ", round(p_raw_full, 3), "), but\n", sep = "")
+  cat("rarefied richness shows NO relationship (p = ", round(p_rare, 3), ").\n", sep = "")
+  cat("The apparent diversity effect disappears after controlling for\n")
+  cat("sampling intensity.\n")
+  richness_artifact <- TRUE
+} else if (p_raw_full < 0.1 && p_rare < 0.1) {
+  cat("Richness effect PERSISTS after rarefaction.\n")
+  cat("This suggests a true diversity → condition relationship.\n")
+  richness_artifact <- FALSE
+} else {
+  cat("Neither raw nor rarefied richness significantly predicts condition.\n")
+  richness_artifact <- NA
+}
+cat("\n")
+
+# --- Save rarefied richness results to stats_results ---
+stats_results <- bind_rows(stats_results,
+  create_result_row(
+    hypothesis = "H-richness-artifact",
+    question = "Is richness → condition an abundance artifact?",
+    test_name = "Rarefied richness (depth=20)",
+    test_statistic = s_rare$coefficients["rarefied_richness", "t value"],
+    df = s_rare$df[2],
+    p_value = p_rare,
+    effect_size = b_rare,
+    interpretation = ifelse(isTRUE(richness_artifact), "YES - abundance artifact",
+                            ifelse(isFALSE(richness_artifact), "NO - true diversity effect", "Inconclusive")),
+    effect_type = "Regression coefficient",
+    n = nrow(analysis_data_rare),
+    notes = sprintf("Rarefied to n=%d; raw richness p=%.3f, rarefied p=%.3f",
+                    rarefy_depth, p_raw_full, p_rare)
+  )
+)
+
+# --- Create comparison dataframe for plotting ---
+richness_comparison_df <- tibble(
+  type = c("Raw richness\n(full sample)", "Raw richness\n(n≥20 subset)",
+           "Rarefied richness\n(depth=20)"),
+  estimate = c(b_raw_full, b_raw_sub, b_rare),
+  se = c(s_raw_full$coefficients["otu_richness", "Std. Error"],
+         s_raw_sub$coefficients["otu_richness", "Std. Error"],
+         s_rare$coefficients["rarefied_richness", "Std. Error"]),
+  p_value = c(p_raw_full, p_raw_sub, p_rare),
+  n = c(nrow(analysis_data), nrow(analysis_data_rare), nrow(analysis_data_rare)),
+  cor_with_abundance = c(
+    cor(analysis_data$otu_richness, analysis_data$total_cafi),
+    cor_raw_abund, cor_rare_abund)
+) %>%
+  mutate(
+    ci_lower = estimate - 1.96 * se,
+    ci_upper = estimate + 1.96 * se,
+    significant = p_value < 0.05,
+    type = factor(type, levels = type)
+  )
+
+# Save for use in fig5
+save_object(richness_comparison_df, "richness_comparison_results")
+save_object(analysis_data_rare, "analysis_data_rarefied")
+
+cat("Saved: richness_comparison_results.rds\n")
+cat("Saved: analysis_data_rarefied.rds\n\n")
 
 # ============================================================================
 # PART B: CONDITION -> CAFI EFFECTS (REVERSE DIRECTION)
@@ -1152,7 +1324,7 @@ cat("of coral number) affects CAFI abundance and coral condition.\n\n")
 neighborhood_data <- coral_master %>%
   filter(!is.na(n_neighbors), !is.na(volume_field)) %>%
   mutate(
-    log_volume = log10(volume_field),
+    log_volume = log(volume_field),
     log_volume_scaled = scale(log_volume)[,1],
     n_neighbors_scaled = scale(n_neighbors)[,1],
     total_neighbor_vol_scaled = scale(log10(total_neighbor_volume + 1))[,1],
@@ -1223,7 +1395,7 @@ if (nrow(neighborhood_condition) >= 20) {
 
   # Post-hoc power analysis for n_neighbors null result
   # Using the observed effect size and sample size to assess what effect we could have detected
-  n_cond <- nrow(neighborhood_cond)
+  n_cond <- nrow(neighborhood_condition)
   beta_neighbors <- coef_m2["n_neighbors_scaled", "Estimate"]
   se_neighbors <- coef_m2["n_neighbors_scaled", "Std. Error"]
   residual_sd <- summary_m2$sigma
@@ -1482,7 +1654,7 @@ cat("    Connection to experimental paper (Stier et al.):\n")
 cat("    - Experiment: Manipulated coral NUMBER to test landscape effects\n")
 cat("    - This survey: Uses natural variation in n_neighbors (within 5m)\n")
 cat("    - Hypothesis: Higher neighborhood density → more CAFI (Field of Dreams)\n")
-cat("                  OR → fewer CAFI per coral (Redistribution)\n\n")
+cat("                  OR → fewer CAFI per coral (Redirection)\n\n")
 
 # Report key findings
 vol_effect <- neighborhood_results$estimate[1]
@@ -1499,8 +1671,588 @@ cat("      - Interaction: β =", round(interaction_effect, 3),
 
 neighbor_interp <- ifelse(neighbor_effect > 0,
                           "More neighbors → more CAFI (consistent with Field of Dreams at landscape level)",
-                          "More neighbors → fewer CAFI per focal coral (consistent with Redistribution)")
+                          "More neighbors → fewer CAFI per focal coral (consistent with Redirection)")
 cat("\n    Interpretation:", neighbor_interp, "\n")
+cat("    =====================================================================\n\n")
+
+# ############################################################################
+# PART H: LANDSCAPE-ONLY EFFECTS ON CORAL CONDITION
+# ############################################################################
+# Analyze how abiotic/landscape factors (size, neighborhood, site, depth)
+# affect coral physiological condition WITHOUT including CAFI predictors.
+#
+# Response variables:
+#   - Individual condition measures: protein_corr, carb_corr, zoox_corr, afdw_corr
+#   - Composite condition: condition_score (PC1_Coral)
+#
+# Landscape predictors:
+#   - log_volume: coral size (primary)
+#   - n_neighbors: neighborhood density (within 5m)
+#   - mean_neighbor_dist: proximity to neighbors
+#   - total_neighbor_volume: neighborhood biomass
+#   - site: reef location (fixed effect)
+#   - depth_m: water depth
+# ############################################################################
+
+cat("############################################################\n")
+cat("PART H: LANDSCAPE-ONLY EFFECTS ON CORAL CONDITION\n")
+cat("############################################################\n\n")
+
+cat("Analyzing how landscape factors (size, neighborhood, depth, site)\n")
+cat("affect coral condition WITHOUT including CAFI predictors.\n")
+cat("This isolates abiotic/spatial drivers of coral health.\n\n")
+
+# H.1 Prepare landscape data
+# Merge condition scores with all landscape predictors
+landscape_condition <- condition_scores %>%
+  dplyr::select(coral_id, site, condition_score,
+                any_of(c("protein_corr", "carb_corr", "zoox_corr", "afdw_corr"))) %>%
+  left_join(
+    coral_master %>% dplyr::select(coral_id, volume, volume_field, depth_m,
+                                    n_neighbors, mean_neighbor_dist,
+                                    total_neighbor_volume, mean_neighbor_volume),
+    by = "coral_id"
+  ) %>%
+  filter(!is.na(condition_score), !is.na(volume)) %>%
+  mutate(
+    log_volume = log10(coalesce(volume_field, volume)),
+    log_volume_scaled = scale(log_volume)[,1],
+    # Scale neighborhood predictors (only for corals with neighborhood data)
+    n_neighbors_scaled = if_else(!is.na(n_neighbors), scale(n_neighbors)[,1], NA_real_),
+    mean_dist_scaled = if_else(!is.na(mean_neighbor_dist), scale(mean_neighbor_dist)[,1], NA_real_),
+    total_neighbor_vol_scaled = if_else(!is.na(total_neighbor_volume),
+                                         scale(log10(total_neighbor_volume + 1))[,1], NA_real_),
+    depth_scaled = if_else(!is.na(depth_m), scale(depth_m)[,1], NA_real_),
+    site = factor(site)
+  )
+
+n_landscape <- nrow(landscape_condition)
+n_with_neighbors <- sum(!is.na(landscape_condition$n_neighbors))
+n_with_depth <- sum(!is.na(landscape_condition$depth_m))
+
+cat("H.1 Sample sizes:\n")
+cat("    Corals with condition data:", n_landscape, "\n")
+cat("    With neighborhood data:", n_with_neighbors, "\n")
+cat("    With depth data:", n_with_depth, "\n\n")
+
+# H.2 Individual condition measures vs landscape predictors
+cat("H.2 INDIVIDUAL CONDITION MEASURES vs LANDSCAPE\n")
+cat("    --------------------------------------------------\n")
+
+individual_measures <- c("protein_corr", "carb_corr", "zoox_corr", "afdw_corr")
+measure_names <- c("Protein", "Carbohydrate", "Zooxanthellae", "AFDW")
+
+# Storage for results
+individual_results <- data.frame()
+
+for (i in seq_along(individual_measures)) {
+  measure <- individual_measures[i]
+  measure_name <- measure_names[i]
+
+  if (!measure %in% names(landscape_condition)) {
+    cat("    ", measure_name, ": variable not available\n")
+    next
+  }
+
+  data_measure <- landscape_condition %>% filter(!is.na(.data[[measure]]))
+
+  if (nrow(data_measure) < 20) {
+    cat("    ", measure_name, ": insufficient data (n =", nrow(data_measure), ")\n")
+    next
+  }
+
+  # Model: individual measure ~ volume + site
+  formula_str <- paste(measure, "~ log_volume_scaled + site")
+  m_individual <- lm(as.formula(formula_str), data = data_measure)
+  s_individual <- summary(m_individual)
+
+  # Extract volume coefficient
+  vol_coef <- coef(s_individual)["log_volume_scaled", ]
+
+  individual_results <- bind_rows(individual_results, data.frame(
+    measure = measure_name,
+    predictor = "log_volume",
+    estimate = vol_coef["Estimate"],
+    se = vol_coef["Std. Error"],
+    t_value = vol_coef["t value"],
+    p_value = vol_coef["Pr(>|t|)"],
+    r2_adj = s_individual$adj.r.squared,
+    n = nrow(data_measure),
+    stringsAsFactors = FALSE
+  ))
+
+  cat("    ", measure_name, ":\n")
+  cat("        Volume effect: β =", round(vol_coef["Estimate"], 3),
+      ", t =", round(vol_coef["t value"], 2),
+      ", p =", round(vol_coef["Pr(>|t|)"], 4), "\n")
+  cat("        Adj. R² =", round(s_individual$adj.r.squared, 4), "\n")
+}
+
+cat("\n")
+
+# H.3 Composite condition (PC1) vs volume + site (full sample)
+cat("H.3 COMPOSITE CONDITION (PC1) vs LANDSCAPE - FULL SAMPLE\n")
+cat("    --------------------------------------------------\n")
+
+# Model 1: Volume + Site only (full sample)
+m_vol_site <- lm(condition_score ~ log_volume_scaled + site, data = landscape_condition)
+s_vol_site <- summary(m_vol_site)
+
+cat("    Model 1: condition_score ~ log_volume + site (n =", n_landscape, ")\n")
+cat("        Volume: β =", round(coef(m_vol_site)["log_volume_scaled"], 3),
+    ", t =", round(s_vol_site$coefficients["log_volume_scaled", "t value"], 2),
+    ", p =", round(s_vol_site$coefficients["log_volume_scaled", "Pr(>|t|)"], 4), "\n")
+cat("        Adj. R² =", round(s_vol_site$adj.r.squared, 4), "\n")
+cat("        AIC =", round(AIC(m_vol_site), 1), "\n\n")
+
+# H.4 Composite condition vs neighborhood predictors (subset with neighborhood data)
+cat("H.4 COMPOSITE CONDITION vs NEIGHBORHOOD - SUBSET WITH 5m SURVEYS\n")
+cat("    --------------------------------------------------\n")
+
+landscape_neighborhood <- landscape_condition %>%
+  filter(!is.na(n_neighbors))
+
+n_neighborhood_cond <- nrow(landscape_neighborhood)
+
+if (n_neighborhood_cond >= 20) {
+
+  # Model 2: Volume + Neighbors + Site
+  m_vol_neigh <- lm(condition_score ~ log_volume_scaled + n_neighbors_scaled + site,
+                    data = landscape_neighborhood)
+  s_vol_neigh <- summary(m_vol_neigh)
+
+  cat("    Model 2: condition ~ volume + n_neighbors + site (n =", n_neighborhood_cond, ")\n")
+  cat("        Volume: β =", round(coef(m_vol_neigh)["log_volume_scaled"], 3),
+      ", p =", round(s_vol_neigh$coefficients["log_volume_scaled", "Pr(>|t|)"], 4), "\n")
+  cat("        N_neighbors: β =", round(coef(m_vol_neigh)["n_neighbors_scaled"], 3),
+      ", p =", round(s_vol_neigh$coefficients["n_neighbors_scaled", "Pr(>|t|)"], 4), "\n")
+  cat("        Adj. R² =", round(s_vol_neigh$adj.r.squared, 4), "\n")
+  cat("        AIC =", round(AIC(m_vol_neigh), 1), "\n\n")
+
+  # Model 3: Volume + Mean distance + Site
+  m_vol_dist <- lm(condition_score ~ log_volume_scaled + mean_dist_scaled + site,
+                   data = landscape_neighborhood)
+  s_vol_dist <- summary(m_vol_dist)
+
+  cat("    Model 3: condition ~ volume + mean_neighbor_dist + site (n =", n_neighborhood_cond, ")\n")
+  cat("        Volume: β =", round(coef(m_vol_dist)["log_volume_scaled"], 3),
+      ", p =", round(s_vol_dist$coefficients["log_volume_scaled", "Pr(>|t|)"], 4), "\n")
+  cat("        Mean_dist: β =", round(coef(m_vol_dist)["mean_dist_scaled"], 3),
+      ", p =", round(s_vol_dist$coefficients["mean_dist_scaled", "Pr(>|t|)"], 4), "\n")
+  cat("        Adj. R² =", round(s_vol_dist$adj.r.squared, 4), "\n")
+  cat("        AIC =", round(AIC(m_vol_dist), 1), "\n\n")
+
+  # Model 4: Full landscape model (volume + neighbors + proximity + site)
+  m_full_landscape <- lm(condition_score ~ log_volume_scaled + n_neighbors_scaled +
+                           mean_dist_scaled + total_neighbor_vol_scaled + site,
+                         data = landscape_neighborhood)
+  s_full_landscape <- summary(m_full_landscape)
+
+  cat("    Model 4: FULL LANDSCAPE MODEL (n =", n_neighborhood_cond, ")\n")
+  cat("    condition ~ volume + n_neighbors + mean_dist + total_neighbor_vol + site\n")
+
+  landscape_predictors <- c("log_volume_scaled", "n_neighbors_scaled",
+                             "mean_dist_scaled", "total_neighbor_vol_scaled")
+  predictor_labels <- c("Volume", "N_neighbors", "Mean_distance", "Total_neighbor_vol")
+
+  for (j in seq_along(landscape_predictors)) {
+    pred <- landscape_predictors[j]
+    if (pred %in% rownames(coef(s_full_landscape))) {
+      cat("        ", predictor_labels[j], ": β =",
+          round(coef(m_full_landscape)[pred], 3),
+          ", p =", round(s_full_landscape$coefficients[pred, "Pr(>|t|)"], 4), "\n")
+    }
+  }
+  cat("        Adj. R² =", round(s_full_landscape$adj.r.squared, 4), "\n")
+  cat("        AIC =", round(AIC(m_full_landscape), 1), "\n\n")
+
+  # Model 5: Volume × Neighbors interaction
+  m_vol_neigh_int <- lm(condition_score ~ log_volume_scaled * n_neighbors_scaled + site,
+                        data = landscape_neighborhood)
+  s_vol_neigh_int <- summary(m_vol_neigh_int)
+
+  cat("    Model 5: condition ~ volume × n_neighbors + site (interaction)\n")
+  cat("        Volume: β =", round(coef(m_vol_neigh_int)["log_volume_scaled"], 3),
+      ", p =", round(s_vol_neigh_int$coefficients["log_volume_scaled", "Pr(>|t|)"], 4), "\n")
+  cat("        N_neighbors: β =", round(coef(m_vol_neigh_int)["n_neighbors_scaled"], 3),
+      ", p =", round(s_vol_neigh_int$coefficients["n_neighbors_scaled", "Pr(>|t|)"], 4), "\n")
+  cat("        Interaction: β =", round(coef(m_vol_neigh_int)["log_volume_scaled:n_neighbors_scaled"], 3),
+      ", p =", round(s_vol_neigh_int$coefficients["log_volume_scaled:n_neighbors_scaled", "Pr(>|t|)"], 4), "\n")
+  cat("        Adj. R² =", round(s_vol_neigh_int$adj.r.squared, 4), "\n")
+  cat("        AIC =", round(AIC(m_vol_neigh_int), 1), "\n\n")
+
+} else {
+  cat("    Insufficient neighborhood data for models 2-5 (n =", n_neighborhood_cond, ")\n\n")
+  m_vol_neigh <- NULL
+  m_vol_dist <- NULL
+  m_full_landscape <- NULL
+  m_vol_neigh_int <- NULL
+}
+
+# H.5 Site effects on condition
+cat("H.5 SITE EFFECTS ON CONDITION\n")
+cat("    --------------------------------------------------\n")
+
+# ANOVA for site effect
+m_site_only <- lm(condition_score ~ site, data = landscape_condition)
+anova_site <- anova(m_site_only)
+site_f <- anova_site["site", "F value"]
+site_p <- anova_site["site", "Pr(>F)"]
+site_r2 <- summary(m_site_only)$r.squared
+
+cat("    Site-only model: condition ~ site\n")
+cat("        F =", round(site_f, 2), ", p =", round(site_p, 4), "\n")
+cat("        R² =", round(site_r2, 4), "(proportion explained by site alone)\n\n")
+
+# Site means
+site_means <- landscape_condition %>%
+  group_by(site) %>%
+  summarise(
+    n = n(),
+    mean_condition = mean(condition_score, na.rm = TRUE),
+    sd_condition = sd(condition_score, na.rm = TRUE),
+    se_condition = sd_condition / sqrt(n),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(mean_condition))
+
+cat("    Site-level condition means:\n")
+for (i in 1:nrow(site_means)) {
+  cat("        ", site_means$site[i], ": mean =", round(site_means$mean_condition[i], 3),
+      "± SE", round(site_means$se_condition[i], 3),
+      "(n =", site_means$n[i], ")\n")
+}
+cat("\n")
+
+# H.6 Model comparison table
+cat("H.6 MODEL COMPARISON (AIC)\n")
+cat("    --------------------------------------------------\n")
+
+model_comparison <- data.frame(
+  model = c("M1: Volume + Site",
+            "M2: Volume + N_neighbors + Site",
+            "M3: Volume + Mean_dist + Site",
+            "M4: Full landscape",
+            "M5: Volume × N_neighbors + Site"),
+  sample = c(paste0("Full (n=", n_landscape, ")"),
+             paste0("Neighborhood (n=", n_neighborhood_cond, ")"),
+             paste0("Neighborhood (n=", n_neighborhood_cond, ")"),
+             paste0("Neighborhood (n=", n_neighborhood_cond, ")"),
+             paste0("Neighborhood (n=", n_neighborhood_cond, ")")),
+  adj_r2 = NA_real_,
+  aic = NA_real_,
+  stringsAsFactors = FALSE
+)
+
+model_comparison$adj_r2[1] <- s_vol_site$adj.r.squared
+model_comparison$aic[1] <- AIC(m_vol_site)
+
+if (!is.null(m_vol_neigh)) {
+  model_comparison$adj_r2[2] <- s_vol_neigh$adj.r.squared
+  model_comparison$aic[2] <- AIC(m_vol_neigh)
+}
+if (!is.null(m_vol_dist)) {
+  model_comparison$adj_r2[3] <- s_vol_dist$adj.r.squared
+  model_comparison$aic[3] <- AIC(m_vol_dist)
+}
+if (!is.null(m_full_landscape)) {
+  model_comparison$adj_r2[4] <- s_full_landscape$adj.r.squared
+  model_comparison$aic[4] <- AIC(m_full_landscape)
+}
+if (!is.null(m_vol_neigh_int)) {
+  model_comparison$adj_r2[5] <- s_vol_neigh_int$adj.r.squared
+  model_comparison$aic[5] <- AIC(m_vol_neigh_int)
+}
+
+# Show comparison
+cat("    Model                           Sample             Adj.R²    AIC\n")
+cat("    ----------------------------------------------------------------\n")
+for (i in 1:nrow(model_comparison)) {
+  if (!is.na(model_comparison$aic[i])) {
+    cat(sprintf("    %-30s %-20s %.4f    %.1f\n",
+                model_comparison$model[i], model_comparison$sample[i],
+                model_comparison$adj_r2[i], model_comparison$aic[i]))
+  }
+}
+cat("\n")
+
+# Best model (lowest AIC among neighborhood models)
+if (any(!is.na(model_comparison$aic[2:5]))) {
+  best_idx <- which.min(model_comparison$aic[2:5]) + 1
+  cat("    Best model (lowest AIC):", model_comparison$model[best_idx], "\n")
+  cat("    ΔAIC relative to M2 (additive):\n")
+  for (i in 3:5) {
+    if (!is.na(model_comparison$aic[i])) {
+      delta_aic <- model_comparison$aic[i] - model_comparison$aic[2]
+      cat("        ", model_comparison$model[i], ": ΔAIC =", round(delta_aic, 1), "\n")
+    }
+  }
+}
+cat("\n")
+
+# H.7 Create landscape effects results table
+landscape_effects_table <- data.frame(
+  response = character(),
+  predictor = character(),
+  estimate = numeric(),
+  se = numeric(),
+  t_value = numeric(),
+  p_value = numeric(),
+  adj_r2 = numeric(),
+  n = integer(),
+  model = character(),
+  stringsAsFactors = FALSE
+)
+
+# Add individual measure results
+if (nrow(individual_results) > 0) {
+  individual_results$response <- individual_results$measure
+  individual_results$model <- "Volume + Site"
+  landscape_effects_table <- bind_rows(landscape_effects_table, individual_results)
+}
+
+# Add composite condition results
+landscape_effects_table <- bind_rows(landscape_effects_table, data.frame(
+  response = "PC1_Coral",
+  predictor = "log_volume",
+  estimate = coef(m_vol_site)["log_volume_scaled"],
+  se = s_vol_site$coefficients["log_volume_scaled", "Std. Error"],
+  t_value = s_vol_site$coefficients["log_volume_scaled", "t value"],
+  p_value = s_vol_site$coefficients["log_volume_scaled", "Pr(>|t|)"],
+  adj_r2 = s_vol_site$adj.r.squared,
+  n = n_landscape,
+  model = "Volume + Site",
+  stringsAsFactors = FALSE
+))
+
+# Add neighborhood predictor results
+if (!is.null(m_vol_neigh)) {
+  landscape_effects_table <- bind_rows(landscape_effects_table, data.frame(
+    response = "PC1_Coral",
+    predictor = "n_neighbors",
+    estimate = coef(m_vol_neigh)["n_neighbors_scaled"],
+    se = s_vol_neigh$coefficients["n_neighbors_scaled", "Std. Error"],
+    t_value = s_vol_neigh$coefficients["n_neighbors_scaled", "t value"],
+    p_value = s_vol_neigh$coefficients["n_neighbors_scaled", "Pr(>|t|)"],
+    adj_r2 = s_vol_neigh$adj.r.squared,
+    n = n_neighborhood_cond,
+    model = "Volume + Neighbors + Site",
+    stringsAsFactors = FALSE
+  ))
+}
+
+if (!is.null(m_vol_dist)) {
+  landscape_effects_table <- bind_rows(landscape_effects_table, data.frame(
+    response = "PC1_Coral",
+    predictor = "mean_neighbor_dist",
+    estimate = coef(m_vol_dist)["mean_dist_scaled"],
+    se = s_vol_dist$coefficients["mean_dist_scaled", "Std. Error"],
+    t_value = s_vol_dist$coefficients["mean_dist_scaled", "t value"],
+    p_value = s_vol_dist$coefficients["mean_dist_scaled", "Pr(>|t|)"],
+    adj_r2 = s_vol_dist$adj.r.squared,
+    n = n_neighborhood_cond,
+    model = "Volume + Mean_dist + Site",
+    stringsAsFactors = FALSE
+  ))
+}
+
+# Add site effect
+landscape_effects_table <- bind_rows(landscape_effects_table, data.frame(
+  response = "PC1_Coral",
+  predictor = "site",
+  estimate = NA,
+  se = NA,
+  t_value = NA,
+  p_value = site_p,
+  adj_r2 = site_r2,
+  n = n_landscape,
+  model = "Site only (ANOVA)",
+  stringsAsFactors = FALSE
+))
+
+# Save landscape effects table
+save_table(landscape_effects_table %>%
+             mutate(across(where(is.numeric), ~round(., 4))),
+           "landscape_condition_effects")
+cat("H.7 Saved: landscape_condition_effects.csv\n")
+
+# Save model comparison table
+save_table(model_comparison %>%
+             mutate(across(where(is.numeric), ~round(., 4))),
+           "landscape_model_comparison")
+cat("    Saved: landscape_model_comparison.csv\n")
+
+# Save site means
+save_table(site_means %>%
+             mutate(across(where(is.numeric), ~round(., 4))),
+           "site_condition_means")
+cat("    Saved: site_condition_means.csv\n\n")
+
+# H.8 Create landscape effects visualization
+cat("H.8 Creating landscape effects visualization...\n")
+
+# Panel A: Condition vs Volume by site
+p_vol_condition <- ggplot(landscape_condition, aes(x = log_volume, y = condition_score)) +
+  geom_point(aes(color = site), alpha = 0.7, size = 2.5) +
+  geom_smooth(method = "lm", color = "black", se = TRUE, linewidth = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", alpha = 0.5) +
+  scale_color_manual(values = SITE_COLORS, name = "Site") +
+  labs(
+    title = "A. Coral Size → Condition",
+    subtitle = sprintf("β = %.3f, p = %.4f (n = %d)",
+                       coef(m_vol_site)["log_volume_scaled"],
+                       s_vol_site$coefficients["log_volume_scaled", "Pr(>|t|)"],
+                       n_landscape),
+    x = expression(log[10](Volume~cm^3)),
+    y = "Coral condition (PC1)"
+  ) +
+  theme_publication() +
+  theme(legend.position = c(0.15, 0.85))
+
+# Panel B: Condition vs N_neighbors (if available)
+if (!is.null(m_vol_neigh)) {
+  p_neigh_condition <- ggplot(landscape_neighborhood,
+                               aes(x = n_neighbors, y = condition_score)) +
+    geom_point(aes(color = site), alpha = 0.7, size = 2.5) +
+    geom_smooth(method = "lm", color = "black", se = TRUE, linewidth = 1) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", alpha = 0.5) +
+    scale_color_manual(values = SITE_COLORS, name = "Site") +
+    labs(
+      title = "B. Neighborhood Density → Condition",
+      subtitle = sprintf("β = %.3f, p = %.4f (n = %d)",
+                         coef(m_vol_neigh)["n_neighbors_scaled"],
+                         s_vol_neigh$coefficients["n_neighbors_scaled", "Pr(>|t|)"],
+                         n_neighborhood_cond),
+      x = "Number of neighbors (within 5m)",
+      y = "Coral condition (PC1)"
+    ) +
+    theme_publication() +
+    theme(legend.position = "none")
+} else {
+  p_neigh_condition <- ggplot() + theme_void() +
+    labs(title = "B. Insufficient neighborhood data")
+}
+
+# Panel C: Condition by Site
+p_site_condition <- ggplot(landscape_condition, aes(x = site, y = condition_score, fill = site)) +
+  geom_boxplot(alpha = 0.7, outlier.alpha = 0.3) +
+  geom_jitter(alpha = 0.3, width = 0.15, size = 1.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", alpha = 0.5) +
+  scale_fill_manual(values = SITE_COLORS) +
+  labs(
+    title = "C. Condition by Site",
+    subtitle = sprintf("ANOVA: F = %.2f, p = %.4f", site_f, site_p),
+    x = "Site",
+    y = "Coral condition (PC1)"
+  ) +
+  theme_publication() +
+  theme(legend.position = "none")
+
+# Panel D: Individual measures heatmap (effect sizes)
+if (nrow(individual_results) > 0) {
+  individual_results$significant <- individual_results$p_value < 0.05
+
+  p_individual <- ggplot(individual_results,
+                          aes(x = measure, y = predictor, fill = estimate)) +
+    geom_tile(color = "white", linewidth = 1) +
+    geom_text(aes(label = sprintf("%.2f\n(p=%.3f)", estimate, p_value)),
+              size = 3, color = "white") +
+    scale_fill_gradient2(low = "#D55E00", mid = "gray80", high = "#009E73",
+                          midpoint = 0, name = "Effect\nsize (β)") +
+    labs(
+      title = "D. Individual Condition Measures",
+      subtitle = "Effect of log(volume) on each physiological trait",
+      x = "Physiological measure (position-corrected)",
+      y = "Predictor"
+    ) +
+    theme_publication() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position = "right")
+} else {
+  p_individual <- ggplot() + theme_void() +
+    labs(title = "D. Individual measures not available")
+}
+
+# Combine panels
+p_landscape_effects <- (p_vol_condition | p_neigh_condition) /
+                        (p_site_condition | p_individual) +
+  plot_annotation(
+    title = "Landscape Effects on Coral Condition (No CAFI Predictors)",
+    subtitle = "Abiotic and spatial drivers of coral physiological health",
+    theme = theme(
+      plot.title = element_text(face = "bold", size = 14),
+      plot.subtitle = element_text(size = 11, color = "gray40")
+    )
+  )
+
+ggsave(file.path(fig_dir, "landscape_condition_effects.png"), p_landscape_effects,
+       width = 12, height = 10, dpi = 300, bg = "white")
+cat("    Saved: landscape_condition_effects.png\n\n")
+
+# H.9 Summary interpretation
+cat("H.9 LANDSCAPE EFFECTS INTERPRETATION:\n")
+cat("    =====================================================================\n")
+cat("    Key findings (CAFI-independent effects on condition):\n\n")
+
+# Volume effect
+vol_p <- s_vol_site$coefficients["log_volume_scaled", "Pr(>|t|)"]
+vol_b <- coef(m_vol_site)["log_volume_scaled"]
+if (vol_p < 0.05) {
+  vol_direction <- ifelse(vol_b > 0, "POSITIVE", "NEGATIVE")
+  cat("    1. CORAL SIZE: SIGNIFICANT ", vol_direction, " effect\n")
+  cat("       β =", round(vol_b, 3), ", p =", round(vol_p, 4), "\n")
+  if (vol_b > 0) {
+    cat("       → Larger corals have BETTER physiological condition\n")
+  } else {
+    cat("       → Larger corals have WORSE physiological condition\n")
+  }
+} else {
+  cat("    1. CORAL SIZE: Not significant (p =", round(vol_p, 4), ")\n")
+  cat("       → Size does not predict condition after controlling for site\n")
+}
+cat("\n")
+
+# Neighborhood effect
+if (!is.null(m_vol_neigh)) {
+  neigh_p <- s_vol_neigh$coefficients["n_neighbors_scaled", "Pr(>|t|)"]
+  neigh_b <- coef(m_vol_neigh)["n_neighbors_scaled"]
+  if (neigh_p < 0.05) {
+    neigh_direction <- ifelse(neigh_b > 0, "POSITIVE", "NEGATIVE")
+    cat("    2. NEIGHBORHOOD DENSITY: SIGNIFICANT ", neigh_direction, " effect\n")
+    cat("       β =", round(neigh_b, 3), ", p =", round(neigh_p, 4), "\n")
+    if (neigh_b > 0) {
+      cat("       → More neighbors → BETTER coral condition (facilitation?)\n")
+    } else {
+      cat("       → More neighbors → WORSE coral condition (competition?)\n")
+    }
+  } else {
+    cat("    2. NEIGHBORHOOD DENSITY: Not significant (p =", round(neigh_p, 4), ")\n")
+    cat("       → Local coral density does not predict condition\n")
+  }
+} else {
+  cat("    2. NEIGHBORHOOD DENSITY: Not tested (insufficient data)\n")
+}
+cat("\n")
+
+# Site effect
+if (site_p < 0.05) {
+  cat("    3. SITE: SIGNIFICANT effect (F =", round(site_f, 2), ", p =", round(site_p, 4), ")\n")
+  cat("       → Reef location explains", round(site_r2 * 100, 1), "% of condition variance\n")
+  best_site <- site_means$site[1]
+  worst_site <- site_means$site[nrow(site_means)]
+  cat("       → Best condition:", best_site, "(mean =", round(site_means$mean_condition[1], 2), ")\n")
+  cat("       → Worst condition:", worst_site, "(mean =",
+      round(site_means$mean_condition[nrow(site_means)], 2), ")\n")
+} else {
+  cat("    3. SITE: Not significant (p =", round(site_p, 4), ")\n")
+  cat("       → Reef sites do not differ in average coral condition\n")
+}
+cat("\n")
+
+cat("    CONCLUSIONS:\n")
+cat("    - Landscape factors (size, neighborhood, site) explain coral condition\n")
+cat("    - These effects are INDEPENDENT of CAFI community composition\n")
+cat("    - CAFI effects (Part A-F) operate ON TOP of these landscape baselines\n")
 cat("    =====================================================================\n\n")
 
 # ============================================================================
@@ -1511,23 +2263,46 @@ cat("============================================================\n")
 cat("CREATING VISUALIZATIONS\n")
 cat("============================================================\n\n")
 
-# --- Panel A: PC1_CAFI (primary metric) vs Condition ---
-# This is the key bidirectional test following Stier et al. (2024)
-p_pc1_cafi <- ggplot(analysis_data %>% filter(!is.na(pc1_cafi)),
-                      aes(x = pc1_cafi, y = condition_score)) +
-  geom_point(aes(color = site), alpha = 0.7, size = 2.5) +
-  geom_smooth(method = "lm", color = "black", se = TRUE, linewidth = 1) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", alpha = 0.5) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "gray50", alpha = 0.5) +
-  scale_color_manual(values = SITE_COLORS, name = "Site") +
-  labs(
-    title = "A. PC1_CAFI → Condition",
-    subtitle = "Community composition predicts coral health",
-    x = "PC1_CAFI (community score)",
-    y = "Coral condition (PC1_Coral)"
-  ) +
-  theme_publication() +
-  theme(legend.position = c(0.15, 0.85))
+# --- Panel A: Richness-Abundance Artifact (KEY FINDING) ---
+# Load the comparison data from Part A2
+richness_comparison_df <- tryCatch(
+  load_object("richness_comparison_results"),
+  error = function(e) NULL
+)
+
+if (!is.null(richness_comparison_df)) {
+  p_richness_artifact <- ggplot(richness_comparison_df,
+                                  aes(x = type, y = estimate)) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.8) +
+    geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper,
+                         color = significant, fill = significant),
+                    size = 1.2, linewidth = 1.2, shape = 21) +
+    geom_text(aes(label = sprintf("p = %.3f\nr = %.2f", p_value, cor_with_abundance)),
+              vjust = -0.8, size = 3, lineheight = 0.9) +
+    scale_color_manual(values = c("TRUE" = "#2e7d32", "FALSE" = "#757575"),
+                       guide = "none") +
+    scale_fill_manual(values = c("TRUE" = "#2e7d32", "FALSE" = "white"),
+                      guide = "none") +
+    coord_flip() +
+    labs(
+      title = "A. Species Richness → Condition: Abundance Artifact",
+      subtitle = "Raw richness signal disappears after rarefaction (r = correlation with abundance)",
+      x = "",
+      y = "Effect on condition score (β)"
+    ) +
+    theme_publication() +
+    theme(axis.text.y = element_text(size = 10))
+} else {
+  # Fallback if richness comparison not available
+  p_richness_artifact <- ggplot(analysis_data %>% filter(!is.na(pc1_cafi)),
+                                 aes(x = pc1_cafi, y = condition_score)) +
+    geom_point(aes(color = site), alpha = 0.7, size = 2.5) +
+    geom_smooth(method = "lm", color = "black", se = TRUE, linewidth = 1) +
+    scale_color_manual(values = SITE_COLORS, name = "Site") +
+    labs(title = "A. PC1_CAFI → Condition",
+         x = "PC1_CAFI", y = "Coral condition") +
+    theme_publication()
+}
 
 # --- Panel Aa: Trapezia (defenders) vs Condition ---
 p_trapezia <- ggplot(analysis_data, aes(x = n_trapezia, y = condition_score)) +
@@ -1625,22 +2400,30 @@ p_bidirectional <- ggplot(bidirectional_data,
   theme(legend.position = "none")
 
 # --- Combine into manuscript figure ---
-# Following Stier et al. (2024) layout with PC1_CAFI as primary metric
-fig5_feedbacks <- (p_pc1_cafi | p_trapezia | p_galeropsis) /
+# Updated to show richness-abundance artifact as key finding
+fig5_feedbacks <- (p_richness_artifact) /
+                   (p_trapezia | p_galeropsis) /
                    (p_forest | p_bidirectional) +
-  plot_layout(heights = c(1, 1)) +
+  plot_layout(heights = c(0.8, 1, 1)) +
   plot_annotation(
     title = "Figure 5: CAFI-Coral Condition Feedbacks",
-    subtitle = paste0("n = ", n_complete, " corals | PC1_CAFI = PCA-based community composition score"),
-    caption = "PC1_Coral (condition) = position-corrected PC1 of protein, carbs, zoox, AFDW\nModels control for coral volume and site | Methodology follows Stier et al. (2024)"
+    subtitle = paste0("n = ", n_complete, " corals | Key finding: species richness effect is an abundance artifact"),
+    caption = paste0(
+      "A: Raw richness shows trend (p<0.10) but rarefied richness is NS (p>0.40); r = correlation with total abundance\n",
+      "B-C: Functional group effects (all NS). D: Forest plot of effect sizes. E: Bidirectional tests.\n",
+      "PC1_Coral = position-corrected PC1 of protein, carbs, zoox, AFDW | Models control for volume + site"
+    )
   ) &
   theme(plot.title = element_text(size = 14, face = "bold"),
-        plot.subtitle = element_text(size = 11))
+        plot.subtitle = element_text(size = 11),
+        plot.caption = element_text(size = 9, hjust = 0))
 
-# Save manuscript figure
+# Save manuscript figure (to both manuscript and analysis dirs)
 ggsave(file.path(PATHS$fig_manuscript, "fig5_feedbacks.png"),
        fig5_feedbacks, width = 12, height = 10, dpi = 300, bg = "white")
-cat("   Saved: fig5_feedbacks.png (manuscript)\n")
+ggsave(file.path(fig_dir, "fig5_feedbacks.png"),
+       fig5_feedbacks, width = 12, height = 10, dpi = 300, bg = "white")
+cat("   Saved: fig5_feedbacks.png (manuscript + analysis)\n")
 
 # --- Additional exploratory figure: All CAFI metrics ---
 p_cafi_effects <- ggplot(cafi_to_condition_df,
@@ -1707,7 +2490,7 @@ cafi_condition_table <- cafi_to_condition_df %>%
     significant = ifelse(significant, "Yes", "No")
   ) %>%
   dplyr::select(direction, predictor, estimate, se, t_value, df, p_value, ci_95,
-         r2_marginal, n, significant)
+         any_of(c("r2_marginal", "r2_adj")), n, significant)
 
 save_table(cafi_condition_table, "cafi_condition_models")
 cat("   Saved: cafi_condition_models.csv\n")
@@ -1737,7 +2520,27 @@ functional_table <- functional_effects %>%
          expected_sign, observed_sign, matches_hypothesis, significant)
 
 save_table(functional_table, "functional_effects")
-cat("   Saved: functional_effects.csv\n\n")
+cat("   Saved: functional_effects.csv\n")
+
+# --- Table 4: Richness-abundance artifact comparison ---
+richness_comparison_df <- tryCatch(
+  load_object("richness_comparison_results"),
+  error = function(e) NULL
+)
+
+if (!is.null(richness_comparison_df)) {
+  richness_table <- richness_comparison_df %>%
+    mutate(
+      across(where(is.numeric), ~round(., 4)),
+      ci_95 = paste0("[", round(ci_lower, 3), ", ", round(ci_upper, 3), "]"),
+      significant = ifelse(significant, "Yes", "No")
+    ) %>%
+    dplyr::select(type, estimate, se, p_value, ci_95, n, cor_with_abundance, significant)
+
+  save_table(richness_table, "richness_abundance_artifact")
+  cat("   Saved: richness_abundance_artifact.csv\n")
+}
+cat("\n")
 
 # ============================================================================
 # 5. COMPILE STANDARDIZED STATISTICAL RESULTS
@@ -1869,10 +2672,44 @@ if (exists("neighborhood_results")) {
     cat("  - Neighborhood effect on condition: β =", round(neighborhood_results$estimate[5], 3),
         "(p =", round(neighborhood_results$p_value[5], 4), ")\n")
   }
-  neighbor_interp <- ifelse(neighborhood_results$estimate[2] > 0, "Field of Dreams", "Redistribution")
+  neighbor_interp <- ifelse(neighborhood_results$estimate[2] > 0, "Field of Dreams", "Redirection")
   cat("  - Interpretation:", neighbor_interp, "at landscape level\n")
 } else {
   cat("   Neighborhood analysis not run\n")
+}
+cat("\n")
+
+cat("PART H: LANDSCAPE-ONLY EFFECTS ON CONDITION\n")
+cat("-------------------------------------------\n")
+if (exists("landscape_effects_table") && nrow(landscape_effects_table) > 0) {
+  cat("  Abiotic/spatial drivers of coral condition (no CAFI predictors):\n")
+  cat("  - Sample:", n_landscape, "corals with condition data\n")
+
+  # Volume effect
+  vol_row <- landscape_effects_table %>% filter(response == "PC1_Coral", predictor == "log_volume")
+  if (nrow(vol_row) > 0) {
+    vol_sig <- ifelse(vol_row$p_value[1] < 0.05, "SIGNIFICANT", "not significant")
+    cat("  - Volume effect: β =", round(vol_row$estimate[1], 3),
+        "(p =", round(vol_row$p_value[1], 4), ") -", vol_sig, "\n")
+  }
+
+  # Neighborhood effect
+  neigh_row <- landscape_effects_table %>% filter(response == "PC1_Coral", predictor == "n_neighbors")
+  if (nrow(neigh_row) > 0) {
+    neigh_sig <- ifelse(neigh_row$p_value[1] < 0.05, "SIGNIFICANT", "not significant")
+    cat("  - Neighborhood effect: β =", round(neigh_row$estimate[1], 3),
+        "(p =", round(neigh_row$p_value[1], 4), ") -", neigh_sig, "\n")
+  }
+
+  # Site effect
+  site_row <- landscape_effects_table %>% filter(predictor == "site")
+  if (nrow(site_row) > 0) {
+    site_sig <- ifelse(site_row$p_value[1] < 0.05, "SIGNIFICANT", "not significant")
+    cat("  - Site effect: R² =", round(site_row$adj_r2[1], 3),
+        "(p =", round(site_row$p_value[1], 4), ") -", site_sig, "\n")
+  }
+} else {
+  cat("   Landscape analysis not run\n")
 }
 cat("\n")
 
@@ -1892,11 +2729,15 @@ cat("    - output/figures/feedbacks/cafi_condition_effects.png\n")
 cat("    - output/figures/feedbacks/functional_effects_forest.png\n")
 cat("    - output/figures/feedbacks/key_species_effects.png\n")
 cat("    - output/figures/feedbacks/functional_vs_key_species.png\n")
-cat("    - output/figures/feedbacks/neighborhood_effects.png (NEW)\n")
+cat("    - output/figures/feedbacks/neighborhood_effects.png\n")
+cat("    - output/figures/feedbacks/landscape_condition_effects.png (NEW - Part H)\n")
 cat("  Tables:\n")
 cat("    - output/tables/cafi_condition_models.csv\n")
 cat("    - output/tables/reverse_direction_models.csv\n")
 cat("    - output/tables/functional_effects.csv\n")
+cat("    - output/tables/landscape_condition_effects.csv (NEW - Part H)\n")
+cat("    - output/tables/landscape_model_comparison.csv (NEW - Part H)\n")
+cat("    - output/tables/site_condition_means.csv (NEW - Part H)\n")
 cat("    - output/tables/key_species_effects.csv\n")
 cat("    - output/tables/neighborhood_effects.csv (NEW)\n")
 if (LAVAAN_AVAILABLE && n_complete >= 50) {

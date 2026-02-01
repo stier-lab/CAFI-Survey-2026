@@ -216,7 +216,7 @@ This study addresses four core questions linking coral habitat, CAFI communities
 | Hypothesis | Scaling | Mechanism |
 |------------|---------|-----------|
 | **Field of Dreams** | β = 1 | Abundance proportional to size; passive habitat filling |
-| **Propagule Redistribution** | β < 1 | Larger corals "dilute" settlers; per-capita density decreases |
+| **Propagule Redirection** | β < 1 | Larger corals "dilute" settlers; per-capita density decreases |
 | **Super-linear** | β > 1 | Larger corals disproportionately attractive |
 
 **Result**: Total CAFI abundance β = 1.20 [1.01, 1.40] — marginally super-linear. Species richness z = 0.79 [0.69, 0.89] — sublinear. Per-capita density decreases with size (dilution slope = -0.42). Functional groups vary: Trapezia β ≈ 1.0 (linear), Fish β ≈ 1.7 (super-linear).

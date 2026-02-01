@@ -48,17 +48,17 @@ sp_info <- data.frame(
 
 # Guild configuration
 guild_names <- c(
-  "1" = "Protective\nCrustaceans",
-  "2" = "Core\nAssociates",
-  "3" = "Fish &\nTrapezia",
-  "4" = "Peripheral\nCrabs"
+  "1" = "Module I",
+  "2" = "Module II",
+  "3" = "Module III",
+  "4" = "Module IV"
 )
 
 guild_names_short <- c(
-  "1" = "Protective Crustaceans",
-  "2" = "Core Associates",
-  "3" = "Fish & Trapezia",
-  "4" = "Peripheral Crabs"
+  "1" = "Module I",
+  "2" = "Module II",
+  "3" = "Module III",
+  "4" = "Module IV"
 )
 
 guild_counts <- sp_info %>% count(guild) %>% arrange(guild)
@@ -71,12 +71,12 @@ guild_colors <- c(
   "4" = "#CC79A7"   # Pink
 )
 
-# Lighter versions for arc backgrounds
+# Lighter versions for arc backgrounds (more saturated to clearly match guild colors)
 guild_colors_light <- c(
-  "1" = "#C6DDED",
-  "2" = "#F5D5C3",
-  "3" = "#C6E8E0",
-  "4" = "#F0DAE8"
+  "1" = "#A3CDE5",  # clearly blue
+  "2" = "#F4B888",  # clearly orange
+  "3" = "#8ED5BF",  # clearly teal/green
+  "4" = "#E2A5C5"   # clearly pink/mauve
 )
 
 cat("Guild sizes:\n")
@@ -160,16 +160,12 @@ edge_df <- as_data_frame(g, what = "edges") %>%
                         "gray50")
   )
 
-# FIX #3: Sample only 5% of between-guild edges to reduce visual noise
-set.seed(42)
+# Keep ALL between-guild edges (shown as thin gray lines)
 between_guild_edges <- edge_df %>% filter(!is_within_guild)
+between_guild_edges_sampled <- between_guild_edges
 n_between <- nrow(between_guild_edges)
-n_sample <- max(5, round(n_between * 0.05))  # Keep at least 5, or 5% of total
-sampled_between_idx <- sample(1:n_between, min(n_sample, n_between))
-between_guild_edges_sampled <- between_guild_edges[sampled_between_idx, ]
 
-cat(sprintf("  Between-guild edges: %d total, sampled %d (5%%)\n",
-            n_between, nrow(between_guild_edges_sampled)))
+cat(sprintf("  Between-guild edges: %d (all shown as thin gray)\n", n_between))
 
 # Create bezier curves for edges (curve through center)
 create_bezier <- function(x1, y1, x2, y2, n_points = 30, curvature = 0.35) {
@@ -212,50 +208,93 @@ if (nrow(between_guild_edges_sampled) > 0) {
   bezier_between <- data.frame(x = numeric(), y = numeric(), edge_id = integer(), weight = numeric())
 }
 
-# Create guild arc backgrounds
-guild_arc_data <- data.frame(
-  guild = factor(1:4),
-  start = pi/2 - guild_starts - guild_arcs,
-  end = pi/2 - guild_starts,
-  r_inner = 3.8,
-  r_outer = 5.2
-) %>%
+# Create guild arc backgrounds DIRECTLY from actual node positions
+# This guarantees the arc color matches the nodes it surrounds
+guild_arc_data <- sp_positions %>%
+  group_by(guild) %>%
+  summarize(
+    min_angle = min(angle),
+    max_angle = max(angle),
+    .groups = "drop"
+  ) %>%
   mutate(
-    fill = guild_colors_light[as.character(guild)],
-    color = guild_colors[as.character(guild)]
+    # Add padding around the nodes
+    # geom_arc_bar sweeps from start to end; swap so arc covers the node range
+    padding = 0.05,
+    start = max_angle + padding,
+    end = min_angle - padding,
+    r_inner = 3.8,
+    r_outer = 5.2,
+    fill_color = guild_colors_light[as.character(guild)],
+    border_color = guild_colors[as.character(guild)]
   )
 
-# FIX #2: Guild label positions FURTHER out (radius = 7.5 instead of 6.2)
-guild_label_positions <- data.frame(
-  guild = factor(1:4),
-  angle = pi/2 - (guild_starts + guild_arcs/2),
-  label = c("Protective\nCrustaceans", "Core\nAssociates",
-            "Fish &\nTrapezia", "Peripheral\nCrabs")
-) %>%
+cat("  Arc positions derived from actual node angles:\n")
+for (i in 1:nrow(guild_arc_data)) {
+  row <- guild_arc_data[i, ]
+  cat(sprintf("    Guild %s: arc from %.0f to %.0f deg, fill=%s, border=%s\n",
+              row$guild,
+              row$start * 180/pi, row$end * 180/pi,
+              row$fill_color, row$border_color))
+}
+
+# Guild label positions - place in corners of the panel to maximize network space
+# Labels go near their guild's quadrant but at fixed positions in plot space
+guild_label_positions <- sp_positions %>%
+  group_by(guild) %>%
+  summarize(mid_angle = (min(angle) + max(angle)) / 2, .groups = "drop") %>%
+  left_join(guild_counts, by = "guild") %>%
   mutate(
-    radius = 7.5,  # INCREASED from 6.2
-    x = radius * cos(angle),
-    y = radius * sin(angle),
+    label = paste0(
+      c("Module I", "Module II",
+        "Module III", "Module IV")[as.numeric(guild)],
+      " (n=", n, ")"
+    ),
+    # Place labels at edge of plot near each guild's quadrant
+    # Guild 1 (blue): upper-right → top-right corner
+    # Guild 2 (orange): lower-right → bottom-right corner
+    # Guild 3 (teal): lower-left → bottom-left corner
+    # Guild 4 (pink): upper-left → top-left corner
+    x = c(6.5, 6.5, -6.5, -6.5)[as.numeric(guild)],
+    y = c(6.5, -6.5, -6.5, 6.5)[as.numeric(guild)],
+    hjust = c(1, 1, 0, 0)[as.numeric(guild)],
+    vjust = c(0, 1, 1, 0)[as.numeric(guild)],
     color = guild_colors[as.character(guild)]
   )
 
 # Build Panel A with FIXED aspect ratio
+# Use geom_polygon for arc backgrounds (geom_arc_bar has rendering bugs with colors)
+make_arc_polygon <- function(start_angle, end_angle, r_inner, r_outer, n = 100) {
+  angles_outer <- seq(start_angle, end_angle, length.out = n)
+  angles_inner <- rev(angles_outer)
+  data.frame(
+    x = c(r_outer * cos(angles_outer), r_inner * cos(angles_inner)),
+    y = c(r_outer * sin(angles_outer), r_inner * sin(angles_inner))
+  )
+}
+
+arc_layers <- lapply(1:nrow(guild_arc_data), function(i) {
+  d <- guild_arc_data[i, ]
+  poly_df <- make_arc_polygon(d$start, d$end, d$r_inner, d$r_outer)
+  geom_polygon(
+    data = poly_df,
+    aes(x = x, y = y),
+    fill = d$fill_color,
+    color = d$border_color,
+    alpha = 0.5,
+    linewidth = 0.8
+  )
+})
+
 p_A <- ggplot() +
-  # Guild arc backgrounds (subtle)
-  geom_arc_bar(
-    data = guild_arc_data,
-    aes(x0 = 0, y0 = 0, r0 = r_inner, r = r_outer,
-        start = start, end = end, fill = guild),
-    alpha = 0.3,
-    color = NA
-  ) +
+  arc_layers +
   # Between-guild edges (very subtle, sampled)
   geom_path(
     data = bezier_between,
     aes(x = x, y = y, group = edge_id),
-    color = "gray70",
-    alpha = 0.08,  # Very low alpha
-    linewidth = 0.2
+    color = "gray55",
+    alpha = 0.25,
+    linewidth = 0.25
   ) +
   # Within-guild edges (colored, more prominent)
   geom_path(
@@ -271,34 +310,20 @@ p_A <- ggplot() +
     color = "white",
     stroke = 0.6
   ) +
-  # Guild labels (MOVED FURTHER OUT)
+  # Guild labels in corners of the panel
   geom_text(
     data = guild_label_positions,
-    aes(x = x, y = y, label = label, color = guild),
-    size = 3.2,
-    fontface = "bold",
-    lineheight = 0.85
-  ) +
-  # Guild species counts (positioned closer to nodes than labels)
-  geom_text(
-    data = guild_label_positions %>%
-      left_join(guild_counts, by = "guild") %>%
-      mutate(
-        label_n = paste0("n=", n),
-        x_count = (radius - 1.5) * cos(angle),  # Closer to the circle
-        y_count = (radius - 1.5) * sin(angle)
-      ),
-    aes(x = x_count, y = y_count, label = label_n),
-    size = 2.5,
-    color = "gray40"
+    aes(x = x, y = y, label = label, color = guild, hjust = hjust, vjust = vjust),
+    size = 3.5,
+    fontface = "bold"
   ) +
   # Scales
   scale_fill_manual(values = guild_colors, guide = "none") +
   scale_color_manual(values = guild_colors, guide = "none") +
   scale_size_identity() +
   scale_alpha_continuous(range = c(0.15, 0.7), guide = "none") +
-  # FIX #1: Use coord_fixed with ratio=1 and symmetric limits
-  coord_fixed(ratio = 1, xlim = c(-9, 9), ylim = c(-9, 9)) +
+  # Tighter coord limits to fill the space - network is at radius 4.5, arcs at 5.2
+  coord_fixed(ratio = 1, xlim = c(-6.8, 6.8), ylim = c(-6.8, 6.8), clip = "off") +
   labs(
     title = "A. Species Co-occurrence Network",
     subtitle = sprintf("%d species | %d co-occurrences | 4 ecological guilds",
@@ -309,7 +334,7 @@ p_A <- ggplot() +
     plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
     plot.subtitle = element_text(size = 9, hjust = 0.5, color = "gray40",
                                  margin = margin(b = 5)),
-    plot.margin = margin(5, 5, 5, 5)
+    plot.margin = margin(5, 2, 5, 2)
   )
 
 cat("  Panel A complete (FIXED).\n")
@@ -338,12 +363,18 @@ create_guild_panel_fixed <- function(guild_id, letter, max_labels = 10) {
 
   # Use Fruchterman-Reingold layout with more iterations for better spacing
   set.seed(42 + guild_id)
-  layout_fr <- layout_with_fr(g_sub, niter = 1000, weights = E(g_sub)$weight)
+  # Use Kamada-Kawai for better spacing in dense guilds
+  n_sp <- vcount(g_sub)
+  if (n_sp > 12) {
+    layout_fr <- layout_with_kk(g_sub)
+  } else {
+    layout_fr <- layout_with_fr(g_sub, niter = 1000, weights = E(g_sub)$weight)
+  }
 
-  # Scale layout to fill space
+  # Scale layout to fill more space
   if (nrow(layout_fr) > 1) {
-    layout_fr[,1] <- scales::rescale(layout_fr[,1], to = c(-1, 1))
-    layout_fr[,2] <- scales::rescale(layout_fr[,2], to = c(-1, 1))
+    layout_fr[,1] <- scales::rescale(layout_fr[,1], to = c(-1.4, 1.4))
+    layout_fr[,2] <- scales::rescale(layout_fr[,2], to = c(-1.4, 1.4))
   } else {
     layout_fr[,1] <- 0
     layout_fr[,2] <- 0
@@ -431,18 +462,20 @@ create_guild_panel_fixed <- function(guild_id, letter, max_labels = 10) {
     p <- p + geom_text_repel(
       data = labels_data,
       aes(x = x, y = y, label = species_label),
-      size = 2.4,
-      fontface = "italic",
-      color = "gray15",
-      segment.color = "gray50",
-      segment.size = 0.2,
-      segment.alpha = 0.5,
-      box.padding = 0.4,
-      point.padding = 0.35,
+      size = 3.2,
+      fontface = "bold.italic",
+      color = "gray5",
+      bg.color = "white",
+      bg.r = 0.12,
+      segment.color = "gray40",
+      segment.size = 0.3,
+      segment.alpha = 0.7,
+      box.padding = 0.55,
+      point.padding = 0.45,
       max.overlaps = 30,
-      force = 8,           # INCREASED from 3
-      force_pull = 0.5,
-      max.iter = 5000,     # INCREASED iterations
+      force = 10,
+      force_pull = 0.4,
+      max.iter = 8000,
       seed = 42
     )
   }
@@ -458,7 +491,7 @@ create_guild_panel_fixed <- function(guild_id, letter, max_labels = 10) {
   p <- p +
     scale_size_identity() +
     scale_alpha_continuous(range = c(0.2, 0.8), guide = "none") +
-    coord_fixed(ratio = 1, xlim = c(-1.7, 1.7), ylim = c(-1.7, 1.7)) +
+    coord_fixed(ratio = 1, xlim = c(-2.1, 2.1), ylim = c(-2.1, 2.1)) +
     labs(
       title = sprintf("%s. %s", letter, guild_name),
       subtitle = subtitle_text
@@ -478,14 +511,14 @@ create_guild_panel_fixed <- function(guild_id, letter, max_labels = 10) {
 
 cat("Building Panels B-E (individual guilds - FIXED)...\n")
 
-# Use max_labels = 8 for better readability
-p_B <- create_guild_panel_fixed(1, "B", max_labels = 8)
+# Label ALL species in every guild
+p_B <- create_guild_panel_fixed(1, "B", max_labels = 50)
 cat("  Panel B complete.\n")
-p_C <- create_guild_panel_fixed(2, "C", max_labels = 8)
+p_C <- create_guild_panel_fixed(2, "C", max_labels = 50)
 cat("  Panel C complete.\n")
-p_D <- create_guild_panel_fixed(3, "D", max_labels = 8)
+p_D <- create_guild_panel_fixed(3, "D", max_labels = 50)
 cat("  Panel D complete.\n")
-p_E <- create_guild_panel_fixed(4, "E", max_labels = 8)
+p_E <- create_guild_panel_fixed(4, "E", max_labels = 50)
 cat("  Panel E complete.\n")
 
 # ============================================================================
@@ -506,7 +539,7 @@ p_wide <- (p_A | p_right) +
       modularity(communities), vcount(g), ecount(g)
     ),
     caption = paste0(
-      "Node size = degree centrality | Within-guild edges colored, between-guild edges (5% sample) very faint | ",
+      "Node size = degree centrality | Within-guild edges colored, between-guild edges gray | ",
       "Threshold: r > 0.3, FDR p < 0.05"
     ),
     theme = theme(

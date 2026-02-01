@@ -47,8 +47,8 @@
 #     11_machine_learning.R
 #     12_model_evaluation.R
 #
-#   Publication:
-#     13_manuscript_figures.R       - Final publication figures (if exists)
+#   Note: Manuscript figures are created by their respective analysis scripts
+#     (01 → Fig 1, 05 → Fig 2, 06 → Fig 4, 08 → Fig 3, 09 → Fig 5)
 #
 # OUTPUTS:
 #   - output/pipeline.log          - Detailed execution log
@@ -89,11 +89,6 @@ PIPELINE_SCRIPTS <- list(
     list(name = "10_feature_engineering.R", desc = "Feature engineering", required = FALSE),
     list(name = "11_machine_learning.R", desc = "Machine learning models", required = FALSE),
     list(name = "12_model_evaluation.R", desc = "Model evaluation", required = FALSE)
-  ),
-
-  # Publication
-  publication = list(
-    list(name = "13_manuscript_figures.R", desc = "Manuscript figures", required = FALSE)
   )
 )
 
@@ -311,7 +306,7 @@ format_time <- function(seconds) {
 run_pipeline <- function(skip_completed = FALSE,
                          verbose = TRUE,
                          stop_on_error = FALSE,
-                         sections = c("core", "extended", "publication")) {
+                         sections = c("core", "extended")) {
 
   # Set working directory to project root
   if (requireNamespace("here", quietly = TRUE)) {

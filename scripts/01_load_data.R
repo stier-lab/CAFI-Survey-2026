@@ -195,7 +195,7 @@ coral_clean <- coral_raw %>%
 
     # Volume
     volume     = coalesce(volume_lab, volume_field, length_lab * width_lab * height_lab),
-    log_volume = log10(volume),  # volume > 0 guaranteed by filter
+    log_volume = log(volume),  # natural log; volume > 0 guaranteed by filter
 
     # Dimensions
     height = coalesce(height_lab, height_field),
@@ -277,28 +277,52 @@ cat("   Validation: row count", ifelse(n_got == n_expected, "OK", "MISMATCH"),
 # ============================================================================
 # 5. POSITION-CORRECTED CONDITION SCORES
 # ============================================================================
+# Position correction removes a SAMPLING ARTIFACT caused by tissue availability:
+#
+# PROBLEM: Coral tissue shows a tip-to-base gradient (tips have lower tissue
+# density than bases). Smaller corals had less tissue available, so we had to
+# sample more of the branch (longer nubbins) to get enough material. This means
+# small-coral samples include more low-density tip tissue, creating a spurious
+# negative correlation between coral size and tissue metrics (especially AFDW).
+#
+# EVIDENCE: nubbin_length predicts AFDW even after controlling for volume
+# (partial r = -0.29), confirming this is a methodological artifact, not biology.
+#
+# SOLUTION: Regress each physiological trait on stump_length + nubbin_length,
+# then use residuals. This removes the sampling position effect while preserving
+# true biological variation in coral condition.
+#
+# Key correlations (raw data):
+#   AFDW vs volume: r = -0.33 (artifact - disappears after correction)
+#   AFDW vs nubbin_length: r = -0.41 (tissue gradient effect)
+#   stump vs nubbin: r = 0.25 (low collinearity, VIF = 1.06)
+# ============================================================================
 
 cat("5. Computing position-corrected condition scores...\n")
 
 physio_vars <- c("protein_mg_cm2", "carb_mg_cm2", "zoox_cells_cm2", "afdw_mg_cm2")
 
 physio_merged <- physio_raw %>%
-  left_join(coral_clean %>% dplyr::select(coral_id, site, volume, stump_length),
+  left_join(coral_clean %>% dplyr::select(coral_id, site, volume, stump_length, nubbin_length),
             by = "coral_id") %>%
-  filter(!is.na(stump_length))
+  filter(!is.na(stump_length) | !is.na(nubbin_length))
 
 if (nrow(physio_merged) > 20) {
 
   correction_data <- physio_merged %>%
-    dplyr::select(coral_id, site, volume, stump_length, any_of(physio_vars)) %>%
+    dplyr::select(coral_id, site, volume, stump_length, nubbin_length, any_of(physio_vars)) %>%
     drop_na()
 
   corrected_traits <- correction_data %>%
-    dplyr::select(coral_id, site, volume, stump_length)
+    dplyr::select(coral_id, site, volume, stump_length, nubbin_length)
+
+  cat("   Correcting for: stump_length + nubbin_length (distance from tip effects)\n")
 
   for (var in physio_vars) {
     if (var %in% names(correction_data) && sum(!is.na(correction_data[[var]])) > 20) {
-      model <- lm(reformulate("stump_length", response = var), data = correction_data)
+      # Correct for BOTH stump_length and nubbin_length
+      model <- lm(reformulate(c("stump_length", "nubbin_length"), response = var),
+                  data = correction_data)
       resid_z <- scale(residuals(model))[, 1]
 
       var_name <- case_when(
@@ -486,6 +510,344 @@ functional_summary <- cafi_clean %>%
 
 save_object(functional_summary, "functional_summary")
 save_table(functional_summary, "functional_group_summary")
+
+# ############################################################################
+# MANUSCRIPT FIGURE 1: STUDY DESIGN
+# ############################################################################
+
+# Set PROJ library for sf (MUST be before loading sf/maptiles)
+Sys.setenv(PROJ_LIB = "/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/sf/proj")
+
+tryCatch({
+
+  # --- Check for required spatial packages ---
+  has_sf       <- requireNamespace("sf",       quietly = TRUE)
+  has_maptiles <- requireNamespace("maptiles", quietly = TRUE)
+
+  if (!has_sf || !has_maptiles) {
+    warning("Figure 1 skipped: packages 'sf' and/or 'maptiles' not available. ",
+            "Install with install.packages(c('sf','maptiles')) to enable map generation.")
+  } else {
+
+    library(sf)
+    library(maptiles)
+
+    cat("\n========================================\n")
+    cat("Creating Figure 1: Study Design\n")
+    cat("========================================\n\n")
+
+    # ------------------------------------------------------------------
+    # Site coordinates
+    # ------------------------------------------------------------------
+    site_coords <- tibble(
+      site = c("HAU", "MAT", "MRB"),
+      site_name = c("Hauru", "Maatea", "Maharepa"),
+      lat = c(-17.516, -17.604, -17.475),
+      long = c(-149.922, -149.815, -149.817),
+      habitat = c("North Shore", "East Shore", "Barrier Reef")
+    )
+
+    site_counts <- coral_master %>%
+      group_by(site) %>%
+      summarise(
+        n_corals = n(),
+        total_cafi = sum(total_cafi, na.rm = TRUE),
+        .groups = "drop"
+      )
+
+    site_data <- site_coords %>%
+      left_join(site_counts, by = "site")
+
+    # ------------------------------------------------------------------
+    # Color palette (Okabe-Ito, colorblind-safe)
+    # ------------------------------------------------------------------
+    SITE_COLORS_FIG1 <- c(
+      "HAU" = "#E69F00",
+      "MAT" = "#0072B2",
+      "MRB" = "#009E73"
+    )
+
+    DATA_FILL       <- "#4A90A4"
+    DATA_FILL_ALPHA  <- "#7EB3C4"
+    DENSITY_LINE     <- "#1A3A5C"
+
+    # ------------------------------------------------------------------
+    # Theme for Figure 1
+    # ------------------------------------------------------------------
+    theme_fig1 <- function(base_size = 10) {
+      theme_minimal(base_size = base_size) +
+        theme(
+          panel.background = element_rect(fill = "white", color = NA),
+          plot.background  = element_rect(fill = "white", color = NA),
+          panel.grid.major = element_line(color = "gray92", linewidth = 0.25),
+          panel.grid.minor = element_blank(),
+          axis.line  = element_line(color = "gray40", linewidth = 0.4),
+          axis.ticks = element_line(color = "gray40", linewidth = 0.3),
+          axis.text  = element_text(color = "gray20", size = base_size - 1),
+          axis.title = element_text(color = "gray10", size = base_size, face = "plain"),
+          plot.title = element_text(face = "bold", size = 15, color = "black",
+                                    hjust = 0, margin = margin(b = 2)),
+          plot.subtitle = element_text(size = base_size - 0.5, color = "gray40",
+                                       hjust = 0, margin = margin(b = 8)),
+          plot.margin = margin(10, 12, 8, 10)
+        )
+    }
+
+    # ==================================================================
+    # PANEL A: Satellite map of Mo'orea with study sites
+    # ==================================================================
+    cat("Creating Panel A: Satellite map with study sites...\n")
+
+    bbox <- st_bbox(c(xmin = -149.98, ymin = -17.65, xmax = -149.70, ymax = -17.40),
+                    crs = st_crs(4326))
+    bbox_sf <- st_as_sfc(bbox)
+
+    cat("  Fetching satellite imagery...\n")
+    sat_tiles <- tryCatch({
+      get_tiles(bbox_sf, provider = "Esri.WorldImagery", zoom = 12, crop = TRUE)
+    }, error = function(e) {
+      cat("  WARNING: Could not fetch satellite tiles:", e$message, "\n")
+      NULL
+    })
+
+    sites_sf <- st_as_sf(site_data, coords = c("long", "lat"), crs = 4326)
+
+    label_positions <- tibble(
+      site = c("HAU", "MAT", "MRB"),
+      x_off = c(0.045, -0.055, 0.048),
+      y_off_name = c(0.010, 0.045, 0.010),
+      y_off_n = c(-0.012, 0.020, -0.012)
+    )
+
+    site_data <- site_data %>%
+      left_join(label_positions, by = "site")
+
+    if (!is.null(sat_tiles)) {
+      panel_a <- ggplot() +
+        tidyterra::geom_spatraster_rgb(data = sat_tiles) +
+        geom_sf(data = sites_sf, aes(fill = site),
+                shape = 21, size = 6, color = "white", stroke = 2.5) +
+        geom_label(data = site_data,
+                   aes(x = long + x_off, y = lat + y_off_name,
+                       label = paste0(site_name, "\n(n=", n_corals, ")")),
+                   size = 3.0, fontface = "bold", color = "white",
+                   fill = alpha("gray15", 0.85), linewidth = 0.3,
+                   label.r = unit(0.15, "lines"),
+                   label.padding = unit(0.22, "lines"), lineheight = 0.85) +
+        scale_fill_manual(values = SITE_COLORS_FIG1, guide = "none") +
+        coord_sf(xlim = c(-149.97, -149.71), ylim = c(-17.65, -17.40), expand = FALSE) +
+        annotate("segment", x = -149.949, xend = -149.859, y = -17.621, yend = -17.621,
+                 color = "black", linewidth = 2.0, alpha = 0.4) +
+        annotate("segment", x = -149.95, xend = -149.86, y = -17.62, yend = -17.62,
+                 color = "white", linewidth = 1.5) +
+        annotate("segment", x = -149.95, xend = -149.95, y = -17.628, yend = -17.612,
+                 color = "white", linewidth = 1.2) +
+        annotate("segment", x = -149.86, xend = -149.86, y = -17.628, yend = -17.612,
+                 color = "white", linewidth = 1.2) +
+        annotate("text", x = -149.904, y = -17.601, label = "5 km",
+                 size = 3.0, color = "black", fontface = "bold", alpha = 0.5) +
+        annotate("text", x = -149.905, y = -17.602, label = "5 km",
+                 size = 3.0, color = "white", fontface = "bold") +
+        annotate("text", x = -149.734, y = -17.424, label = "N",
+                 size = 4.5, fontface = "bold", color = "black", alpha = 0.4) +
+        annotate("text", x = -149.735, y = -17.425, label = "N",
+                 size = 4.5, fontface = "bold", color = "white") +
+        annotate("segment", x = -149.735, xend = -149.735, y = -17.46, yend = -17.435,
+                 arrow = arrow(length = unit(0.22, "cm"), type = "closed"),
+                 color = "white", linewidth = 1.0) +
+        labs(title = "A") +
+        theme_void() +
+        theme(
+          plot.title = element_text(face = "bold", size = 15, hjust = 0,
+                                    margin = margin(b = 5, l = 5)),
+          plot.background = element_rect(fill = "white", color = NA),
+          plot.margin = margin(8, 5, 5, 5)
+        )
+
+    } else {
+      cat("  Using schematic map (satellite unavailable)...\n")
+
+      moorea_coords <- matrix(c(
+        -149.75, -17.46, -149.77, -17.44, -149.80, -17.44, -149.84, -17.46,
+        -149.88, -17.48, -149.91, -17.51, -149.92, -17.54, -149.90, -17.58,
+        -149.86, -17.60, -149.81, -17.60, -149.78, -17.57, -149.76, -17.53,
+        -149.75, -17.49, -149.75, -17.46
+      ), ncol = 2, byrow = TRUE)
+
+      moorea_sf <- st_polygon(list(moorea_coords)) %>%
+        st_sfc(crs = 4326) %>%
+        st_sf(name = "Mo'orea")
+
+      panel_a <- ggplot() +
+        annotate("rect", xmin = -149.98, xmax = -149.70, ymin = -17.65, ymax = -17.40,
+                 fill = "#E8F4F8", color = NA) +
+        geom_sf(data = moorea_sf, fill = "#2D7D7D", color = "#1A5050", linewidth = 0.6) +
+        geom_sf(data = sites_sf, aes(fill = site),
+                shape = 21, size = 6, color = "white", stroke = 2) +
+        geom_label(data = site_data,
+                   aes(x = long + x_off, y = lat + y_off_name, label = site_name),
+                   size = 3.0, fontface = "bold", color = "gray10",
+                   fill = alpha("white", 0.85), label.size = 0) +
+        geom_text(data = site_data,
+                  aes(x = long + x_off, y = lat + y_off_n,
+                      label = paste0("(n=", n_corals, ")")),
+                  size = 2.5, color = "gray35") +
+        scale_fill_manual(values = SITE_COLORS_FIG1, guide = "none") +
+        coord_sf(xlim = c(-149.97, -149.72), ylim = c(-17.64, -17.41), expand = FALSE) +
+        annotate("segment", x = -149.95, xend = -149.86, y = -17.62, yend = -17.62,
+                 color = "gray30", linewidth = 0.8) +
+        annotate("text", x = -149.905, y = -17.605, label = "5 km",
+                 size = 2.5, color = "gray30") +
+        labs(title = "A") +
+        theme_void() +
+        theme(
+          plot.title = element_text(face = "bold", size = 15, hjust = 0,
+                                    margin = margin(b = 5, l = 5)),
+          plot.background = element_rect(fill = "white", color = NA),
+          plot.margin = margin(8, 5, 5, 5)
+        )
+    }
+
+    # ==================================================================
+    # PANEL B: Colony size distribution
+    # ==================================================================
+    cat("Creating Panel B: Colony size distribution...\n")
+
+    vol_data <- coral_master %>%
+      filter(!is.na(volume), volume > 0)
+
+    vol_stats <- vol_data %>%
+      summarise(
+        n = n(),
+        min_vol = min(volume),
+        max_vol = max(volume),
+        median_vol = median(volume),
+        mean_vol = mean(volume),
+        cv = sd(volume) / mean(volume) * 100,
+        range_orders = log10(max(volume)) - log10(min(volume))
+      )
+
+    cat("  Volume range:", round(vol_stats$min_vol), "to", round(vol_stats$max_vol), "cm3\n")
+    cat("  Range spans", round(vol_stats$range_orders, 1), "orders of magnitude\n")
+
+    dens_obj <- density(log10(vol_data$volume))
+    dens_max_b <- max(dens_obj$y)
+
+    panel_b <- vol_data %>%
+      ggplot(aes(x = volume)) +
+      geom_histogram(aes(y = after_stat(density)),
+                     bins = 18, fill = DATA_FILL, color = "white",
+                     alpha = 0.85, linewidth = 0.3) +
+      geom_density(color = DENSITY_LINE, linewidth = 1.1, adjust = 1.1) +
+      scale_x_log10(
+        labels = scales::label_comma(),
+        breaks = c(100, 1000, 10000, 100000),
+        limits = c(15, 180000)
+      ) +
+      scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
+      annotate("text", x = sqrt(vol_stats$min_vol * vol_stats$max_vol),
+               y = dens_max_b * 1.15,
+               label = ">3 orders\nof magnitude",
+               size = 2.8, color = "gray35", fontface = "italic", lineheight = 0.9) +
+      labs(
+        title = "B",
+        subtitle = paste0("n=", vol_stats$n, "  |  CV=", round(vol_stats$cv), "%"),
+        x = expression("Colony Volume (cm"^3*")"),
+        y = "Density"
+      ) +
+      theme_fig1() +
+      theme(
+        axis.title.x = element_text(margin = margin(t = 8)),
+        panel.grid.major.x = element_blank()
+      )
+
+    # ==================================================================
+    # PANEL C: Neighborhood density distribution
+    # ==================================================================
+    cat("Creating Panel C: Neighborhood density distribution...\n")
+
+    neighbor_data <- coral_master %>%
+      filter(!is.na(n_neighbors))
+
+    neighbor_stats <- neighbor_data %>%
+      summarise(
+        n = n(),
+        min_n = min(n_neighbors),
+        max_n = max(n_neighbors),
+        median_n = median(n_neighbors),
+        mean_n = mean(n_neighbors),
+        cv = sd(n_neighbors) / mean(n_neighbors) * 100
+      )
+
+    cat("  Neighbors range:", neighbor_stats$min_n, "to", neighbor_stats$max_n, "\n")
+    cat("  Median:", neighbor_stats$median_n, "\n")
+
+    dens_max_c <- max(density(neighbor_data$n_neighbors)$y)
+
+    panel_c <- neighbor_data %>%
+      ggplot(aes(x = n_neighbors)) +
+      geom_histogram(aes(y = after_stat(density)),
+                     binwidth = 5, fill = DATA_FILL, color = "white",
+                     alpha = 0.85, linewidth = 0.3) +
+      geom_density(color = DENSITY_LINE, linewidth = 1.1, adjust = 1.0) +
+      geom_vline(xintercept = neighbor_stats$median_n,
+                 linetype = "dashed", color = "gray45", linewidth = 0.6) +
+      annotate("text", x = neighbor_stats$median_n + 3, y = dens_max_c * 0.88,
+               label = paste0("median=", neighbor_stats$median_n),
+               size = 2.8, color = "gray40", hjust = 0, fontface = "italic") +
+      scale_x_continuous(breaks = seq(0, 80, by = 20), limits = c(-2, 85)) +
+      scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+      labs(
+        title = "C",
+        subtitle = paste0("n=", neighbor_stats$n, "  |  CV=", round(neighbor_stats$cv), "%"),
+        x = "Neighbors within 5 m",
+        y = "Density"
+      ) +
+      theme_fig1() +
+      theme(
+        axis.title.x = element_text(margin = margin(t = 8)),
+        panel.grid.major.x = element_blank()
+      )
+
+    # ==================================================================
+    # Combine panels and save
+    # ==================================================================
+    cat("Combining panels...\n")
+
+    fig1 <- panel_a + (panel_b / panel_c) +
+      plot_layout(widths = c(1.1, 1)) +
+      plot_annotation(
+        title = NULL,
+        theme = theme(
+          plot.background = element_rect(fill = "white", color = NA),
+          plot.margin = margin(8, 12, 8, 12)
+        )
+      )
+
+    # Save to manuscript directory
+    output_path_ms <- file.path(PATHS$fig_manuscript, "fig1_study_design.png")
+    ggsave(output_path_ms, fig1, width = 10.5, height = 6, dpi = 300, bg = "white")
+    cat("  Saved:", output_path_ms, "\n")
+
+    # Save to analysis directory
+    output_path_data <- file.path(PATHS$fig_01_data, "fig1_study_design.png")
+    ggsave(output_path_data, fig1, width = 10.5, height = 6, dpi = 300, bg = "white")
+    cat("  Saved:", output_path_data, "\n")
+
+    cat("\nFigure 1 specifications:\n")
+    cat("  - Dimensions: 10.5 x 6 inches\n")
+    cat("  - Resolution: 300 dpi (PNG)\n")
+    cat("  - Panels: A (satellite map), B (volume), C (neighbors)\n")
+    cat("  - Site colors: HAU=#E69F00, MAT=#0072B2, MRB=#009E73\n")
+    cat("  - Total corals:", nrow(coral_master), "\n")
+    cat("  - Corals with neighborhood data:", neighbor_stats$n, "\n")
+  }
+
+}, error = function(e) {
+  warning("Figure 1 generation failed (non-fatal): ", e$message)
+  cat("WARNING: Figure 1 could not be generated:", e$message, "\n")
+  cat("  The data loading pipeline continues normally.\n")
+})
 
 # ============================================================================
 # SUMMARY

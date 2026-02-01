@@ -94,21 +94,21 @@ fit_functional_scaling <- function(data, response_name, min_nonzero = 15) {
   }
 
   tryCatch({
-    model <- MASS::glm.nb(abundance ~ log10(volume) + site, data = data)
+    model <- MASS::glm.nb(abundance ~ log(volume) + site, data = data)
     coefs <- summary(model)$coefficients
-    beta <- coefs["log10(volume)", "Estimate"]
-    se <- coefs["log10(volume)", "Std. Error"]
-    z_val <- coefs["log10(volume)", "z value"]
-    p_val <- coefs["log10(volume)", "Pr(>|z|)"]
+    beta <- coefs["log(volume)", "Estimate"]
+    se <- coefs["log(volume)", "Std. Error"]
+    z_val <- coefs["log(volume)", "z value"]
+    p_val <- coefs["log(volume)", "Pr(>|z|)"]
 
-    ci <- confint(model, "log10(volume)", level = 0.95)
+    ci <- confint(model, "log(volume)", level = 0.95)
 
     # Test vs Field of Dreams (beta = 1)
     z_vs_1 <- (beta - 1) / se
     p_vs_1 <- 2 * pnorm(-abs(z_vs_1))
 
     interpretation <- case_when(
-      p_vs_1 < 0.05 & beta < 1 ~ "Redistribution (beta < 1)",
+      p_vs_1 < 0.05 & beta < 1 ~ "Redirection (beta < 1)",
       p_vs_1 < 0.05 & beta > 1 ~ "Super-linear (beta > 1)",
       TRUE ~ "Field of Dreams (beta ~ 1)"
     )
@@ -499,14 +499,14 @@ if (nrow(resident_fish) > 0) {
     cat("  This suggests a size threshold for fish colonization\n\n")
 
     # Logistic regression for colonization probability
-    fish_logistic <- glm(has_fish ~ log10(volume) + site,
+    fish_logistic <- glm(has_fish ~ log(volume) + site,
                          data = fish_data, family = binomial)
     fish_logistic_summary <- summary(fish_logistic)
 
     cat("  Logistic regression (fish presence ~ log(volume) + site):\n")
     cat("    Volume effect: z =",
-        round(fish_logistic_summary$coefficients["log10(volume)", "z value"], 2),
-        ", p =", format.pval(fish_logistic_summary$coefficients["log10(volume)", "Pr(>|z|)"], 3), "\n\n")
+        round(fish_logistic_summary$coefficients["log(volume)", "z value"], 2),
+        ", p =", format.pval(fish_logistic_summary$coefficients["log(volume)", "Pr(>|z|)"], 3), "\n\n")
   }
 
   # ----------------------------------------------------------------------------
@@ -743,11 +743,11 @@ if (nrow(coral_eating_snails) > 0) {
   cat("Testing size-refuge hypothesis...\n")
 
   # Does gastropod prevalence decrease with coral size?
-  size_refuge_model <- glm(has_corallivore ~ log10(volume) + site,
+  size_refuge_model <- glm(has_corallivore ~ log(volume) + site,
                            data = coral_data, family = binomial)
   size_refuge_summary <- summary(size_refuge_model)
 
-  volume_coef <- size_refuge_summary$coefficients["log10(volume)", ]
+  volume_coef <- size_refuge_summary$coefficients["log(volume)", ]
 
   cat("  Logistic regression (gastropod presence ~ log(volume) + site):\n")
   cat("    Volume coefficient =", round(volume_coef["Estimate"], 3), "\n")
@@ -920,11 +920,12 @@ p_func_comp <- coral_master %>%
          n_other_crab, n_shrimp, n_other) %>%
   pivot_longer(cols = starts_with("n_"), names_to = "group", values_to = "abundance") %>%
   mutate(group = str_replace(group, "n_", "") %>% str_replace_all("_", " ") %>% str_to_title(),
-         group = recode(group,
-                        "Corallivore" = "Gastropods",
-                        "Resident Fish" = "Fish",
-                        "Other Crab" = "Other crabs",
-                        "Other" = "Other invertebrates")) %>%
+         group = case_match(group,
+                        "Corallivore" ~ "Gastropods",
+                        "Resident Fish" ~ "Fish",
+                        "Other Crab" ~ "Other crabs",
+                        "Other" ~ "Other invertebrates",
+                        .default = group)) %>%
   group_by(size_class, group) %>%
   summarise(mean_abundance = mean(abundance), .groups = "drop") %>%
   ggplot(aes(x = size_class, y = mean_abundance, fill = group)) +
@@ -1007,7 +1008,7 @@ cat("Creating forest plot of taxonomic group scaling exponents...\n")
 
 # Interpretation colors (colorblind-safe)
 interp_colors <- c(
-  "Redistribution (\u03b2 < 1)" = "#D55E00",
+  "Redirection (\u03b2 < 1)" = "#D55E00",
   "Field of Dreams (\u03b2 \u2248 1)" = "#009E73",
   "Super-linear (\u03b2 > 1)" = "#0072B2",
   "Insufficient data" = "#999999"
@@ -1017,12 +1018,14 @@ plot_data <- scaling_table %>%
   filter(!is.na(beta)) %>%
   mutate(functional_group = factor(functional_group,
                                    levels = functional_group[order(beta)]),
-         functional_group = recode(functional_group,
-                                   "Trapezia (mutualists)" = "Trapezia crabs",
-                                   "Coral-eating snails" = "Gastropods",
-                                   "Resident Fish" = "Fish",
-                                   "Corallivores" = "Gastropods",
-                                   "Other Crabs" = "Other crabs"))
+         functional_group = case_match(as.character(functional_group),
+                                   "Trapezia (mutualists)" ~ "Trapezia crabs",
+                                   "Coral-eating snails" ~ "Gastropods",
+                                   "Resident Fish" ~ "Fish",
+                                   "Corallivores" ~ "Gastropods",
+                                   "Other Crabs" ~ "Other crabs",
+                                   .default = as.character(functional_group)),
+         functional_group = factor(functional_group, levels = unique(functional_group)))
 
 if (nrow(plot_data) > 0) {
   p_forest <- ggplot(plot_data, aes(x = beta, y = functional_group, color = interpretation)) +
@@ -1158,11 +1161,13 @@ fig3 <- (panel_a | panel_b) / panel_c +
     )
   )
 
-# Save manuscript figure
+# Save manuscript figure (to both manuscript and analysis dirs)
 ggsave(file.path(PATHS$fig_manuscript, "fig3_functional_groups.png"), fig3,
        width = 12, height = 10, dpi = 300, bg = "white")
+ggsave(file.path(FIG_DIR, "fig3_functional_groups.png"), fig3,
+       width = 12, height = 10, dpi = 300, bg = "white")
 
-cat("Saved: output/figures/manuscript/fig3_functional_groups.png\n\n")
+cat("Saved: fig3_functional_groups.png (manuscript + analysis)\n\n")
 
 # ############################################################################
 #                    SUMMARY AND SAVE RESULTS
