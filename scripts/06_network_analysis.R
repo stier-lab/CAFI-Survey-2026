@@ -124,7 +124,7 @@ if (sum(!matched_corals) > 0) {
 }
 
 # Get volume for each coral (rows of community_matrix match coral_master)
-volume_vec <- coral_master$volume_field[match(rownames(comm_filtered), coral_master$coral_id)]
+volume_vec <- coral_master$volume[match(rownames(comm_filtered), coral_master$coral_id)]
 log_volume <- log(volume_vec)
 
 # Verify no NAs in volume
@@ -227,14 +227,16 @@ if (nrow(edge_indices) > 0) {
   cat("  This may indicate insufficient sample size or low species co-occurrence.\n\n")
   # Create empty results so pipeline can continue
   network_results <- list(
-    n_species = ncol(comm_network),
+    n_species = ncol(comm_filtered),
     n_edges = 0,
     note = "No significant positive associations found"
   )
   save_object(network_results, "network_results")
   cat("Script 06 complete (no network constructed).\n\n")
-  return(invisible(NULL))
 }
+
+# Only proceed with network construction if edges were found
+if (nrow(edge_indices) > 0) {
 
 # ============================================================================
 # PART 2: BUILD IGRAPH NETWORK OBJECT
@@ -882,7 +884,7 @@ tryCatch({
   )
 
   cat("Guild sizes:\n")
-  for (i in 1:4) {
+  for (i in sort(unique(guild_counts$guild))) {
     cat(sprintf("  Guild %d (%s): %d species\n",
                 i, guild_names[as.character(i)],
                 guild_counts$n[guild_counts$guild == i]))
@@ -1438,3 +1440,5 @@ cat("    - output/objects/cafi_network.rds\n\n")
 cat("============================================================\n")
 cat("    NETWORK ANALYSIS COMPLETE\n")
 cat("============================================================\n\n")
+
+} # end if (nrow(edge_indices) > 0)

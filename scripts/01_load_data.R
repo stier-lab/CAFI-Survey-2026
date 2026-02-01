@@ -516,7 +516,12 @@ save_table(functional_summary, "functional_group_summary")
 # ############################################################################
 
 # Set PROJ library for sf (MUST be before loading sf/maptiles)
-Sys.setenv(PROJ_LIB = "/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/sf/proj")
+# Auto-detect PROJ_LIB from sf package installation
+proj_path <- tryCatch(
+  system.file("proj", package = "sf"),
+  error = function(e) ""
+)
+if (nzchar(proj_path)) Sys.setenv(PROJ_LIB = proj_path)
 
 tryCatch({
 

@@ -190,7 +190,7 @@ cat("    β =", round(coef(m_shan_vol)["log(volume)"], 3),
 # Figure: Size effects panel
 p_size_abund <- ggplot(landscape_data, aes(x = volume, y = total_cafi, color = site)) +
   geom_point(alpha = 0.6, size = 2.5) +
-  geom_smooth(method = "glm.nb", formula = y ~ log10(x), se = TRUE, color = "black") +
+  geom_smooth(method = MASS::glm.nb, formula = y ~ log(x), se = TRUE, color = "black") +
   geom_abline(slope = 1, intercept = mean(log10(landscape_data$total_cafi) - log10(landscape_data$volume)),
               linetype = "dashed", color = "gray50", linewidth = 0.8) +
   scale_x_log10(labels = scales::comma) +
@@ -205,7 +205,7 @@ p_size_abund <- ggplot(landscape_data, aes(x = volume, y = total_cafi, color = s
 
 p_size_rich <- ggplot(landscape_data, aes(x = volume, y = otu_richness, color = site)) +
   geom_point(alpha = 0.6, size = 2.5) +
-  geom_smooth(method = "glm", formula = y ~ log10(x), method.args = list(family = poisson),
+  geom_smooth(method = "glm", formula = y ~ log(x), method.args = list(family = poisson),
               se = TRUE, color = "black") +
   scale_x_log10(labels = scales::comma) +
   scale_color_manual(values = SITE_COLORS) +
@@ -216,7 +216,7 @@ p_size_rich <- ggplot(landscape_data, aes(x = volume, y = otu_richness, color = 
 
 p_size_shan <- ggplot(landscape_data, aes(x = volume, y = shannon, color = site)) +
   geom_point(alpha = 0.6, size = 2.5) +
-  geom_smooth(method = "lm", formula = y ~ log10(x), se = TRUE, color = "black") +
+  geom_smooth(method = "lm", formula = y ~ log(x), se = TRUE, color = "black") +
   scale_x_log10(labels = scales::comma) +
   scale_color_manual(values = SITE_COLORS) +
   labs(x = expression("Coral Volume (cm"^3*")"),
@@ -252,7 +252,7 @@ cat("    LRT vs size-only: χ² =", round(lrt$`LR stat.`[2], 2),
 # Figure
 p_neighbor_count <- ggplot(landscape_data, aes(x = n_neighbors, y = total_cafi, color = site)) +
   geom_jitter(alpha = 0.6, width = 0.2, size = 2.5) +
-  geom_smooth(method = "glm.nb", formula = y ~ x, se = TRUE, color = "black") +
+  geom_smooth(method = MASS::glm.nb, formula = y ~ x, se = TRUE, color = "black") +
   scale_y_sqrt() +
   scale_color_manual(values = SITE_COLORS) +
   labs(x = "Number of Neighbors (5m radius)",
@@ -300,7 +300,7 @@ p_neighbor_vol <- landscape_data %>%
   filter(total_neighbor_volume > 0) %>%
   ggplot(aes(x = total_neighbor_volume, y = total_cafi, color = site)) +
   geom_point(alpha = 0.6, size = 2.5) +
-  geom_smooth(method = "glm.nb", formula = y ~ log10(x), se = TRUE, color = "black") +
+  geom_smooth(method = MASS::glm.nb, formula = y ~ log(x), se = TRUE, color = "black") +
   scale_x_log10(labels = scales::comma) +
   scale_y_sqrt() +
   scale_color_manual(values = SITE_COLORS) +
@@ -336,7 +336,7 @@ cat("    Isolation category: H =", round(kw_iso$statistic, 2),
 p_isolation <- landscape_data %>%
   ggplot(aes(x = proximity_m, y = total_cafi, color = site)) +
   geom_point(alpha = 0.6, size = 2.5) +
-  geom_smooth(method = "glm.nb", formula = y ~ x, se = TRUE, color = "black") +
+  geom_smooth(method = MASS::glm.nb, formula = y ~ x, se = TRUE, color = "black") +
   scale_y_sqrt() +
   scale_color_manual(values = SITE_COLORS) +
   labs(x = "Mean Distance to Neighbors (m)",
@@ -1643,7 +1643,7 @@ make_panel <- function(data, x_var, y_var, x_lab, title, model_results, log_x = 
   if (log_x) {
     p <- p + scale_x_log10(labels = scales::comma)
     if (is_significant) {
-      p <- p + geom_smooth(method = "glm", formula = y ~ log10(x),
+      p <- p + geom_smooth(method = "glm", formula = y ~ log(x),
                            se = TRUE, color = "black", linewidth = 0.8, alpha = 0.2)
     }
   } else {

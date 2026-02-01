@@ -155,7 +155,7 @@ cat("    McFadden's pseudo-R²:", round(pseudo_r2, 3), "\n\n")
 # Figure: Abundance vs Volume
 p_abundance_vol <- ggplot(coral_master, aes(x = volume, y = total_cafi, color = site)) +
   geom_point(alpha = 0.7, size = 2.5) +
-  geom_smooth(method = "glm.nb", formula = y ~ log10(x), se = TRUE, color = "black") +
+  geom_smooth(method = MASS::glm.nb, formula = y ~ log(x), se = TRUE, color = "black") +
   geom_abline(slope = 1, intercept = log10(mean(coral_master$total_cafi / coral_master$volume)),
               linetype = "dashed", color = "gray50") +
   scale_x_log10(labels = scales::comma) +
@@ -391,7 +391,7 @@ p_diversity_vol <- coral_master %>%
                                 "shannon" = "Shannon H'")) %>%
   ggplot(aes(x = volume, y = value, color = site)) +
   geom_point(alpha = 0.6) +
-  geom_smooth(method = "lm", formula = y ~ log10(x), se = TRUE, color = "black") +
+  geom_smooth(method = "lm", formula = y ~ log(x), se = TRUE, color = "black") +
   facet_wrap(~metric, scales = "free_y") +
   scale_x_log10(labels = scales::comma) +
   scale_color_manual(values = SITE_COLORS) +

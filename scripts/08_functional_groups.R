@@ -272,7 +272,7 @@ if (nrow(trapezia) > 0) {
   p_trap_scaling <- trap_data %>%
     ggplot(aes(x = volume, y = n_trapezia + 0.5, color = site)) +
     geom_point(alpha = 0.7, size = 2.5) +
-    geom_smooth(aes(group = 1), method = "glm.nb", formula = y ~ log10(x),
+    geom_smooth(aes(group = 1), method = MASS::glm.nb, formula = y ~ log(x),
                 se = TRUE, color = "black", linewidth = 1) +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50") +
     scale_x_log10(labels = scales::comma) +
@@ -531,7 +531,7 @@ if (nrow(resident_fish) > 0) {
   p_fish_scaling <- fish_data %>%
     ggplot(aes(x = volume, y = n_fish + 0.5, color = site)) +
     geom_point(alpha = 0.7, size = 2.5) +
-    geom_smooth(aes(group = 1), method = "glm.nb", formula = y ~ log10(x),
+    geom_smooth(aes(group = 1), method = MASS::glm.nb, formula = y ~ log(x),
                 se = TRUE, color = "black", linewidth = 1) +
     scale_x_log10(labels = scales::comma) +
     scale_y_log10() +
@@ -786,7 +786,7 @@ if (nrow(coral_eating_snails) > 0) {
   p_snails <- coral_data %>%
     ggplot(aes(x = volume, y = n_corallivore + 0.5, color = site)) +
     geom_point(alpha = 0.7, size = 2.5) +
-    geom_smooth(aes(group = 1), method = "glm.nb", formula = y ~ log10(x),
+    geom_smooth(aes(group = 1), method = MASS::glm.nb, formula = y ~ log(x),
                 se = TRUE, color = "black", linewidth = 1) +
     scale_x_log10(labels = scales::comma) +
     scale_y_log10() +
@@ -1067,7 +1067,7 @@ panel_a <- if (exists("trap_data") && !is.null(trap_scaling_result) &&
   trap_data %>%
     ggplot(aes(x = volume, y = n_trapezia + 0.5, color = site)) +
     geom_point(alpha = 0.6, size = 2) +
-    geom_smooth(aes(group = 1), method = "glm.nb", formula = y ~ log10(x),
+    geom_smooth(aes(group = 1), method = MASS::glm.nb, formula = y ~ log(x),
                 se = TRUE, color = "black", linewidth = 1) +
     scale_x_log10(labels = scales::comma) +
     scale_y_log10() +
@@ -1097,7 +1097,7 @@ panel_b <- if (exists("fish_data") && !is.null(fish_scaling_result) &&
     ggplot(aes(x = volume, y = n_fish + 0.5, color = site)) +
     geom_point(alpha = 0.6, size = 2,
                position = position_jitter(width = 0, height = 0.05, seed = 42)) +
-    geom_smooth(aes(group = 1), method = "glm.nb", formula = y ~ log10(x),
+    geom_smooth(aes(group = 1), method = MASS::glm.nb, formula = y ~ log(x),
                 se = TRUE, color = "black", linewidth = 1) +
     scale_x_log10(labels = scales::comma) +
     scale_y_log10() +

@@ -168,6 +168,7 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 20
     p_val <- coefs["log(volume)", "Pr(>|z|)"]
 
     # Profile-based 95% CI
+    set.seed(42)
     ci <- confint(model, "log(volume)", level = 0.95)
 
     # Bootstrap 95% CI (following Stier et al. 2024 methodology)
@@ -177,6 +178,7 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 20
     if (requireNamespace("boot", quietly = TRUE) && n_nonzero >= 20) {
       suppressWarnings({
         # Stratify by site to maintain site proportions in each bootstrap replicate
+        set.seed(42)
         boot_result <- boot::boot(data, boot_scaling, R = n_boot,
                                   strata = factor(data$site))
         valid_betas <- boot_result$t[!is.na(boot_result$t)]
@@ -311,7 +313,7 @@ abundance_data <- coral_data %>%
 # Fit model
 total_result <- fit_scaling_model(abundance_data, "Total CAFI Abundance")
 
-cat("Model: Total CAFI ~ log10(Volume) + site (Negative Binomial GLM)\n\n")
+cat("Model: Total CAFI ~ log(Volume) + site (Negative Binomial GLM)\n\n")
 cat("Results:\n")
 cat("  Scaling exponent β =", round(total_result$beta, 3), "\n")
 cat("  Standard error =", round(total_result$se, 3), "\n")
@@ -344,7 +346,7 @@ richness_data <- coral_data %>%
 
 richness_result <- fit_scaling_model(richness_data, "Species Richness")
 
-cat("Model: OTU Richness ~ log10(Volume) + site (Negative Binomial GLM)\n\n")
+cat("Model: OTU Richness ~ log(Volume) + site (Negative Binomial GLM)\n\n")
 cat("Results:\n")
 cat("  Scaling exponent β =", round(richness_result$beta, 3), "\n")
 cat("  95% CI: [", round(richness_result$ci_lower, 3), ",", round(richness_result$ci_upper, 3), "]\n")
@@ -357,6 +359,7 @@ all_results$species_richness <- richness_result
 cat("--- Model Diagnostics ---\n")
 if (requireNamespace("DHARMa", quietly = TRUE) && !is.null(total_result$model)) {
   # Total abundance (NB GLM)
+  set.seed(42)
   dharma_total <- DHARMa::simulateResiduals(total_result$model, n = 1000, plot = FALSE)
   dharma_tests <- DHARMa::testResiduals(dharma_total, plot = FALSE)
   cat("  TOTAL ABUNDANCE (NB GLM):\n")
@@ -367,6 +370,7 @@ if (requireNamespace("DHARMa", quietly = TRUE) && !is.null(total_result$model)) 
 
   # Species richness (NB GLM)
   if (!is.null(richness_result$model)) {
+    set.seed(42)
     dharma_rich <- DHARMa::simulateResiduals(richness_result$model, n = 1000, plot = FALSE)
     dharma_tests_rich <- DHARMa::testResiduals(dharma_rich, plot = FALSE)
     cat("  SPECIES RICHNESS (NB GLM):\n")
@@ -403,7 +407,7 @@ shannon_data <- coral_data %>%
   filter(shannon > 0) %>%
   dplyr::select(coral_id, site, volume, shannon)
 
-cat("Model: Shannon H' ~ log10(Volume) + site (Linear Model)\n\n")
+cat("Model: Shannon H' ~ log(Volume) + site (Linear Model)\n\n")
 
 if (nrow(shannon_data) >= 15) {
   shannon_model <- lm(shannon ~ log(volume) + site, data = shannon_data)
@@ -1032,7 +1036,7 @@ cat("Creating Figure 1: Community-level scaling...\n")
 # Total abundance plot
 p_total <- ggplot(coral_data, aes(x = volume, y = total_cafi, color = site)) +
   geom_point(alpha = 0.7, size = 2.5) +
-  geom_smooth(aes(group = 1), method = "glm.nb", formula = y ~ log10(x),
+  geom_smooth(aes(group = 1), method = "glm.nb", formula = y ~ log(x),
               se = TRUE, color = "black", linewidth = 1) +
   scale_x_log10(labels = scales::comma) +
   scale_y_log10() +
@@ -1049,7 +1053,7 @@ p_total <- ggplot(coral_data, aes(x = volume, y = total_cafi, color = site)) +
 # Richness plot
 p_richness <- ggplot(coral_data, aes(x = volume, y = otu_richness, color = site)) +
   geom_point(alpha = 0.7, size = 2.5) +
-  geom_smooth(aes(group = 1), method = "glm.nb", formula = y ~ log10(x),
+  geom_smooth(aes(group = 1), method = "glm.nb", formula = y ~ log(x),
               se = TRUE, color = "black", linewidth = 1) +
   scale_x_log10(labels = scales::comma) +
   scale_y_log10() +
@@ -1068,7 +1072,7 @@ p_shannon <- coral_data %>%
   filter(shannon > 0) %>%
   ggplot(aes(x = volume, y = shannon, color = site)) +
   geom_point(alpha = 0.7, size = 2.5) +
-  geom_smooth(aes(group = 1), method = "lm", formula = y ~ log10(x),
+  geom_smooth(aes(group = 1), method = "lm", formula = y ~ log(x),
               se = TRUE, color = "black", linewidth = 1) +
   scale_x_log10(labels = scales::comma) +
   scale_color_manual(values = SITE_COLORS) +
@@ -1204,7 +1208,7 @@ make_species_panel <- function(sp_name, sp_result) {
 
   ggplot(sp_data, aes(x = volume, y = abundance, color = site)) +
     geom_point(alpha = 0.7, size = 2) +
-    geom_smooth(aes(group = 1), method = "glm.nb", formula = y ~ log10(x),
+    geom_smooth(aes(group = 1), method = "glm.nb", formula = y ~ log(x),
                 se = TRUE, color = "black", linewidth = 0.8) +
     scale_x_log10(labels = scales::comma) +
     scale_y_continuous() +

@@ -847,6 +847,7 @@ if (LAVAAN_AVAILABLE && n_complete >= 50) {
   '
 
   # Fit the model
+  set.seed(42)
   tryCatch({
     path_fit <- sem(path_model, data = path_data, se = "bootstrap", bootstrap = 1000)
 
@@ -1322,15 +1323,15 @@ cat("of coral number) affects CAFI abundance and coral condition.\n\n")
 # G.1 Prepare data with neighborhood variables
 # Only subset of corals have neighborhood data (from 5m surveys)
 neighborhood_data <- coral_master %>%
-  filter(!is.na(n_neighbors), !is.na(volume_field)) %>%
+  filter(!is.na(n_neighbors), !is.na(volume)) %>%
   mutate(
-    log_volume = log(volume_field),
+    log_volume = log(volume),
     log_volume_scaled = scale(log_volume)[,1],
     n_neighbors_scaled = scale(n_neighbors)[,1],
-    total_neighbor_vol_scaled = scale(log10(total_neighbor_volume + 1))[,1],
+    total_neighbor_vol_scaled = scale(log(total_neighbor_volume + 1))[,1],
     # Size category for visualization
-    size_category = cut(volume_field,
-                        breaks = quantile(volume_field, probs = c(0, 0.33, 0.67, 1)),
+    size_category = cut(volume,
+                        breaks = quantile(volume, probs = c(0, 0.33, 0.67, 1)),
                         labels = c("Small", "Medium", "Large"),
                         include.lowest = TRUE)
   )
@@ -1459,7 +1460,7 @@ cat("G.6 Creating neighborhood effects figure...\n")
 # Panel A: CAFI abundance vs neighborhood density (colored by coral size)
 p_neighborhood_cafi <- ggplot(neighborhood_data,
                                aes(x = n_neighbors, y = total_cafi)) +
-  geom_point(aes(color = size_category, size = volume_field), alpha = 0.7) +
+  geom_point(aes(color = size_category, size = volume), alpha = 0.7) +
   geom_smooth(method = "lm", color = "black", se = TRUE, linewidth = 1) +
   scale_color_manual(values = c("Small" = "#2196F3", "Medium" = "#FF9800", "Large" = "#E91E63"),
                      name = "Coral Size") +
@@ -1708,20 +1709,20 @@ landscape_condition <- condition_scores %>%
   dplyr::select(coral_id, site, condition_score,
                 any_of(c("protein_corr", "carb_corr", "zoox_corr", "afdw_corr"))) %>%
   left_join(
-    coral_master %>% dplyr::select(coral_id, volume, volume_field, depth_m,
+    coral_master %>% dplyr::select(coral_id, volume, depth_m,
                                     n_neighbors, mean_neighbor_dist,
                                     total_neighbor_volume, mean_neighbor_volume),
     by = "coral_id"
   ) %>%
   filter(!is.na(condition_score), !is.na(volume)) %>%
   mutate(
-    log_volume = log10(coalesce(volume_field, volume)),
+    log_volume = log(volume),
     log_volume_scaled = scale(log_volume)[,1],
     # Scale neighborhood predictors (only for corals with neighborhood data)
     n_neighbors_scaled = if_else(!is.na(n_neighbors), scale(n_neighbors)[,1], NA_real_),
     mean_dist_scaled = if_else(!is.na(mean_neighbor_dist), scale(mean_neighbor_dist)[,1], NA_real_),
     total_neighbor_vol_scaled = if_else(!is.na(total_neighbor_volume),
-                                         scale(log10(total_neighbor_volume + 1))[,1], NA_real_),
+                                         scale(log(total_neighbor_volume + 1))[,1], NA_real_),
     depth_scaled = if_else(!is.na(depth_m), scale(depth_m)[,1], NA_real_),
     site = factor(site)
   )
