@@ -784,18 +784,30 @@ tryCatch({
 
     dens_max_c <- max(density(neighbor_data$n_neighbors)$y)
 
+    # Compute density for D/E/F markers on Panel C
+    dens_obj <- density(neighbor_data$n_neighbors, adjust = 1.0)
+    get_density_at_x <- function(x, dens) approx(dens$x, dens$y, xout = x)$y
+
+    marker_df <- data.frame(
+      x = c(5, 17, 76),
+      label = c("D", "E", "F"),
+      color = c(SITE_COLORS_FIG1["HAU"], SITE_COLORS_FIG1["MRB"], SITE_COLORS_FIG1["MRB"])
+    )
+    marker_df$y <- sapply(marker_df$x, get_density_at_x, dens = dens_obj)
+
     panel_c <- neighbor_data %>%
       ggplot(aes(x = n_neighbors)) +
       geom_histogram(aes(y = after_stat(density)),
                      binwidth = 5, fill = DATA_FILL, color = "white",
                      alpha = 0.85, linewidth = 0.3) +
       geom_density(color = DENSITY_LINE, linewidth = 1.1, adjust = 1.0) +
-      geom_vline(xintercept = neighbor_stats$median_n,
-                 linetype = "dashed", color = "gray45", linewidth = 0.6) +
-      annotate("text", x = neighbor_stats$median_n + 3, y = dens_max_c * 0.88,
-               label = paste0("median=", neighbor_stats$median_n),
-               size = 2.8, color = "gray40", hjust = 0, fontface = "italic") +
-      scale_x_continuous(breaks = seq(0, 80, by = 20), limits = c(-2, 85)) +
+      # D/E/F markers as inverted triangles
+      geom_point(data = marker_df, aes(x = x, y = y + 0.004, fill = color),
+                 shape = 25, color = "gray30", size = 2.8, stroke = 0.6) +
+      scale_fill_identity() +
+      geom_text(data = marker_df, aes(x = x, y = y + 0.0085, label = label),
+                fontface = "bold", size = 3.2, color = "gray20") +
+      scale_x_continuous(breaks = seq(0, 80, by = 20), limits = c(-2, 88)) +
       scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
       labs(
         title = "C",
@@ -810,34 +822,130 @@ tryCatch({
       )
 
     # ==================================================================
+    # PANELS D, E, F: Neighborhood schematics
+    # ==================================================================
+    cat("Creating Panels D-F: Neighborhood schematics...\n")
+
+    # Scale volume to point size (cube root for area perception)
+    vol_to_size <- function(vol, min_size = 1.5, max_size = 14) {
+      scaled <- (vol^(1/3) - 20^(1/3)) / (45000^(1/3) - 20^(1/3))
+      pmax(min_size, pmin(max_size, min_size + scaled * (max_size - min_size)))
+    }
+
+    # Neighborhood schematic function
+    create_neighborhood_plot <- function(focal_vol, mean_neigh_vol, n_neighbors,
+                                         mean_neigh_dist_cm, site_name, focal_color,
+                                         panel_label, density_label) {
+      set.seed(42 + n_neighbors)
+      mean_dist_scaled <- mean_neigh_dist_cm / 500
+      focal_size <- vol_to_size(focal_vol, min_size = 5, max_size = 16)
+
+      if (n_neighbors > 0) {
+        if (n_neighbors <= 10) {
+          base_angles <- seq(0, 2*pi, length.out = n_neighbors + 1)[1:n_neighbors]
+          jitter <- runif(n_neighbors, -pi/n_neighbors * 0.4, pi/n_neighbors * 0.4)
+          angles <- base_angles + jitter
+        } else {
+          angles <- runif(n_neighbors, 0, 2*pi)
+        }
+        radii_raw <- rnorm(n_neighbors, mean = mean_dist_scaled, sd = mean_dist_scaled * 0.3)
+        radii <- pmax(0.15, pmin(0.95, radii_raw))
+        neighbor_vols <- rlnorm(n_neighbors, meanlog = log(mean_neigh_vol) - 0.125, sdlog = 0.5)
+        neighbor_vols <- pmax(50, pmin(10000, neighbor_vols))
+        neighbor_sizes <- vol_to_size(neighbor_vols, min_size = 1.2, max_size = 6)
+        neighbor_df <- data.frame(x = radii * cos(angles), y = radii * sin(angles),
+                                  size = neighbor_sizes)
+      } else {
+        neighbor_df <- data.frame(x = numeric(0), y = numeric(0), size = numeric(0))
+      }
+
+      ggplot() +
+        annotate("path", x = cos(seq(0, 2*pi, length.out = 100)),
+                 y = sin(seq(0, 2*pi, length.out = 100)),
+                 color = "gray75", linetype = "dashed", linewidth = 0.4) +
+        geom_point(data = neighbor_df, aes(x = x, y = y, size = size),
+                   shape = 21, fill = "gray55", color = "gray35", stroke = 0.4) +
+        scale_size_identity() +
+        annotate("point", x = 0, y = 0, shape = 21, fill = focal_color,
+                 color = "white", size = focal_size, stroke = 2) +
+        annotate("text", x = 0, y = 1.38, label = density_label,
+                 fontface = "bold", size = 3.8, color = "gray25") +
+        annotate("text", x = 0, y = 1.22, label = paste0(n_neighbors, " neighbors"),
+                 size = 3.2, color = "gray45") +
+        annotate("text", x = 0, y = -1.28, label = site_name,
+                 fontface = "bold", size = 4.2, color = focal_color) +
+        labs(tag = panel_label) +
+        coord_fixed(xlim = c(-1.2, 1.2), ylim = c(-1.45, 1.55)) +
+        theme_void() +
+        theme(plot.tag = element_text(face = "bold", size = 14),
+              plot.margin = margin(5, 8, 5, 8),
+              plot.background = element_rect(fill = "white", color = NA))
+    }
+
+    # D: HAU-POC04 (Hauru) - 5 neighbors, large focal coral, far neighbors
+    panel_d <- create_neighborhood_plot(
+      focal_vol = 26741, mean_neigh_vol = 1336, n_neighbors = 5,
+      mean_neigh_dist_cm = 167, site_name = "Hauru",
+      focal_color = SITE_COLORS_FIG1["HAU"], panel_label = "D",
+      density_label = "Low density")
+
+    # E: MRB-POC10 (Maharepa) - 17 neighbors, medium focal coral
+    panel_e <- create_neighborhood_plot(
+      focal_vol = 5472, mean_neigh_vol = 686, n_neighbors = 17,
+      mean_neigh_dist_cm = 154, site_name = "Maharepa",
+      focal_color = SITE_COLORS_FIG1["MRB"], panel_label = "E",
+      density_label = "Median density")
+
+    # F: MRB-POC18 (Maharepa) - 76 neighbors, smaller focal, close neighbors
+    panel_f <- create_neighborhood_plot(
+      focal_vol = 3064, mean_neigh_vol = 395, n_neighbors = 76,
+      mean_neigh_dist_cm = 113, site_name = "Maharepa",
+      focal_color = SITE_COLORS_FIG1["MRB"], panel_label = "F",
+      density_label = "High density")
+
+    # ==================================================================
     # Combine panels and save
     # ==================================================================
     cat("Combining panels...\n")
 
-    fig1 <- panel_a + (panel_b / panel_c) +
-      plot_layout(widths = c(1.1, 1)) +
+    # Top row: map + histograms; Bottom row: neighborhood schematics
+    top_row <- panel_a + panel_b + panel_c +
+      plot_layout(ncol = 3, widths = c(1.35, 1, 1))
+
+    bottom_row <- panel_d + panel_e + panel_f +
+      plot_layout(ncol = 3, widths = c(1, 1, 1))
+
+    fig1 <- top_row / bottom_row +
+      plot_layout(heights = c(1.3, 1)) +
       plot_annotation(
-        title = NULL,
+        caption = paste0(
+          "(A) Study sites on Mo\u2019orea, French Polynesia. ",
+          "(B) Colony volume distribution spanning >3 orders of magnitude.\n",
+          "(C) Neighborhood density (Pocillopora within 5 m); triangles mark example corals in D\u2013F. ",
+          "(D\u2013F) Focal coral (colored)\nwith neighbors (gray) within 5 m; ",
+          "circle sizes reflect colony volumes, positions reflect measured distances."),
         theme = theme(
           plot.background = element_rect(fill = "white", color = NA),
-          plot.margin = margin(8, 12, 8, 12)
+          plot.caption = element_text(size = 7.5, hjust = 0, color = "gray45",
+                                     lineheight = 1.3, margin = margin(t = 15)),
+          plot.margin = margin(12, 15, 15, 15)
         )
       )
 
     # Save to manuscript directory
     output_path_ms <- file.path(PATHS$fig_manuscript, "fig1_study_design.png")
-    ggsave(output_path_ms, fig1, width = 10.5, height = 6, dpi = 300, bg = "white")
+    ggsave(output_path_ms, fig1, width = 12, height = 10, dpi = 300, bg = "white")
     cat("  Saved:", output_path_ms, "\n")
 
     # Save to analysis directory
     output_path_data <- file.path(PATHS$fig_01_data, "fig1_study_design.png")
-    ggsave(output_path_data, fig1, width = 10.5, height = 6, dpi = 300, bg = "white")
+    ggsave(output_path_data, fig1, width = 12, height = 10, dpi = 300, bg = "white")
     cat("  Saved:", output_path_data, "\n")
 
     cat("\nFigure 1 specifications:\n")
-    cat("  - Dimensions: 10.5 x 6 inches\n")
+    cat("  - Dimensions: 12 x 10 inches\n")
     cat("  - Resolution: 300 dpi (PNG)\n")
-    cat("  - Panels: A (satellite map), B (volume), C (neighbors)\n")
+    cat("  - Panels: A (satellite map), B (volume), C (neighbors), D-F (neighborhood schematics)\n")
     cat("  - Site colors: HAU=#E69F00, MAT=#0072B2, MRB=#009E73\n")
     cat("  - Total corals:", nrow(coral_master), "\n")
     cat("  - Corals with neighborhood data:", neighbor_stats$n, "\n")
