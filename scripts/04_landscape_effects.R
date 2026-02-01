@@ -72,18 +72,8 @@ landscape_data <- coral_master %>%
   mutate(
     # Log transformations
     log_volume = log(volume),
-    log_cafi = log10(total_cafi + 1),
-
     # Proximity in meters
     proximity_m = mean_neighbor_dist / 100,
-
-    # Derived indices (recalculate for consistency)
-    isolation_index = mean_neighbor_dist / (volume^(1/3) + 1),
-    crowding_index = total_neighbor_volume / (mean_neighbor_dist + 1),
-    relative_size = volume / (mean_neighbor_volume + 1),
-
-    # Spillover potential: large nearby neighbors as propagule sources
-    spillover_potential = total_neighbor_volume / (mean_neighbor_dist + 1),
 
     # Categories for visualization
     size_cat = cut(volume,
@@ -287,13 +277,13 @@ cat("------------------------------------------------------------\n\n")
 # 3.1 Total neighbor volume
 cat("3.1 Total Neighbor Volume Effect:\n")
 
-m_neigh_vol <- glm.nb(total_cafi ~ log10(total_neighbor_volume + 1) + log(volume) + site,
+m_neigh_vol <- glm.nb(total_cafi ~ log(total_neighbor_volume + 1) + log(volume) + site,
                       data = landscape_data)
 m_nvol_summary <- summary(m_neigh_vol)
 
-cat("    β =", round(coef(m_neigh_vol)["log10(total_neighbor_volume + 1)"], 4),
-    ", z =", round(m_nvol_summary$coefficients["log10(total_neighbor_volume + 1)", "z value"], 2),
-    ", p =", format.pval(m_nvol_summary$coefficients["log10(total_neighbor_volume + 1)", "Pr(>|z|)"], 3), "\n\n")
+cat("    β =", round(coef(m_neigh_vol)["log(total_neighbor_volume + 1)"], 4),
+    ", z =", round(m_nvol_summary$coefficients["log(total_neighbor_volume + 1)", "z value"], 2),
+    ", p =", format.pval(m_nvol_summary$coefficients["log(total_neighbor_volume + 1)", "Pr(>|z|)"], 3), "\n\n")
 
 # Figure
 p_neighbor_vol <- landscape_data %>%
@@ -356,13 +346,13 @@ cat("------------------------------------------------------------\n\n")
 cat("5.1 Full Model: CAFI Abundance ~ All 4 Predictors\n")
 
 m_abund_full <- glm.nb(total_cafi ~ log(volume) + n_neighbors +
-                        log10(total_neighbor_volume + 1) + mean_neighbor_dist + site,
+                        log(total_neighbor_volume + 1) + mean_neighbor_dist + site,
                        data = landscape_data)
 m_abund_full_summary <- summary(m_abund_full)
 
 cat("\n    Coefficients:\n")
 coef_table <- data.frame(
-  Predictor = c("log(volume)", "n_neighbors", "log10(neighbor_vol)", "mean_neighbor_dist"),
+  Predictor = c("log(volume)", "n_neighbors", "log(neighbor_vol)", "mean_neighbor_dist"),
   Beta = round(coef(m_abund_full)[2:5], 4),
   SE = round(m_abund_full_summary$coefficients[2:5, "Std. Error"], 4),
   z = round(m_abund_full_summary$coefficients[2:5, "z value"], 2),
@@ -382,13 +372,13 @@ cat("      Pseudo-R² (McFadden):", round(calc_pseudo_r2(m_abund_full), 4), "\n\
 cat("5.2 Full Model: Species Richness ~ All 4 Predictors\n")
 
 m_rich_full <- glm(otu_richness ~ log(volume) + n_neighbors +
-                    log10(total_neighbor_volume + 1) + mean_neighbor_dist + site,
+                    log(total_neighbor_volume + 1) + mean_neighbor_dist + site,
                    family = poisson, data = landscape_data)
 m_rich_full_summary <- summary(m_rich_full)
 
 cat("\n    Coefficients:\n")
 coef_table_rich <- data.frame(
-  Predictor = c("log(volume)", "n_neighbors", "log10(neighbor_vol)", "mean_neighbor_dist"),
+  Predictor = c("log(volume)", "n_neighbors", "log(neighbor_vol)", "mean_neighbor_dist"),
   Beta = round(coef(m_rich_full)[2:5], 4),
   SE = round(m_rich_full_summary$coefficients[2:5, "Std. Error"], 4),
   z = round(m_rich_full_summary$coefficients[2:5, "z value"], 2),
@@ -406,13 +396,13 @@ cat("\n    Overdispersion ratio:", round(overdispersion, 2),
 cat("5.3 Full Model: Shannon H' ~ All 4 Predictors\n")
 
 m_shan_full <- lm(shannon ~ log(volume) + n_neighbors +
-                   log10(total_neighbor_volume + 1) + mean_neighbor_dist + site,
+                   log(total_neighbor_volume + 1) + mean_neighbor_dist + site,
                   data = landscape_data)
 m_shan_full_summary <- summary(m_shan_full)
 
 cat("\n    Coefficients:\n")
 coef_table_shan <- data.frame(
-  Predictor = c("log(volume)", "n_neighbors", "log10(neighbor_vol)", "mean_neighbor_dist"),
+  Predictor = c("log(volume)", "n_neighbors", "log(neighbor_vol)", "mean_neighbor_dist"),
   Beta = round(coef(m_shan_full)[2:5], 4),
   SE = round(m_shan_full_summary$coefficients[2:5, "Std. Error"], 4),
   t = round(m_shan_full_summary$coefficients[2:5, "t value"], 2),
@@ -449,10 +439,10 @@ m_size <- glm.nb(total_cafi ~ log(volume) + site, data = landscape_data)
 m_size_neighbors <- glm.nb(total_cafi ~ log(volume) + n_neighbors + site,
                            data = landscape_data)
 m_size_neigh_vol <- glm.nb(total_cafi ~ log(volume) + n_neighbors +
-                            log10(total_neighbor_volume + 1) + site,
+                            log(total_neighbor_volume + 1) + site,
                            data = landscape_data)
 m_full <- glm.nb(total_cafi ~ log(volume) + n_neighbors +
-                  log10(total_neighbor_volume + 1) + mean_neighbor_dist + site,
+                  log(total_neighbor_volume + 1) + mean_neighbor_dist + site,
                  data = landscape_data)
 
 model_comparison <- tibble(
@@ -517,7 +507,7 @@ m_rich_null <- glm(otu_richness ~ site, family = poisson, data = landscape_data)
 m_rich_size <- glm(otu_richness ~ log(volume) + site, family = poisson,
                    data = landscape_data)
 m_rich_full <- glm(otu_richness ~ log(volume) + n_neighbors +
-                    log10(total_neighbor_volume + 1) + mean_neighbor_dist + site,
+                    log(total_neighbor_volume + 1) + mean_neighbor_dist + site,
                    family = poisson, data = landscape_data)
 
 cat("    Null AIC:", round(AIC(m_rich_null), 1), "\n")
@@ -535,7 +525,7 @@ cat("6.3 Shannon Diversity Models:\n\n")
 m_shan_null <- lm(shannon ~ site, data = landscape_data)
 m_shan_size <- lm(shannon ~ log(volume) + site, data = landscape_data)
 m_shan_full <- lm(shannon ~ log(volume) + n_neighbors +
-                   log10(total_neighbor_volume + 1) + mean_neighbor_dist + site,
+                   log(total_neighbor_volume + 1) + mean_neighbor_dist + site,
                   data = landscape_data)
 
 cat("    Null R²:", round(summary(m_shan_null)$r.squared, 3), "\n")
@@ -579,12 +569,12 @@ cat("    Interpretation:", ifelse(int_p < 0.05,
 # 7.2 Size × Neighbor volume interaction
 cat("7.2 Abundance ~ Size × Neighbor Volume:\n")
 
-m_int_vol <- glm.nb(total_cafi ~ log(volume) * log10(total_neighbor_volume + 1) + site,
+m_int_vol <- glm.nb(total_cafi ~ log(volume) * log(total_neighbor_volume + 1) + site,
                     data = landscape_data)
 m_int_vol_summary <- summary(m_int_vol)
 
-int_coef_vol <- coef(m_int_vol)["log(volume):log10(total_neighbor_volume + 1)"]
-int_p_vol <- m_int_vol_summary$coefficients["log(volume):log10(total_neighbor_volume + 1)", "Pr(>|z|)"]
+int_coef_vol <- coef(m_int_vol)["log(volume):log(total_neighbor_volume + 1)"]
+int_p_vol <- m_int_vol_summary$coefficients["log(volume):log(total_neighbor_volume + 1)", "Pr(>|z|)"]
 
 cat("    Interaction β =", round(int_coef_vol, 4),
     ", p =", format.pval(int_p_vol, 3), "\n")
@@ -696,11 +686,11 @@ coef_data <- tibble(
   predictor = c("Coral Volume", "Neighbor Count", "Neighbor Volume", "Neighbor Distance"),
   beta = c(coef(m_abund_full)["log(volume)"],
            coef(m_abund_full)["n_neighbors"],
-           coef(m_abund_full)["log10(total_neighbor_volume + 1)"],
+           coef(m_abund_full)["log(total_neighbor_volume + 1)"],
            coef(m_abund_full)["mean_neighbor_dist"]),
   se = c(m_abund_full_summary$coefficients["log(volume)", "Std. Error"],
          m_abund_full_summary$coefficients["n_neighbors", "Std. Error"],
-         m_abund_full_summary$coefficients["log10(total_neighbor_volume + 1)", "Std. Error"],
+         m_abund_full_summary$coefficients["log(total_neighbor_volume + 1)", "Std. Error"],
          m_abund_full_summary$coefficients["mean_neighbor_dist", "Std. Error"]),
   category = c("Focal", "Neighborhood", "Neighborhood", "Neighborhood")
 ) %>%
@@ -779,7 +769,7 @@ landscape_data_scaled <- landscape_data %>%
   mutate(
     log_vol_scaled = scale(log(volume))[,1],
     n_neighbors_scaled = scale(n_neighbors)[,1],
-    log_neigh_vol_scaled = scale(log10(total_neighbor_volume + 1))[,1],
+    log_neigh_vol_scaled = scale(log(total_neighbor_volume + 1))[,1],
     dist_scaled = scale(mean_neighbor_dist)[,1]
   )
 
@@ -813,8 +803,8 @@ extract_glmm_coefs <- function(model, response) {
   # Get predictor rows (skip intercept) - use scaled names
   pred_names <- c("log_vol_scaled", "n_neighbors_scaled",
                   "log_neigh_vol_scaled", "dist_scaled")
-  display_names <- c("Coral Volume (log₁₀)", "Neighbor Count",
-                     "Neighbor Volume (log₁₀)", "Mean Neighbor Distance")
+  display_names <- c("Coral Volume (log)", "Neighbor Count",
+                     "Neighbor Volume (log)", "Mean Neighbor Distance")
 
   results <- tibble(
     Response = response,
@@ -1275,7 +1265,7 @@ loocv_abund <- tryCatch({
     test_data <- landscape_data_scaled[i, , drop = FALSE]
 
     # Fit on training data
-    m_cv <- glm.nb(total_cafi ~ log_volume_scaled + site, data = train_data)
+    m_cv <- glm.nb(total_cafi ~ log_vol_scaled + site, data = train_data)
 
     # Predict on held-out observation
     preds[i] <- predict(m_cv, newdata = test_data, type = "response")
@@ -1305,7 +1295,7 @@ loocv_rich <- tryCatch({
     train_data <- landscape_data_scaled[-i, ]
     test_data <- landscape_data_scaled[i, , drop = FALSE]
 
-    m_cv <- glm(otu_richness ~ log_volume_scaled + site, family = poisson, data = train_data)
+    m_cv <- glm(otu_richness ~ log_vol_scaled + site, family = poisson, data = train_data)
     preds[i] <- predict(m_cv, newdata = test_data, type = "response")
   }
 
@@ -1349,9 +1339,9 @@ extract_reduced_coefs <- function(model, response) {
 
   # Map scaled names to display names
   name_map <- c(
-    "log_vol_scaled" = "Coral Volume (log₁₀)",
+    "log_vol_scaled" = "Coral Volume (log)",
     "n_neighbors_scaled" = "Neighbor Count",
-    "log_neigh_vol_scaled" = "Neighbor Volume (log₁₀)",
+    "log_neigh_vol_scaled" = "Neighbor Volume (log)",
     "dist_scaled" = "Mean Neighbor Distance"
   )
 
@@ -1544,9 +1534,9 @@ retained_richness <- names(coef(glmm_richness_reduced))[-1]
 
 # Map back to display names
 name_map_reverse <- c(
-  "log_vol_scaled" = "Coral Volume (log₁₀)",
+  "log_vol_scaled" = "Coral Volume (log)",
   "n_neighbors_scaled" = "Neighbor Count",
-  "log_neigh_vol_scaled" = "Neighbor Volume (log₁₀)",
+  "log_neigh_vol_scaled" = "Neighbor Volume (log)",
   "dist_scaled" = "Mean Neighbor Distance"
 )
 
@@ -1658,7 +1648,7 @@ make_panel <- function(data, x_var, y_var, x_lab, title, model_results, log_x = 
 
 # Row 1: Abundance panels (A-D)
 p_A <- make_panel(landscape_data, "volume", "total_cafi",
-                  "Coral Volume (log₁₀)", "A. Volume → Abundance",
+                  "Coral Volume (log)", "A. Volume → Abundance",
                   glmm_results, log_x = TRUE)
 
 p_B <- make_panel(landscape_data, "n_neighbors", "total_cafi",
@@ -1668,7 +1658,7 @@ p_B <- make_panel(landscape_data, "n_neighbors", "total_cafi",
 p_C <- landscape_data %>%
   filter(total_neighbor_volume > 0) %>%
   make_panel("total_neighbor_volume", "total_cafi",
-             "Neighbor Volume (log₁₀)", "C. Neighbor Vol → Abundance",
+             "Neighbor Volume (log)", "C. Neighbor Vol → Abundance",
              glmm_results, log_x = TRUE)
 
 p_D <- make_panel(landscape_data, "mean_neighbor_dist", "total_cafi",
@@ -1677,7 +1667,7 @@ p_D <- make_panel(landscape_data, "mean_neighbor_dist", "total_cafi",
 
 # Row 2: Richness panels (E-H)
 p_E <- make_panel(landscape_data, "volume", "otu_richness",
-                  "Coral Volume (log₁₀)", "E. Volume → Richness",
+                  "Coral Volume (log)", "E. Volume → Richness",
                   glmm_results, log_x = TRUE)
 
 p_F <- make_panel(landscape_data, "n_neighbors", "otu_richness",
@@ -1687,7 +1677,7 @@ p_F <- make_panel(landscape_data, "n_neighbors", "otu_richness",
 p_G <- landscape_data %>%
   filter(total_neighbor_volume > 0) %>%
   make_panel("total_neighbor_volume", "otu_richness",
-             "Neighbor Volume (log₁₀)", "G. Neighbor Vol → Richness",
+             "Neighbor Volume (log)", "G. Neighbor Vol → Richness",
              glmm_results, log_x = TRUE)
 
 p_H <- make_panel(landscape_data, "mean_neighbor_dist", "otu_richness",
@@ -1878,19 +1868,19 @@ univariate_results <- tibble(
   Response = "CAFI Abundance",
   Beta = c(slope,
            coef(m_neighbors)["n_neighbors"],
-           coef(m_neigh_vol)["log10(total_neighbor_volume + 1)"],
+           coef(m_neigh_vol)["log(total_neighbor_volume + 1)"],
            coef(m_distance)["mean_neighbor_dist"]),
   SE = c(slope_se,
          m_neigh_summary$coefficients["n_neighbors", "Std. Error"],
-         m_nvol_summary$coefficients["log10(total_neighbor_volume + 1)", "Std. Error"],
+         m_nvol_summary$coefficients["log(total_neighbor_volume + 1)", "Std. Error"],
          m_dist_summary$coefficients["mean_neighbor_dist", "Std. Error"]),
   z_value = c(m_summary$coefficients["log(volume)", "z value"],
               m_neigh_summary$coefficients["n_neighbors", "z value"],
-              m_nvol_summary$coefficients["log10(total_neighbor_volume + 1)", "z value"],
+              m_nvol_summary$coefficients["log(total_neighbor_volume + 1)", "z value"],
               m_dist_summary$coefficients["mean_neighbor_dist", "z value"]),
   p_value = c(m_summary$coefficients["log(volume)", "Pr(>|z|)"],
               m_neigh_summary$coefficients["n_neighbors", "Pr(>|z|)"],
-              m_nvol_summary$coefficients["log10(total_neighbor_volume + 1)", "Pr(>|z|)"],
+              m_nvol_summary$coefficients["log(total_neighbor_volume + 1)", "Pr(>|z|)"],
               m_dist_summary$coefficients["mean_neighbor_dist", "Pr(>|z|)"])
 ) %>%
   mutate(
@@ -1910,7 +1900,7 @@ cat("10.2 Creating full model results table...\n")
 full_model_results <- tibble(
   Response = rep(c("Abundance", "Richness", "Shannon"), each = 4),
   Predictor = rep(c("log(volume)", "n_neighbors",
-                    "log10(neighbor_vol)", "mean_neighbor_dist"), 3),
+                    "log(neighbor_vol)", "mean_neighbor_dist"), 3),
   Beta = c(
     coef(m_abund_full)[2:5],
     coef(m_rich_full)[2:5],

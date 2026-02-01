@@ -524,8 +524,7 @@ check_pipeline_status <- function() {
   all_scripts <- c(
     unlist(lapply(PIPELINE_SCRIPTS$core, function(x) x$name)),
     unlist(lapply(PIPELINE_SCRIPTS$extended, function(x) x$name)),
-    unlist(lapply(PIPELINE_SCRIPTS$ml, function(x) x$name)),
-    unlist(lapply(PIPELINE_SCRIPTS$publication, function(x) x$name))
+    unlist(lapply(PIPELINE_SCRIPTS$ml, function(x) x$name))
   )
 
   for (script in all_scripts) {

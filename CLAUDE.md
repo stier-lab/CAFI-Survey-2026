@@ -23,7 +23,7 @@ This **observational survey** complements a parallel **experimental study** that
 
 | Question | Script | Key Result |
 |----------|--------|------------|
-| **Q1: SCALING** | `05_species_scaling_analysis.R` | Abundance β=0.52 (sublinear, Redirection); Richness z=0.34 (sublinear); density dilution |
+| **Q1: SCALING** | `05_species_scaling_analysis.R` | Abundance β=0.52 (sublinear, Redirection); Richness z=0.35 (sublinear); density dilution |
 | **Q2: COMPOSITION** | `02_community_analysis.R` + `06_network_analysis.R` | Site pools structure composition; co-occurrence reveals non-random modular assembly |
 | **Q3: FEEDBACKS** | `09_cafi_condition_feedbacks.R` | **No CAFI metric predicts condition**; raw richness signal is abundance artifact (rarefied p=0.45) |
 | **Q4: NEIGHBORHOOD** | `04_landscape_effects.R` | n_neighbors NOT significant for CAFI or condition |
@@ -45,7 +45,7 @@ This **observational survey** complements a parallel **experimental study** that
 
 **Key findings:**
 - Total CAFI abundance: β = 0.52 [0.44, 0.61] — **sublinear (Propagule Redirection)**
-- Species richness (SAR): z = 0.34 [0.30, 0.39] — **sublinear (Redirection)**
+- Species richness (SAR): z = 0.35 [0.28, 0.43] — **sublinear (Redirection)**
 - Density dilution: per-capita CAFI density decreases with size (slope = -0.48)
 - 7/10 top species: Redirection (β < 1); 3/10: Field of Dreams (CI spans 1); 0/10: super-linear
 - Obligate symbionts (Trapezia, Alpheus): consistently sublinear scaling
@@ -93,7 +93,7 @@ This **observational survey** complements a parallel **experimental study** that
 - Note: 3 sites insufficient for random intercepts (Bolker et al. 2009)
 
 **Key findings:**
-- **Species richness → condition**: Raw richness shows trend (p = 0.055), BUT this is an **ABUNDANCE ARTIFACT**
+- **Species richness → condition**: Raw richness shows nominal signal (p = 0.018), BUT this is an **ABUNDANCE ARTIFACT**
   - Richness correlates strongly with total CAFI abundance (r = 0.84)
   - **Rarefied richness** (controlling for sampling intensity) shows NO relationship (p = 0.45)
   - Correlation with abundance: raw r = 0.84, rarefied r = −0.05
@@ -118,8 +118,8 @@ This **observational survey** complements a parallel **experimental study** that
 - Available on 61/114 corals (5m survey subset)
 
 **Key findings:**
-- n_neighbors NOT significant for CAFI abundance (p = 0.86)
-- n_neighbors NOT significant for coral condition (p = 0.93)
+- n_neighbors NOT significant for CAFI abundance (p = 0.37)
+- n_neighbors NOT significant for coral condition (p = 0.78)
 - Volume remains the dominant predictor in all models
 - **Neighborhood density does not explain CAFI or condition variation**
 
@@ -290,7 +290,7 @@ output/
 
 - **Join key**: `coral_id` links all datasets
 - **Site codes**: HAU (Hauru), MAT (Maatea), MRB (Barrier Reef)
-- **Volume**: Use `volume_field` (field estimate)
+- **Volume**: Use `volume` (field estimate)
 - **Key columns**: `n_galeropsis` (Galeropsis count per coral), `n_corallivore` (all gastropods)
 - **Packages**: Use `dplyr::select()` explicitly (MASS conflict); car::vif(), DHARMa, sandwich/lmtest for diagnostics
 - **Colors**: Two semantic palettes, chosen to avoid cross-figure confusion:

@@ -61,7 +61,7 @@ cat("============================================================\n\n")
 # ============================================================================
 
 # Load setup (packages, paths, theme)
-source(here::here("scripts/00_setup.R"))
+if (!exists("PATHS")) source(here::here("scripts/00_setup.R"))
 
 # Load additional packages for mixed models and path analysis
 if (!requireNamespace("lmerTest", quietly = TRUE)) {
@@ -188,10 +188,7 @@ analysis_data <- condition_scores %>%
   filter(!is.na(condition_score), !is.na(total_cafi), !is.na(volume)) %>%
   mutate(
     log_volume = log(volume),
-    sqrt_volume = sqrt(volume),
-    site = factor(site),
-    # Standardize condition score for comparable effect sizes
-    condition_z = scale(condition_score)[,1]
+    site = factor(site)
   )
 
 n_complete <- nrow(analysis_data)
@@ -1166,7 +1163,7 @@ if (nrow(key_species_df) > 0) {
       x = "",
       y = "Effect on condition score (regression coefficient)",
       caption = paste0("n = ", nrow(analysis_data), " corals | Vertical line at 0 = no effect\n",
-                       "Green = matches experimental prediction | Red = contradicts")
+                       "Blue = matches experimental prediction | Orange = contradicts")
     ) +
     theme_publication() +
     theme(
@@ -1220,10 +1217,10 @@ if (nrow(key_species_df) > 0) {
     )
 
   combined_colors <- c(
-    "Sig. matches prediction" = "#2e7d32",
-    "Sig. contradicts prediction" = "#c62828",
-    "NS matches prediction" = "#81c784",
-    "NS contradicts prediction" = "#ef9a9a"
+    "Sig. matches prediction" = "#0072B2",
+    "Sig. contradicts prediction" = "#D55E00",
+    "NS matches prediction" = "#56B4E9",
+    "NS contradicts prediction" = "#E69F00"
   )
 
   p_combined <- ggplot(combined_comparison,
@@ -1462,7 +1459,7 @@ p_neighborhood_cafi <- ggplot(neighborhood_data,
                                aes(x = n_neighbors, y = total_cafi)) +
   geom_point(aes(color = size_category, size = volume), alpha = 0.7) +
   geom_smooth(method = "lm", color = "black", se = TRUE, linewidth = 1) +
-  scale_color_manual(values = c("Small" = "#2196F3", "Medium" = "#FF9800", "Large" = "#E91E63"),
+  scale_color_manual(values = c("Small" = "#56B4E9", "Medium" = "#E69F00", "Large" = "#0072B2"),
                      name = "Coral Size") +
   scale_size_continuous(range = c(2, 8), guide = "none") +
   labs(
@@ -2104,7 +2101,7 @@ p_vol_condition <- ggplot(landscape_condition, aes(x = log_volume, y = condition
                        coef(m_vol_site)["log_volume_scaled"],
                        s_vol_site$coefficients["log_volume_scaled", "Pr(>|t|)"],
                        n_landscape),
-    x = expression(log[10](Volume~cm^3)),
+    x = expression(ln(Volume~cm^3)),
     y = "Coral condition (PC1)"
   ) +
   theme_publication() +

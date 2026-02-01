@@ -220,7 +220,7 @@ p_rank_abundance <- ggplot(otu_abundance, aes(x = rank, y = abundance)) +
   geom_point(aes(color = rank <= 10), size = 2) +
   scale_y_log10() +
   scale_color_manual(values = c("TRUE" = "#E69F00", "FALSE" = "gray70"), guide = "none") +
-  geom_text(data = filter(otu_abundance, rank <= 5),
+  geom_text(data = dplyr::filter(otu_abundance, rank <= 5),
             aes(label = otu), hjust = -0.1, vjust = 0.5, size = 3, angle = 15) +
   labs(
     x = "Species Rank",
@@ -409,7 +409,7 @@ ggsave(file.path(FIG_DIR, "diversity_vs_volume.png"), p_diversity_vol,
 cat("3.4 Species Accumulation:\n")
 
 # Rarefaction curve
-specaccum_result <- specaccum(community_matrix, method = "random", permutations = 100)
+specaccum_result <- specaccum(community_matrix, method = "random", permutations = 999)
 
 cat("    At 50 corals: ", round(specaccum_result$richness[50], 1),
     " ± ", round(specaccum_result$sd[50], 1), " species\n", sep = "")
@@ -1180,7 +1180,7 @@ sensitivity_results <- lapply(names(distance_configs), function(metric_name) {
 
     trend_df <- data.frame(
       dist_to_centroid = disp_result$distances,
-      log_volume = log10(coral_nz$volume)
+      log_volume = log(coral_nz$volume)
     )
     trend_lm <- lm(dist_to_centroid ~ log_volume, data = trend_df)
     trend_s <- summary(trend_lm)

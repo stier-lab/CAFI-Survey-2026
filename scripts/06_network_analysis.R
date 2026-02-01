@@ -262,8 +262,8 @@ E(g)$correlation <- edge_list$correlation
 # Get taxonomic type for each species
 V(g)$type <- sapply(V(g)$name, function(sp) {
   type_val <- cafi_clean %>%
-    filter(otu == sp | species == sp) %>%
-    pull(type) %>%
+    dplyr::filter(otu == sp | species == sp) %>%
+    dplyr::pull(type) %>%
     unique()
   if (length(type_val) == 0) "unknown" else type_val[1]
 })
@@ -271,8 +271,8 @@ V(g)$type <- sapply(V(g)$name, function(sp) {
 # Get functional group
 V(g)$functional_group <- sapply(V(g)$name, function(sp) {
   fg_val <- cafi_clean %>%
-    filter(otu == sp | species == sp) %>%
-    pull(functional_group) %>%
+    dplyr::filter(otu == sp | species == sp) %>%
+    dplyr::pull(functional_group) %>%
     unique()
   if (length(fg_val) == 0) "Other" else fg_val[1]
 })
@@ -953,8 +953,8 @@ tryCatch({
                           "gray50")
     )
 
-  between_guild_edges <- edge_df %>% filter(!is_within_guild)
-  between_guild_edges_sampled <- between_guild_edges
+  between_guild_edges <- edge_df %>% dplyr::filter(!is_within_guild)
+  # Use between_guild_edges directly (no sampling needed)
   n_between <- nrow(between_guild_edges)
 
   cat(sprintf("  Between-guild edges: %d (all shown as thin gray)\n", n_between))
@@ -969,7 +969,7 @@ tryCatch({
     )
   }
 
-  within_guild_edges <- edge_df %>% filter(is_within_guild)
+  within_guild_edges <- edge_df %>% dplyr::filter(is_within_guild)
   cat("  Generating bezier curves for", nrow(within_guild_edges), "within-guild edges...\n")
 
   bezier_within <- purrr::map_dfr(1:nrow(within_guild_edges), function(i) {
@@ -981,11 +981,11 @@ tryCatch({
     pts
   })
 
-  cat("  Generating bezier curves for", nrow(between_guild_edges_sampled), "between-guild edges...\n")
+  cat("  Generating bezier curves for", nrow(between_guild_edges), "between-guild edges...\n")
 
-  if (nrow(between_guild_edges_sampled) > 0) {
-    bezier_between <- purrr::map_dfr(1:nrow(between_guild_edges_sampled), function(i) {
-      row <- between_guild_edges_sampled[i,]
+  if (nrow(between_guild_edges) > 0) {
+    bezier_between <- purrr::map_dfr(1:nrow(between_guild_edges), function(i) {
+      row <- between_guild_edges[i,]
       pts <- create_bezier(row$x1, row$y1, row$x2, row$y2)
       pts$edge_id <- i + 10000
       pts$weight <- row$weight
@@ -1107,7 +1107,7 @@ tryCatch({
     guild_color <- guild_colors[as.character(guild_id)]
     guild_color_light <- guild_colors_light[as.character(guild_id)]
 
-    guild_species <- sp_info %>% filter(guild == guild_id)
+    guild_species <- sp_info %>% dplyr::filter(guild == guild_id)
     g_sub <- induced_subgraph(g, V(g)[V(g)$name %in% guild_species$species])
 
     if (vcount(g_sub) == 0) {
@@ -1197,7 +1197,7 @@ tryCatch({
       stroke = 0.7
     )
 
-    labels_data <- node_data %>% filter(show_label)
+    labels_data <- node_data %>% dplyr::filter(show_label)
 
     if (nrow(labels_data) > 0) {
       p <- p + ggrepel::geom_text_repel(
