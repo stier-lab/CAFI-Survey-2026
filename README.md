@@ -112,13 +112,20 @@ CAFI-Survey-2026/
 │   ├── 10-12_*.R                  # Machine learning (exploratory, not in default pipeline)
 │   └── archive/                   # Deprecated scripts (reference only)
 │
-├── output/                        # Generated outputs
+├── output/                        # Generated outputs (gitignored)
 │   ├── figures/
 │   │   ├── manuscript/            # 5 publication figures (fig1-fig5)
 │   │   ├── supplement/            # 7 supplementary figures (figS1-S7)
-│   │   └── */                     # Exploratory figures by analysis
-│   ├── tables/                    # CSV statistical results
-│   └── objects/                   # RDS R data objects
+│   │   ├── 01_data/              # Study design figures
+│   │   ├── 02_community/         # Community analysis (11 figures)
+│   │   ├── 03_landscape/         # Landscape characterization (3 figures)
+│   │   ├── 04_effects/           # Landscape effects (14 figures)
+│   │   ├── 05_scaling/           # Species-area scaling (7 figures)
+│   │   ├── 06_network/           # Network analysis (1 figure)
+│   │   ├── feedbacks/            # CAFI-condition feedbacks (8 figures)
+│   │   └── functional_groups/    # Taxonomic group analysis (7 figures)
+│   ├── tables/                    # ~46 CSV statistical results
+│   └── objects/                   # 17 RDS R data objects
 │
 ├── manuscript/                    # Manuscript drafts
 ├── CLAUDE.md                      # AI assistant context (detailed)
@@ -300,16 +307,28 @@ coral_master <- readRDS("output/objects/coral_master.rds")
 | S6 | Species-level scaling forest plot | `05_species_scaling_analysis.R` |
 | S7 | Neighborhood null results | `04_landscape_effects.R` |
 
-### Statistical Tables (`output/tables/`)
+### Statistical Tables (`output/tables/`, 46 files)
 
 Key output files:
 - `scaling_results_all.csv` — Species-area scaling coefficients for all taxa
-- `manuscript_results_summary.csv` — All Q1-Q4 headline results
-- `network_metrics.csv` — Network structure (modularity, centrality)
-- `morans_i_results.csv` — Spatial autocorrelation tests
+- `scaling_summary_by_category.csv` — Scaling summary grouped by taxonomic category
 - `cafi_condition_models.csv` — CAFI → condition model results
 - `key_species_effects.csv` — Experimental species predictions vs survey
+- `network_metrics.csv` — Network structure (modularity, centrality)
+- `hub_species.csv` — Hub species centrality scores
+- `morans_i_results.csv` — Spatial autocorrelation tests
+- `landscape_full_model_results.csv` — Full GLM results for landscape effects
 - `pipeline_timing.csv` — Script execution times
+
+### Data Objects (`output/objects/`, 17 files)
+
+Key RDS files:
+- `coral_master.rds` — Main merged dataset (coral + CAFI + physiology)
+- `cafi_clean.rds` — Cleaned CAFI specimen records
+- `community_matrix.rds` — Coral × species abundance matrix
+- `condition_scores.rds` — PCA condition scores
+- `cafi_network.rds` — Co-occurrence network + modularity results
+- `scaling_analysis_results.rds` — Scaling model outputs + bootstrap CIs
 
 ---
 
