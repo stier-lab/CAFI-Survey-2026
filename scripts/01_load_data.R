@@ -952,6 +952,167 @@ tryCatch({
     ggsave(output_path_data, fig1, width = 12, height = 10, dpi = 300, bg = "white")
     cat("  Saved:", output_path_data, "\n")
 
+    # ------------------------------------------------------------------
+    # Write legend, methods, and results text file
+    # ------------------------------------------------------------------
+    legend_path <- file.path(PATHS$fig_manuscript, "fig1_legend_results.txt")
+
+    legend_text <- paste0(
+'FIGURE 1: STUDY DESIGN AND SAMPLING OVERVIEW
+================================================================================
+
+FIGURE LEGEND
+-------------
+Figure 1. Study design and sampling overview. (A) Satellite imagery of Mo\'orea,
+French Polynesia (17\u00b030\'S, 149\u00b050\'W), showing the three reef sites: Hauru
+(fringing reef, north shore; n = ', site_data$n_corals[site_data$site == "HAU"], ' corals), Maatea (lagoon/back reef, east
+shore; n = ', site_data$n_corals[site_data$site == "MAT"], '), and Maharepa (barrier reef, north shore; n = ', site_data$n_corals[site_data$site == "MRB"], '). Site markers
+colored by reef site (orange = Hauru, blue = Maatea, green = Maharepa).
+(B) Distribution of Pocillopora colony volumes on a log10 scale, spanning >3
+orders of magnitude (', round(vol_stats$min_vol), '\u2013', format(round(vol_stats$max_vol), big.mark = ","), ' cm3; CV = ', round(vol_stats$cv), '%; n = ', vol_stats$n, ' colonies with volume
+data). Black curve shows kernel density estimate. (C) Distribution of
+neighborhood density (number of Pocillopora colonies within 5 m; n = ', neighbor_stats$n, ' corals
+with neighborhood surveys). Inverted triangles mark the three example colonies
+shown in panels D\u2013F. (D\u2013F) Neighborhood schematics for three representative
+colonies at low (D; 5 neighbors), median (E; 17 neighbors), and high (F; 76
+neighbors) density. Colored central point = focal coral; gray points = neighbors
+within 5 m. Point sizes for neighbors reflect relative colony volumes; positions
+approximate measured distances from the focal coral. Dashed circle = 5 m survey
+radius. Focal coral size is held constant across panels to emphasize the density
+gradient.
+
+================================================================================
+
+METHODS
+-------
+
+Study System
+------------
+We surveyed 114 Pocillopora coral colonies across three reef habitats on
+Mo\'orea, French Polynesia during summer 2019. ', 114 - vol_stats$n, ' colonies were excluded from
+volume analyses due to missing measurements (final n = ', vol_stats$n, '). Sites were chosen
+to span the range of reef environments around Mo\'orea:
+
+  - Hauru (HAU): Fringing reef on the north shore. Characterized by moderate
+    wave exposure and relatively shallow reef flat.
+  - Maatea (MAT): Lagoon/back-reef habitat on the east shore. Sheltered
+    environment with calmer water conditions.
+  - Maharepa (MRB): Barrier reef on the north shore. Exposed to oceanic swell,
+    higher wave energy, and deeper reef structure.
+
+At each site, 35\u201339 Pocillopora colonies were haphazardly selected across a
+range of sizes. Colony size was estimated as ellipsoidal volume from field
+measurements of length, width, and height (V = 4/3 * pi * a * b * c, where
+a, b, c are the semi-axes).
+
+Neighborhood Surveys
+--------------------
+For a subset of ', neighbor_stats$n, ' corals (across all three sites), we counted and measured all
+Pocillopora neighbors within a 5 m radius of the focal colony. The 5 m radius
+was chosen to capture the local spatial context relevant to larval settlement
+and post-settlement interactions.
+
+Neighborhood density (n_neighbors) ranged from ', neighbor_stats$min_n, ' to ', neighbor_stats$max_n, ' colonies within 5 m
+(median = ', neighbor_stats$median_n, ', mean = ', round(neighbor_stats$mean_n, 1), ', CV = ', round(neighbor_stats$cv), '%).
+
+Example Colonies (Panels D\u2013F)
+-----------------------------
+Three colonies were selected to illustrate the range of neighborhood densities:
+
+  Panel D \u2014 HAU-POC04 (Hauru):
+    Volume: 22,852 cm3 | Neighbors: 5 | Mean neighbor distance: 167 cm
+    Represents the low-density extreme (sparse, isolated colony).
+
+  Panel E \u2014 MRB-POC10 (Maharepa):
+    Volume: 5,472 cm3 | Neighbors: 17 | Mean neighbor distance: 154 cm
+    Represents the median neighborhood density.
+
+  Panel F \u2014 MRB-POC18 (Maharepa):
+    Volume: 3,079 cm3 | Neighbors: 76 | Mean neighbor distance: 113 cm
+    Represents the high-density extreme (densely packed neighborhood).
+
+Focal coral point size is held constant across panels D\u2013F to emphasize the
+density contrast rather than differences in focal colony volume. Neighbor
+volumes were drawn from a lognormal distribution parameterized by measured mean
+neighbor volume at each site.
+
+================================================================================
+
+RESULTS
+-------
+
+Colony Size Distribution (Panel B)
+-----------------------------------
+Pocillopora colony volumes spanned more than 3 orders of magnitude
+(', round(vol_stats$min_vol), '\u2013', format(round(vol_stats$max_vol), big.mark = ","), ' cm3; n = ', vol_stats$n, '). The distribution was right-skewed on a linear scale
+(mean = ', format(round(vol_stats$mean_vol), big.mark = ","), ' cm3, median = ', format(round(vol_stats$median_vol), big.mark = ","), ' cm3) but approximately normal on a log10
+scale, consistent with lognormal colony-size distributions commonly observed
+in coral populations. The coefficient of variation (CV = ', round(vol_stats$cv), '%) confirms
+substantial size heterogeneity among surveyed colonies.
+
+Neighborhood Density Distribution (Panel C)
+--------------------------------------------
+Among the ', neighbor_stats$n, ' corals with neighborhood data, density varied widely (', neighbor_stats$min_n, '\u2013', neighbor_stats$max_n, '
+neighbors within 5 m; CV = ', round(neighbor_stats$cv), '%). The distribution was right-skewed, with most
+corals having 5\u201325 neighbors and a long tail extending to ', neighbor_stats$max_n, '.
+
+Site Allocation
+---------------
+  HAU (Hauru):     ', site_data$n_corals[site_data$site == "HAU"], ' corals
+  MAT (Maatea):    ', site_data$n_corals[site_data$site == "MAT"], ' corals
+  MRB (Maharepa):  ', site_data$n_corals[site_data$site == "MRB"], ' corals
+  Total:          ', nrow(coral_master), ' corals
+
+================================================================================
+
+KEY STATISTICS
+--------------
+
+Colony Volume:
+  n = ', vol_stats$n, '
+  Range: ', round(vol_stats$min_vol), ' \u2013 ', format(round(vol_stats$max_vol), big.mark = ","), ' cm3
+  Median: ', format(round(vol_stats$median_vol), big.mark = ","), ' cm3
+  Mean: ', format(round(vol_stats$mean_vol), big.mark = ","), ' cm3
+  CV: ', round(vol_stats$cv), '%
+  Log10 range: ', round(vol_stats$range_orders, 1), ' orders of magnitude
+
+Neighborhood Density:
+  n = ', neighbor_stats$n, '
+  Range: ', neighbor_stats$min_n, ' \u2013 ', neighbor_stats$max_n, ' neighbors
+  Median: ', neighbor_stats$median_n, ' neighbors
+  Mean: ', round(neighbor_stats$mean_n, 1), ' neighbors
+  CV: ', round(neighbor_stats$cv), '%
+
+Location: Mo\'orea, French Polynesia (17\u00b030\'S, 149\u00b050\'W)
+Survey period: Summer 2019
+Focal species: Pocillopora spp.
+
+================================================================================
+
+COLOR SCHEME
+------------
+Site palette (Panel A markers, D\u2013F focal corals):
+  HAU (Hauru):    #E69F00 (Okabe-Ito orange)
+  MAT (Maatea):   #0072B2 (Okabe-Ito blue)
+  MRB (Maharepa): #009E73 (Okabe-Ito green)
+
+Data distributions (Panels B\u2013C):
+  Histogram fill: #4A90A4 (steel blue)
+  Density line:   #1A3A5C (dark navy)
+
+Neighborhood schematics (Panels D\u2013F):
+  Focal coral:  Site color with white stroke
+  Neighbors:    gray55 fill, gray35 border
+  5 m radius:   gray75 dashed circle
+
+================================================================================
+Generated: ', Sys.Date(), '
+Source script: scripts/01_load_data.R
+')
+
+    writeLines(legend_text, legend_path)
+    cat("  Saved:", legend_path, "\n")
+
     cat("\nFigure 1 specifications:\n")
     cat("  - Dimensions: 12 x 10 inches\n")
     cat("  - Resolution: 300 dpi (PNG)\n")
