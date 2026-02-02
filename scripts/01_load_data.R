@@ -619,8 +619,8 @@ tryCatch({
 
     label_positions <- tibble(
       site = c("HAU", "MAT", "MRB"),
-      x_off = c(0.045, -0.055, 0.048),
-      y_off_name = c(0.010, 0.045, 0.010),
+      x_off = c(0.025, 0.025, 0.025),
+      y_off_name = c(0.005, 0.005, 0.005),
       y_off_n = c(-0.012, 0.020, -0.012)
     )
 
