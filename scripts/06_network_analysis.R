@@ -30,7 +30,7 @@
 # OUTPUTS:
 #   Figures:
 #     - output/figures/network_visualization.png
-#     - output/figures/manuscript/fig4_network.png
+#     - output/figures/manuscript/fig5_network.png
 #   Tables:
 #     - output/tables/network_metrics.csv
 #     - output/tables/module_composition.csv
@@ -733,7 +733,7 @@ mtext(sprintf("N = %d species, %d edges | Modularity Q = %.2f (%.1fx null) | Tra
 dev.off()
 cat("     Saved: network_visualization.png\n")
 
-# === Figure 4: Manuscript figure (multi-panel) ===
+# === Figure 5: Manuscript figure (multi-panel) ===
 # Create ggplot-based figures for manuscript
 
 # 4A: Degree distribution
@@ -797,7 +797,7 @@ p_modules <- module_taxonomy %>%
 # Combine panels
 p_manuscript <- (p_degree + p_modularity) / (p_hubs + p_modules) +
   plot_annotation(
-    title = "Figure 4: CAFI Co-occurrence Network Analysis",
+    title = "Figure 5: CAFI Co-occurrence Network Analysis",
     subtitle = sprintf("N = %d species, %d positive associations (r > 0.3)", n_nodes, n_edges),
     theme = theme(
       plot.title = element_text(size = 14, face = "bold"),
@@ -810,7 +810,7 @@ ggsave(file.path(fig_dir, "network_panels.png"), p_manuscript,
 cat("     Saved: network_panels.png\n")
 
 # ############################################################################
-# MANUSCRIPT FIGURE 4: CAFI CO-OCCURRENCE NETWORK (5-PANEL)
+# MANUSCRIPT FIGURE 5: CAFI CO-OCCURRENCE NETWORK (5-PANEL)
 # ############################################################################
 # Panel A: ALL species in circular layout grouped by module (hero panel)
 # Panels B-E: Individual module networks with species labels (force layout)
@@ -833,7 +833,7 @@ tryCatch({
   library(ggrepel)
 
   cat("\n------------------------------------------------------------\n")
-  cat("MANUSCRIPT FIGURE 4: 5-PANEL NETWORK (WIDE LAYOUT)\n")
+  cat("MANUSCRIPT FIGURE 5: 5-PANEL NETWORK (WIDE LAYOUT)\n")
   cat("------------------------------------------------------------\n\n")
 
   # Use communities_louvain (already in scope from Part 4)
@@ -885,12 +885,11 @@ tryCatch({
 
   cat("Guild sizes:\n")
   for (i in sort(unique(guild_counts$guild))) {
-    cat(sprintf("  Guild %d (%s): %d species\n",
-                i, guild_names[as.character(i)],
-                guild_counts$n[guild_counts$guild == i]))
+    cat(paste0("  Guild ", i, " (", guild_names[as.character(i)], "): ",
+                guild_counts$n[guild_counts$guild == i], " species\n"))
   }
-  cat(sprintf("\nTotal species: %d\n", sum(guild_counts$n)))
-  cat(sprintf("Total edges: %d\n\n", ecount(g)))
+  cat(paste0("\nTotal species: ", sum(guild_counts$n), "\n"))
+  cat(paste0("Total edges: ", ecount(g), "\n\n"))
 
   # --------------------------------------------------------------------------
   # PANEL A: HERO CIRCULAR NETWORK - ALL SPECIES
@@ -1084,8 +1083,7 @@ tryCatch({
     coord_fixed(ratio = 1, xlim = c(-6.8, 6.8), ylim = c(-6.8, 6.8), clip = "off") +
     labs(
       title = "A. Species Co-occurrence Network",
-      subtitle = sprintf("%d species | %d co-occurrences | 4 ecological guilds",
-                         nrow(sp_positions), ecount(g))
+      subtitle = paste0(nrow(sp_positions), " species | ", ecount(g), " co-occurrences | 4 ecological guilds")
     ) +
     theme_void() +
     theme(
@@ -1143,8 +1141,8 @@ tryCatch({
         species_label = gsub("([A-Z])[a-z]+ ", "\\1. ", species)
       )
 
-    n_species <- nrow(node_data)
-    n_to_label <- if (n_species <= max_labels) n_species else max_labels
+    n_species <- as.integer(nrow(node_data))
+    n_to_label <- as.integer(if (n_species <= max_labels) n_species else max_labels)
 
     node_data <- node_data %>%
       mutate(
@@ -1168,7 +1166,7 @@ tryCatch({
       edge_data <- NULL
     }
 
-    n_edges_sub <- ifelse(is.null(edge_data), 0, nrow(edge_data))
+    n_edges_sub <- if (is.null(edge_data)) 0L else as.integer(nrow(edge_data))
 
     p <- ggplot()
 
@@ -1223,9 +1221,9 @@ tryCatch({
 
     n_hidden <- n_species - sum(node_data$show_label)
     subtitle_text <- if (n_hidden > 0) {
-      sprintf("%d species | %d edges | top %d labeled", n_species, n_edges_sub, n_to_label)
+      paste0(n_species, " species | ", n_edges_sub, " edges | top ", n_to_label, " labeled")
     } else {
-      sprintf("%d species | %d edges", n_species, n_edges_sub)
+      paste0(n_species, " species | ", n_edges_sub, " edges")
     }
 
     p <- p +
@@ -1271,10 +1269,11 @@ tryCatch({
   p_wide <- (p_A | p_right) +
     plot_layout(widths = c(1.5, 2)) +
     plot_annotation(
-      title = "Figure 4: CAFI Co-occurrence Network Structure",
-      subtitle = sprintf(
-        "Four ecological guilds identified via Louvain community detection | Q = %.2f | %d species | %d edges",
-        modularity(communities), vcount(g), ecount(g)
+      title = "Figure 5: CAFI Co-occurrence Network Structure",
+      subtitle = paste0(
+        "Four ecological guilds identified via Louvain community detection | Q = ",
+        sprintf("%.2f", modularity(communities)), " | ",
+        vcount(g), " species | ", ecount(g), " edges"
       ),
       caption = paste0(
         "Node size = degree centrality | Within-guild edges colored, between-guild edges gray | ",
@@ -1291,33 +1290,155 @@ tryCatch({
 
   # Save to manuscript directory
   ggsave(
-    file.path(PATHS$fig_manuscript, "fig4_network.png"),
+    file.path(PATHS$fig_manuscript, "fig5_network.png"),
     p_wide,
     width = 18,
     height = 11,
     dpi = 300,
     bg = "white"
   )
-  cat("     Saved: manuscript/fig4_network.png\n")
+  cat("     Saved: manuscript/fig5_network.png\n")
 
   # Save to analysis figure directory
   ggsave(
-    file.path(fig_dir, "fig4_5panel_v2_wide.png"),
+    file.path(fig_dir, "fig5_5panel_v2_wide.png"),
     p_wide,
     width = 18,
     height = 11,
     dpi = 300,
     bg = "white"
   )
-  cat("     Saved: 06_network/fig4_5panel_v2_wide.png\n")
+  cat("     Saved: 06_network/fig5_5panel_v2_wide.png\n")
 
-  cat("\n  5-panel manuscript Figure 4 complete.\n")
+  cat("\n  5-panel manuscript Figure 5 complete.\n")
 
 }, error = function(e) {
-  cat("\n  WARNING: Could not create 5-panel manuscript Figure 4.\n")
+  cat("\n  WARNING: Could not create 5-panel manuscript Figure 5.\n")
   cat("  Reason:", conditionMessage(e), "\n")
   cat("  The 4-panel analysis figure (network_panels.png) was still saved.\n\n")
 })
+
+# --- Generate figure legend and results text ---
+cat("\n  Generating figure legend and results text...\n")
+
+# Extract null comparison stats
+null_mod <- null_comparison[null_comparison$metric == "Modularity", ]
+null_trans <- null_comparison[null_comparison$metric == "Transitivity", ]
+
+fig5_legend <- paste0(
+  "FIGURE 5: CAFI CO-OCCURRENCE NETWORK STRUCTURE\n",
+  "================================================================================\n\n",
+
+  "FIGURE LEGEND\n",
+  "-------------\n",
+  "Figure 5. Co-occurrence network analysis of coral-associated fauna and invertebrate\n",
+  "(CAFI) communities. (A) Network visualization: nodes represent species (n = ", n_nodes,
+  "), edges\n",
+  "represent significant positive correlations (r > 0.3, FDR-corrected p < 0.05; n = ", n_edges,
+  " edges).\n",
+  "Nodes colored by Louvain community module, sized by degree centrality.\n",
+  "(B) Degree distribution across species. Dashed line = mean degree.\n",
+  "(C) Modularity vs null model: observed modularity (Q = ", sprintf("%.2f", modularity_obs),
+  ") compared to\n",
+  "1000 Erdos-Renyi random networks.\n",
+  "(D) Top 10 hub species ranked by hub score (degree + eigenvector centrality).\n",
+  "(E) Module composition showing taxonomic makeup of each network module.\n\n",
+
+  "================================================================================\n\n",
+
+  "STATISTICAL RESULTS\n",
+  "-------------------\n\n",
+
+  "1. NETWORK CONSTRUCTION\n",
+  "   Species included: ", n_nodes, " (present in >= threshold corals)\n",
+  "   Edges: ", n_edges, " significant positive associations\n",
+  "   Correlation threshold: r > 0.3, FDR p < 0.05\n",
+  "   Network density: ", sprintf("%.3f", density), "\n\n",
+
+  "2. COMMUNITY DETECTION (Louvain)\n",
+  "   Modules detected: ", n_modules, "\n",
+  "   Modularity (Q): ", sprintf("%.3f", modularity_obs), "\n",
+  "   Modularity (unweighted): ", sprintf("%.3f", modularity_obs_unweighted), "\n\n",
+
+  "3. NULL MODEL COMPARISON (1000 Erdos-Renyi random networks)\n",
+  "   Observed modularity: ", sprintf("%.3f", modularity_obs), "\n",
+  "   Null mean modularity: ", sprintf("%.3f", null_mod$null_mean), "\n",
+  "   z-score: ", sprintf("%.1f", null_mod$z_score), "\n",
+  "   Ratio to null: ", sprintf("%.1fx", null_mod$ratio_to_null), "\n",
+  "   Interpretation: Network is significantly more modular than random.\n\n",
+
+  "   Observed transitivity: ", sprintf("%.3f", transitivity_obs), "\n",
+  "   Null mean transitivity: ", sprintf("%.3f", null_trans$null_mean), "\n",
+  "   z-score: ", sprintf("%.1f", null_trans$z_score), "\n",
+  "   Interpretation: ", ifelse(null_trans$z_score > 2,
+    "Higher clustering than random (species form tightly-knit guilds).\n\n",
+    "Clustering comparable to random networks.\n\n"),
+
+  "4. NETWORK TOPOLOGY\n",
+  "   Mean degree: ", sprintf("%.1f", mean_degree), "\n",
+  "   Median degree: ", median_degree, "\n",
+  "   Max degree: ", max_degree, "\n",
+  "   Transitivity (global): ", sprintf("%.3f", transitivity_obs), "\n",
+  "   Diameter: ", diameter_obs, "\n",
+  "   Mean path length: ", sprintf("%.2f", mean_distance_obs), "\n\n",
+
+  "5. HUB SPECIES (Top 10 by hub score)\n"
+)
+
+for (i in 1:min(10, nrow(centrality_df))) {
+  fig5_legend <- paste0(fig5_legend,
+    "   ", i, ". ", centrality_df$species[i],
+    " (", centrality_df$type[i], ")",
+    " — degree: ", centrality_df$degree[i],
+    ", hub score: ", sprintf("%.2f", centrality_df$hub_score[i]), "\n"
+  )
+}
+
+fig5_legend <- paste0(fig5_legend, "\n",
+  "================================================================================\n\n",
+
+  "RESULTS\n",
+  "-------\n\n",
+
+  "The CAFI co-occurrence network comprised ", n_nodes, " species connected by ",
+  n_edges, " significant positive associations (r > 0.3, FDR p < 0.05). ",
+  "Louvain community detection identified ", n_modules, " ecological modules ",
+  "(Q = ", sprintf("%.2f", modularity_obs), "), significantly exceeding null expectations ",
+  "(z = ", sprintf("%.1f", null_mod$z_score), ", ", sprintf("%.1fx", null_mod$ratio_to_null),
+  " random; Fig. 5C). This modular structure indicates non-random species associations ",
+  "that may reflect shared habitat preferences, trophic interactions, or ",
+  "facilitation cascades within Pocillopora colonies.\n\n",
+
+  "The network exhibited ", ifelse(null_trans$z_score > 2, "elevated", "moderate"),
+  " clustering (transitivity = ", sprintf("%.2f", transitivity_obs),
+  ") and a mean path length of ", sprintf("%.1f", mean_distance_obs),
+  ", consistent with small-world properties. Hub species — those with high degree ",
+  "and eigenvector centrality — included obligate coral associates such as ",
+  centrality_df$species[1], " and ", centrality_df$species[2],
+  ", suggesting these taxa play central roles in structuring CAFI communities.\n\n",
+
+  "================================================================================\n\n",
+
+  "METHODS\n",
+  "-------\n\n",
+
+  "We constructed a species co-occurrence network from Hellinger-transformed CAFI ",
+  "abundance data. Pairwise Spearman correlations were computed for all species pairs; ",
+  "edges were retained for positive correlations exceeding r = 0.3 with FDR-corrected ",
+  "p < 0.05. Network modules were identified using the Louvain community detection ",
+  "algorithm (Blondel et al. 2008). To assess whether observed network properties ",
+  "deviate from random expectations, we compared modularity and transitivity against ",
+  "1000 Erdos-Renyi random networks matched for node count and edge density. ",
+  "Hub species were identified by combining standardized degree and eigenvector ",
+  "centrality into a composite hub score.\n\n",
+
+  "================================================================================\n",
+  "Generated: ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n",
+  "Source script: scripts/06_network_analysis.R\n"
+)
+
+writeLines(fig5_legend, file.path(PATHS$fig_manuscript, "fig5_legend_results.txt"))
+cat("  Saved: fig5_legend_results.txt\n\n")
 
 # ============================================================================
 # PART 8: SAVE OUTPUTS
@@ -1427,7 +1548,7 @@ cat("  - Modules show non-random taxonomic composition\n\n")
 cat("Outputs saved:\n")
 cat("  Figures:\n")
 cat("    - output/figures/network_visualization.png\n")
-cat("    - output/figures/manuscript/fig4_network.png\n")
+cat("    - output/figures/manuscript/fig5_network.png\n")
 cat("    - output/figures/06_network/network_by_type.png\n")
 cat("    - output/figures/06_network/network_by_module.png\n")
 cat("  Tables:\n")

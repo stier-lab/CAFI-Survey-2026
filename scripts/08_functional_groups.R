@@ -21,7 +21,7 @@
 #
 # OUTPUTS:
 #   Figures:
-#     - output/figures/manuscript/fig3_functional_groups.png
+#     - output/figures/manuscript/fig4_functional_groups.png
 #     - output/figures/functional_groups/*.png (analysis figures)
 #   Tables:
 #     - output/tables/taxonomic_group_scaling.csv
@@ -1148,10 +1148,10 @@ panel_c <- if (nrow(plot_data) > 0) {
 }
 
 # Combine panels
-fig3 <- (panel_a | panel_b) / panel_c +
+fig4 <- (panel_a | panel_b) / panel_c +
   plot_layout(heights = c(1, 1)) +
   plot_annotation(
-    title = "Figure 3: Taxonomic Group Scaling Patterns",
+    title = "Figure 4: Taxonomic Group Scaling Patterns",
     subtitle = "Body plan predicts how CAFI abundance scales with coral size",
     caption = "Negative binomial GLM: abundance ~ log(volume) + site",
     theme = theme(
@@ -1162,12 +1162,12 @@ fig3 <- (panel_a | panel_b) / panel_c +
   )
 
 # Save manuscript figure (to both manuscript and analysis dirs)
-ggsave(file.path(PATHS$fig_manuscript, "fig3_functional_groups.png"), fig3,
+ggsave(file.path(PATHS$fig_manuscript, "fig4_functional_groups.png"), fig4,
        width = 12, height = 10, dpi = 300, bg = "white")
-ggsave(file.path(FIG_DIR, "fig3_functional_groups.png"), fig3,
+ggsave(file.path(FIG_DIR, "fig4_functional_groups.png"), fig4,
        width = 12, height = 10, dpi = 300, bg = "white")
 
-cat("Saved: fig3_functional_groups.png (manuscript + analysis)\n\n")
+cat("Saved: fig4_functional_groups.png (manuscript + analysis)\n\n")
 
 # ############################################################################
 #                    SUMMARY AND SAVE RESULTS
@@ -1225,7 +1225,7 @@ cat("   Species in dominant group:", guild_diversity$n_species[1], "\n")
 
 cat("\nOUTPUT FILES:\n")
 cat("  Figures:\n")
-cat("    - output/figures/manuscript/fig3_functional_groups.png\n")
+cat("    - output/figures/manuscript/fig4_functional_groups.png\n")
 cat("    - output/figures/trapezia_scaling.png\n")
 cat("    - output/figures/taxonomic_composition_by_size.png\n")
 cat("    - output/figures/gastropod_scaling.png\n")

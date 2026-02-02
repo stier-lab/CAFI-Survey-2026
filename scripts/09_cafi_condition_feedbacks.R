@@ -34,7 +34,7 @@
 #   H. Landscape-only effects on condition (no CAFI predictors)
 #
 # OUTPUTS:
-#   - output/figures/manuscript/fig5_feedbacks.png
+#   - output/figures/manuscript/fig6_feedbacks.png
 #   - output/figures/feedbacks/cafi_condition_effects.png
 #   - output/figures/feedbacks/functional_effects_forest.png
 #   - output/figures/feedbacks/landscape_condition_effects.png (Part H)
@@ -2399,12 +2399,12 @@ p_bidirectional <- ggplot(bidirectional_data,
 
 # --- Combine into manuscript figure ---
 # Updated to show richness-abundance artifact as key finding
-fig5_feedbacks <- (p_richness_artifact) /
+fig6_feedbacks <- (p_richness_artifact) /
                    (p_trapezia | p_galeropsis) /
                    (p_forest | p_bidirectional) +
   plot_layout(heights = c(0.8, 1, 1)) +
   plot_annotation(
-    title = "Figure 5: CAFI-Coral Condition Feedbacks",
+    title = "Figure 6: CAFI-Coral Condition Feedbacks",
     subtitle = paste0("n = ", n_complete, " corals | Key finding: species richness effect is an abundance artifact"),
     caption = paste0(
       "A: Raw richness shows trend (p<0.10) but rarefied richness is NS (p>0.40); r = correlation with total abundance\n",
@@ -2417,11 +2417,11 @@ fig5_feedbacks <- (p_richness_artifact) /
         plot.caption = element_text(size = 9, hjust = 0))
 
 # Save manuscript figure (to both manuscript and analysis dirs)
-ggsave(file.path(PATHS$fig_manuscript, "fig5_feedbacks.png"),
-       fig5_feedbacks, width = 12, height = 10, dpi = 300, bg = "white")
-ggsave(file.path(fig_dir, "fig5_feedbacks.png"),
-       fig5_feedbacks, width = 12, height = 10, dpi = 300, bg = "white")
-cat("   Saved: fig5_feedbacks.png (manuscript + analysis)\n")
+ggsave(file.path(PATHS$fig_manuscript, "fig6_feedbacks.png"),
+       fig6_feedbacks, width = 12, height = 10, dpi = 300, bg = "white")
+ggsave(file.path(fig_dir, "fig6_feedbacks.png"),
+       fig6_feedbacks, width = 12, height = 10, dpi = 300, bg = "white")
+cat("   Saved: fig6_feedbacks.png (manuscript + analysis)\n")
 
 # --- Additional exploratory figure: All CAFI metrics ---
 p_cafi_effects <- ggplot(cafi_to_condition_df,
@@ -2722,7 +2722,7 @@ cat("5. Key species: Survey results compared to experimental predictions\n\n")
 
 cat("OUTPUT FILES:\n")
 cat("  Figures:\n")
-cat("    - output/figures/manuscript/fig5_feedbacks.png\n")
+cat("    - output/figures/manuscript/fig6_feedbacks.png\n")
 cat("    - output/figures/feedbacks/cafi_condition_effects.png\n")
 cat("    - output/figures/feedbacks/functional_effects_forest.png\n")
 cat("    - output/figures/feedbacks/key_species_effects.png\n")
