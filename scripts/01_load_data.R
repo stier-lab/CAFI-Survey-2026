@@ -840,10 +840,12 @@ tryCatch({
     # Neighborhood schematic function
     create_neighborhood_plot <- function(focal_vol, mean_neigh_vol, n_neighbors,
                                          mean_neigh_dist_cm, site_name, focal_color,
-                                         panel_label, density_label) {
+                                         panel_label, density_label,
+                                         focal_size_override = NULL) {
       set.seed(42 + n_neighbors)
       mean_dist_scaled <- mean_neigh_dist_cm / 500
-      focal_size <- vol_to_size(focal_vol, min_size = 5, max_size = 16)
+      focal_size <- if (!is.null(focal_size_override)) focal_size_override else
+        vol_to_size(focal_vol, min_size = 5, max_size = 16)
 
       if (n_neighbors > 0) {
         if (n_neighbors <= 10) {
@@ -887,26 +889,29 @@ tryCatch({
               plot.background = element_rect(fill = "white", color = NA))
     }
 
-    # D: HAU-POC04 (Hauru) - 5 neighbors, large focal coral, far neighbors
+    # Fixed focal coral size across D-F (panels illustrate density, not coral size)
+    FOCAL_SIZE <- 10
+
+    # D: HAU-POC04 (Hauru) - 5 neighbors, far neighbors
     panel_d <- create_neighborhood_plot(
       focal_vol = 26741, mean_neigh_vol = 1336, n_neighbors = 5,
       mean_neigh_dist_cm = 167, site_name = "Hauru",
       focal_color = SITE_COLORS_FIG1["HAU"], panel_label = "D",
-      density_label = "Low density")
+      density_label = "Low density", focal_size_override = FOCAL_SIZE)
 
-    # E: MRB-POC10 (Maharepa) - 17 neighbors, medium focal coral
+    # E: MRB-POC10 (Maharepa) - 17 neighbors
     panel_e <- create_neighborhood_plot(
       focal_vol = 5472, mean_neigh_vol = 686, n_neighbors = 17,
       mean_neigh_dist_cm = 154, site_name = "Maharepa",
       focal_color = SITE_COLORS_FIG1["MRB"], panel_label = "E",
-      density_label = "Median density")
+      density_label = "Median density", focal_size_override = FOCAL_SIZE)
 
-    # F: MRB-POC18 (Maharepa) - 76 neighbors, smaller focal, close neighbors
+    # F: MRB-POC18 (Maharepa) - 76 neighbors, close neighbors
     panel_f <- create_neighborhood_plot(
       focal_vol = 3064, mean_neigh_vol = 395, n_neighbors = 76,
       mean_neigh_dist_cm = 113, site_name = "Maharepa",
       focal_color = SITE_COLORS_FIG1["MRB"], panel_label = "F",
-      density_label = "High density")
+      density_label = "High density", focal_size_override = FOCAL_SIZE)
 
     # ==================================================================
     # Combine panels and save
