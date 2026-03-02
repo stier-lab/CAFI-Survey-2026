@@ -7,7 +7,7 @@ This file provides essential context for AI assistants working with this codebas
 **CAFI Survey Analysis** - A marine ecology research project studying how coral size and neighborhood context shape coral-associated fauna (CAFI) communities in Mo'orea, French Polynesia.
 
 - **Survey scope**: 114 *Pocillopora* coral colonies across 3 reef sites
-- **CAFI catalogued**: ~4,000 individual specimens spanning 87 species
+- **CAFI catalogued**: ~4,000 individual specimens spanning 243 OTUs (154 species-level, 89 genus/family/higher)
 - **Research focus**: Landscape effects on community assembly; CAFI feedbacks on coral condition
 
 ## Relationship to Experimental Study
@@ -40,12 +40,12 @@ This **observational survey** complements a parallel **experimental study** that
 **Methods:**
 - Negative binomial GLM: `total_cafi ~ log(volume) + site` (natural log; coefficient = power-law exponent)
 - Poisson GLM for species richness: `richness ~ log(volume) + site`
-- Bootstrap 95% CI on scaling exponent (2,000 iterations, stratified by site)
+- Bootstrap 95% CI on scaling exponent (1,000 iterations, stratified by site)
 - Species-level scaling for 10 most prevalent CAFI taxa
 
 **Key findings:**
 - Total CAFI abundance: β = 0.52 [0.44, 0.61] — **sublinear (Propagule Redirection)**
-- Species richness (SAR): z = 0.35 [0.28, 0.43] — **sublinear (Redirection)**
+- Species richness (SAR): z = 0.34 [0.28, 0.41] — **sublinear (Redirection)**
 - Density dilution: per-capita CAFI density decreases with size (slope = -0.48)
 - 7/10 top species: Redirection (β < 1); 3/10: Field of Dreams (CI spans 1); 0/10: super-linear
 - Obligate symbionts (Trapezia, Alpheus): consistently sublinear scaling
@@ -145,7 +145,7 @@ Located in `scripts/` folder. Run in order via `run_full_pipeline.R`.
 |--------|---------|
 | `00_setup.R` | Packages, paths, ggplot theme, helper functions |
 | `00b_data_quality_audit.R` | Data quality assessment, trait integration |
-| `01_load_data.R` | Data loading, cleaning, creates core objects |
+| `01_load_data.R` | Data loading, cleaning, creates core objects + taxonomy scenario data |
 
 ### Script-to-Question Mapping
 
@@ -154,14 +154,14 @@ Located in `scripts/` folder. Run in order via `run_full_pipeline.R`.
 |--------|----------|--------|
 | `05_species_scaling_analysis.R` | NB GLM scaling with bootstrap CI | Field of Dreams vs Redirection |
 
-#### Q2: COMPOSITION (Fig 4: NMDS + Network + Modularity + Hubs)
+#### Q2: COMPOSITION (Figs 3 & 5: NMDS + Network + Modularity + Hubs)
 | Script | Analysis | Output |
 |--------|----------|--------|
-| `02_community_analysis.R` | PERMANOVA, NMDS, betadisper, rarefaction | Site/size effects on composition |
-| `06_network_analysis.R` | Co-occurrence networks, modularity, hub species | Fig 4 panels B-D |
+| `02_community_analysis.R` | PERMANOVA, NMDS, betadisper, rarefaction | Fig 3 + site/size effects |
+| `06_network_analysis.R` | Co-occurrence networks, modularity, hub species | Fig 5 panels B-D |
 | `03_landscape_characterization.R` | Neighborhood metrics, spatial patterns | Landscape predictor variables |
 | `07_spatial_autocorrelation.R` | Moran's I, LISA, Mantel tests | Spatial structure diagnostics |
-| `08_functional_groups.R` | Taxonomic group scaling (loads from script 05), composition | Fig 3 + group patterns |
+| `08_functional_groups.R` | Taxonomic group scaling (loads from script 05), composition | Fig 4 + group patterns |
 
 #### Q3: FEEDBACKS
 | Script | Analysis | Output |
@@ -173,6 +173,11 @@ Located in `scripts/` folder. Run in order via `run_full_pipeline.R`.
 |--------|----------|--------|
 | `04_landscape_effects.R` | GLMs: size + neighbors → abundance/diversity | Neighborhood effect sizes |
 | `09_cafi_condition_feedbacks.R` (Part G) | Neighborhood density → CAFI & condition | Density-independent result |
+
+#### SENSITIVITY (cross-cuts Q1-Q4)
+| Script | Analysis | Output |
+|--------|----------|--------|
+| `13_taxonomy_sensitivity.R` | 5 taxonomy scenarios × 7 metrics; uses pre-built data from 01_load_data.R | Fig S8 + sensitivity tables |
 
 ### Exploratory ML (not in default pipeline)
 | Script | Purpose |
@@ -189,9 +194,10 @@ Each manuscript figure is created by its source analysis script with **dual save
 |--------|--------|-------------|
 | **Fig 1** | `01_load_data.R` | Study design: satellite map + volume/neighborhood histograms |
 | **Fig 2** | `05_species_scaling_analysis.R` | Scaling: abundance + richness GLMs + species forest plot |
-| **Fig 3** | `08_functional_groups.R` | Taxonomic group scaling and composition |
-| **Fig 4** | `06_network_analysis.R` | Network: circular hero layout + 4 guild sub-networks |
-| **Fig 5** | `09_cafi_condition_feedbacks.R` | CAFI-condition feedback models |
+| **Fig 3** | `02_community_analysis.R` | Composition: NMDS ordination + taxonomic barchart by site |
+| **Fig 4** | `08_functional_groups.R` | Taxonomic group scaling and composition |
+| **Fig 5** | `06_network_analysis.R` | Network: circular hero layout + 4 guild sub-networks |
+| **Fig 6** | `09_cafi_condition_feedbacks.R` | CAFI-condition feedback models |
 | **S1** | `02_community_analysis.R` | Species accumulation curves |
 | **S2** | `02_community_analysis.R` | PERMANOVA metric sensitivity |
 | **S3** | `02_community_analysis.R` | NMDS ordination by site/size |
@@ -199,12 +205,13 @@ Each manuscript figure is created by its source analysis script with **dual save
 | **S5** | `02_community_analysis.R` | Composition divergence by size |
 | **S6** | `05_species_scaling_analysis.R` | Species-level scaling forest plot |
 | **S7** | `04_landscape_effects.R` | Neighborhood null results |
+| **S8** | `13_taxonomy_sensitivity.R` | Taxonomy sensitivity forest plot |
 
 | Script | Purpose |
 |--------|---------|
 | `run_full_pipeline.R` | Pipeline orchestrator with logging |
 
-**Note**: `scripts/archive/` contains deprecated scripts (including former `13_manuscript_figures.R`) for reference only.
+**Note**: Deprecated scripts were removed in March 2026 cleanup (previously in `scripts/archive/`; recoverable from git history).
 
 ## Key Commands
 
@@ -265,7 +272,7 @@ All outputs are gitignored and regenerated by the pipeline.
 ```
 output/
 ├── figures/
-│   ├── manuscript/          # 6 main text figures + 3 legend files
+│   ├── manuscript/          # 6 main text figures + 6 legend files
 │   │   ├── fig1_study_design.png       (from 01_load_data.R)
 │   │   ├── fig1_legend_results.txt     (from 01_load_data.R)
 │   │   ├── fig2_scaling.png            (from 05_species_scaling_analysis.R)
@@ -273,9 +280,12 @@ output/
 │   │   ├── fig3_composition.png        (from 02_community_analysis.R)
 │   │   ├── fig3_legend_results.txt     (from 02_community_analysis.R)
 │   │   ├── fig4_functional_groups.png  (from 08_functional_groups.R)
+│   │   ├── fig4_legend_results.txt     (from 08_functional_groups.R)
 │   │   ├── fig5_network.png            (from 06_network_analysis.R)
-│   │   └── fig6_feedbacks.png          (from 09_cafi_condition_feedbacks.R)
-│   ├── supplement/          # 7 supplementary figures (figS1-S7)
+│   │   ├── fig5_legend_results.txt     (from 06_network_analysis.R)
+│   │   ├── fig6_feedbacks.png          (from 09_cafi_condition_feedbacks.R)
+│   │   └── fig6_legend_results.txt     (from 09_cafi_condition_feedbacks.R)
+│   ├── supplement/          # 8 supplementary figures (figS1-S8)
 │   ├── 01_data/             # Study design (1 figure)
 │   ├── 02_community/        # Community analysis (11 figures)
 │   ├── 03_landscape/        # Landscape characterization (3 figures)
@@ -292,15 +302,19 @@ output/
 │   ├── hub_species.csv                 # Hub species centrality
 │   ├── morans_i_results.csv            # Spatial autocorrelation
 │   ├── pipeline_timing.csv             # Script execution times
+│   ├── taxonomy_sensitivity.csv        # Sensitivity results (5 scenarios)
+│   ├── taxonomy_sensitivity_species_scaling.csv  # Species-level sensitivity
 │   └── ...                             # ~39 more analysis tables
-├── objects/                 # 17 RDS files
+├── objects/                 # 20 RDS files
 │   ├── coral_master.rds                # Main merged dataset
 │   ├── cafi_clean.rds                  # Clean CAFI records
 │   ├── community_matrix.rds            # Coral × species matrix
 │   ├── condition_scores.rds            # PCA condition scores
+│   ├── otu_taxonomy.rds               # OTU resolution lookup (from 01_load_data.R)
+│   ├── taxonomy_scenario_data.rds     # Pre-built sensitivity scenarios (from 01_load_data.R)
 │   ├── cafi_network.rds                # Network + modularity results
 │   ├── scaling_analysis_results.rds    # Scaling models + bootstrap
-│   └── ...                             # 11 more analysis objects
+│   └── ...                             # 12 more analysis objects
 └── pipeline.log             # Execution log
 ```
 
@@ -309,7 +323,7 @@ output/
 ## Code Conventions
 
 - **Join key**: `coral_id` links all datasets
-- **Site codes**: HAU (Hauru), MAT (Maatea), MRB (Barrier Reef)
+- **Site codes**: HAU (Hauru), MAT (Maatea), MRB (Maharepa barrier reef)
 - **Volume**: Use `volume` (field estimate)
 - **Key columns**: `n_galeropsis` (Galeropsis count per coral), `n_corallivore` (all gastropods)
 - **Packages**: Use `dplyr::select()` explicitly (MASS conflict); car::vif(), DHARMa, sandwich/lmtest for diagnostics
@@ -320,7 +334,7 @@ output/
   |------|-----|-------------|
   | HAU | `#9B7EB8` | Muted purple — Hauru (fringing) |
   | MAT | `#7B9BAE` | Cool slate — Maatea (back-reef) |
-  | MRB | `#7AAC6D` | Sage green — Barrier Reef |
+  | MRB | `#7AAC6D` | Sage green — Maharepa (barrier reef) |
 
   **Scaling-class palette** (Figure 2 Panel C):
   | Class | Hex | Usage |
@@ -337,3 +351,12 @@ coral_master <- load_object("coral_master")
 cafi_clean <- load_object("cafi_clean")
 community_matrix <- load_object("community_matrix")
 ```
+
+---
+
+## File Ownership (parallel work)
+- `scripts/` — individual analysis scripts can be edited independently
+- `manuscript/` — text files, independent from analysis code
+- `docs/` — documentation, independent
+- `data/` — READ ONLY (raw data)
+- `output/` — generated files, safe to regenerate

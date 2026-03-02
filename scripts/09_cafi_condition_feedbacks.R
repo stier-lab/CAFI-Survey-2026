@@ -24,7 +24,7 @@
 #   - Position correction removes sampling artifact from stump length
 #
 # ANALYSES:
-#   A. CAFI -> Condition Effects (mixed models)
+#   A. CAFI -> Condition Effects (fixed-effect site models)
 #   B. Condition -> CAFI Effects (reverse direction test)
 #   C. Functional group-specific models
 #   D. Condition x Volume interaction
@@ -63,7 +63,7 @@ cat("============================================================\n\n")
 # Load setup (packages, paths, theme)
 if (!exists("PATHS")) source(here::here("scripts/00_setup.R"))
 
-# Load additional packages for mixed models and path analysis
+# Load additional packages for model inference and mediation analysis
 if (!requireNamespace("lmerTest", quietly = TRUE)) {
   cat("Note: lmerTest package not available - using lme4 approximation for p-values\n")
   LMERTEST_AVAILABLE <- FALSE
@@ -224,6 +224,10 @@ cat("PART A: CAFI -> CORAL CONDITION EFFECTS\n")
 cat("============================================================\n\n")
 
 # Function to run and summarize linear model with fixed-effect site
+# LM is appropriate here because the response (condition_score) is a continuous
+# PCA score (PC1 of physiology), not a count or proportion. Residual diagnostics
+# (Shapiro-Wilk, Breusch-Pagan) are checked downstream; HC3 robust SEs used
+# when heteroscedasticity is detected.
 # Note: 3 sites is insufficient for random intercepts (Bolker et al. 2009 recommends >=5-6)
 run_condition_model <- function(data, predictor_name, predictor_col) {
   # Build formula with fixed-effect site (3 levels insufficient for RE)
@@ -359,9 +363,9 @@ cafi_to_condition_df <- bind_rows(cafi_to_condition_results)
 # represent distinct hypotheses. A more conservative approach would pool all tests.
 cafi_to_condition_df <- cafi_to_condition_df %>%
   mutate(
-    p_fdr = p.adjust(p_value, method = "BH"),
+    p_fdr = p.adjust(p_value_robust, method = "BH"),
     significant_fdr = p_fdr < 0.05,
-    significant = p_value < 0.05  # Keep unadjusted for reference
+    significant = p_value_robust < 0.05
   )
 
 cat("\nFDR-corrected significance (Benjamini-Hochberg, within CAFI→Condition family):\n")
@@ -406,6 +410,41 @@ if ("Species richness" %in% names(cafi_to_condition_models)) {
   cat("   Saved: diagnostics_richness_model.png\n")
 }
 cat("\n")
+
+# ---- Sensitivity power analysis for CAFI -> Condition models ----
+# Post-hoc power based on observed data is invalid (Hoenig & Heisey 2001).
+# Instead, report the minimum detectable effect size at 80% power.
+cat("Sensitivity power analysis (CAFI -> Condition):\n")
+cat("(What effect could this study detect at 80% power?)\n")
+
+n_condition <- nrow(analysis_data)
+n_predictors_cond <- 3  # CAFI_metric + log_volume + 2 site dummies = 3 non-intercept (testing 1)
+
+if (requireNamespace("pwr", quietly = TRUE)) {
+  # Minimum detectable f2 at alpha=0.05, power=0.80
+  pwr_result_cond <- pwr::pwr.f2.test(
+    u = 1,  # numerator df (1 predictor being tested)
+    v = n_condition - n_predictors_cond - 2,  # denominator df
+    f2 = NULL,
+    sig.level = 0.05,
+    power = 0.80
+  )
+  min_f2_cond <- pwr_result_cond$f2
+  min_partial_r2_cond <- min_f2_cond / (1 + min_f2_cond)
+
+  cat("  Sample size for condition models:", n_condition, "\n")
+  cat("  Minimum detectable partial R2 at 80% power:", round(min_partial_r2_cond, 3), "\n")
+  cat("  Minimum detectable Cohen's f2:", round(min_f2_cond, 3), "\n")
+  cat("  This corresponds to a",
+      ifelse(min_f2_cond < 0.02, "very small", ifelse(min_f2_cond < 0.15, "small-to-medium", "medium")),
+      "effect.\n")
+  cat("  Effects smaller than partial R2 =", round(min_partial_r2_cond, 3),
+      "cannot be reliably detected.\n\n")
+} else {
+  cat("  (Install 'pwr' package for formal power analysis)\n")
+  # Rough approximation: for n~84, minimum detectable r ~ 0.30
+  cat("  Approximate minimum detectable correlation: r ~ 0.30 (medium effect)\n\n")
+}
 
 # ============================================================================
 # PART A2: RICHNESS-ABUNDANCE ARTIFACT TEST
@@ -572,6 +611,35 @@ save_object(analysis_data_rare, "analysis_data_rarefied")
 cat("Saved: richness_comparison_results.rds\n")
 cat("Saved: analysis_data_rarefied.rds\n\n")
 
+# --- Rarefied richness sensitivity across multiple depths ---
+cat("Rarefied richness sensitivity for condition model:\n")
+cat("(Testing robustness to rarefaction depth choice)\n")
+for (depth in c(10, 15, 20, 25, 30)) {
+  # Filter corals with sufficient individuals
+  eligible <- rowSums(comm_matrix) >= depth
+  eligible_ids <- names(which(eligible))
+  eligible_data <- analysis_data %>%
+    filter(coral_id %in% eligible_ids)
+
+  if (nrow(eligible_data) < 30) {
+    cat(sprintf("  n = %d: too few eligible corals (%d)\n", depth, nrow(eligible_data)))
+    next
+  }
+
+  comm_eligible <- comm_matrix[eligible_ids, , drop = FALSE]
+  rare_rich_sens <- rarefy(comm_eligible, sample = depth)
+  eligible_data$rarefied_richness_sens <- rare_rich_sens[eligible_data$coral_id]
+
+  rare_model_sens <- lm(condition_score ~ rarefied_richness_sens + log_volume + site,
+                         data = eligible_data)
+  rare_summary_sens <- summary(rare_model_sens)
+  rare_p_sens <- rare_summary_sens$coefficients["rarefied_richness_sens", "Pr(>|t|)"]
+  rare_beta_sens <- rare_summary_sens$coefficients["rarefied_richness_sens", "Estimate"]
+  cat(sprintf("  n = %d: beta = %.3f, p = %.3f (n_corals = %d)\n",
+              depth, rare_beta_sens, rare_p_sens, nrow(eligible_data)))
+}
+cat("\n")
+
 # ============================================================================
 # PART B: CONDITION -> CAFI EFFECTS (REVERSE DIRECTION)
 # ============================================================================
@@ -590,7 +658,7 @@ run_reverse_model <- function(data, response_name, response_col, use_nb = TRUE) 
   tryCatch({
     if (use_nb && response_col != "shannon") {
       # Negative binomial for count data
-      model <- glm.nb(as.formula(formula_str), data = data)
+      model <- MASS::glm.nb(as.formula(formula_str), data = data)
       model_summary <- summary(model)
 
       estimate <- coef(model)["condition_score"]
@@ -689,6 +757,7 @@ condition_to_cafi_df <- bind_rows(condition_to_cafi_results)
 
 # Apply FDR correction for multiple testing (7 reverse tests)
 # (Same family-wise approach as CAFI→Condition; see note above)
+# Note: reverse models (NB GLMs) don't compute HC3 robust SEs, so use OLS p-values
 condition_to_cafi_df <- condition_to_cafi_df %>%
   mutate(
     p_fdr = p.adjust(p_value, method = "BH"),
@@ -758,7 +827,7 @@ cat("Testing: Does the effect of condition on CAFI depend on coral size?\n\n")
 
 # Test interaction for total CAFI
 m_interaction <- tryCatch({
-  glm.nb(total_cafi ~ condition_score * log_volume + site, data = analysis_data)
+  MASS::glm.nb(total_cafi ~ condition_score * log_volume + site, data = analysis_data)
 }, error = function(e) {
   cat("   Interaction model failed:", e$message, "\n")
   NULL
@@ -812,108 +881,66 @@ cat("============================================================\n")
 cat("PART E: PATH ANALYSIS (MEDIATION)\n")
 cat("============================================================\n\n")
 
-if (LAVAAN_AVAILABLE && n_complete >= 50) {
-  cat("Testing mediation: Volume -> CAFI -> Condition\n")
-  cat("Sample size:", n_complete, "(minimum 50 recommended)\n\n")
+# Mediation analysis (replaces saturated SEM which had df=0 and omitted site)
+# Tests: Volume -> CAFI -> Condition mediation pathway
+cat("Testing mediation: Volume -> CAFI -> Condition\n")
+cat("NOTE: Mediation cannot establish causation from cross-sectional data.\n")
+cat("Results are descriptive of indirect associations.\n")
+cat("Sample size:", n_complete, "\n\n")
 
-  # Prepare standardized data
-  path_data <- analysis_data %>%
+if (requireNamespace("mediation", quietly = TRUE) && n_complete >= 50) {
+  # Prepare standardized data with site
+  mediation_data <- analysis_data %>%
     mutate(
-      volume_z = scale(log_volume)[,1],
-      cafi_z = scale(total_cafi)[,1],
-      condition_z = scale(condition_score)[,1]
+      log_volume_z = scale(log_volume)[,1],
+      total_cafi_z = scale(total_cafi)[,1]
     ) %>%
-    dplyr::select(volume_z, cafi_z, condition_z) %>%
-    drop_na()
+    filter(!is.na(condition_score), !is.na(total_cafi_z), !is.na(log_volume_z)) %>%
+    drop_na(site)
 
-  # Specify path model
-  path_model <- '
-    # Direct effects
-    cafi_z ~ a*volume_z        # Volume -> CAFI
-    condition_z ~ b*cafi_z     # CAFI -> Condition
-    condition_z ~ c*volume_z   # Volume -> Condition (direct)
+  # Mediator model: CAFI ~ Volume + Site
+  med_model <- lm(total_cafi_z ~ log_volume_z + site, data = mediation_data)
+  # Outcome model: Condition ~ CAFI + Volume + Site
+  out_model <- lm(condition_score ~ total_cafi_z + log_volume_z + site, data = mediation_data)
 
-    # Indirect effect (mediation)
-    indirect := a*b
+  cat("Mediator model: total_cafi_z ~ log_volume_z + site\n")
+  cat("Outcome model:  condition_score ~ total_cafi_z + log_volume_z + site\n\n")
 
-    # Total effect
-    total := c + a*b
-
-    # Proportion mediated
-    prop_mediated := (a*b) / (c + a*b)
-  '
-
-  # Fit the model
   set.seed(42)
   tryCatch({
-    path_fit <- sem(path_model, data = path_data, se = "bootstrap", bootstrap = 1000)
+    med_result <- mediation::mediate(med_model, out_model,
+                                      treat = "log_volume_z",
+                                      mediator = "total_cafi_z",
+                                      boot = TRUE, sims = 1000)
 
-    # Extract results
-    path_results <- parameterEstimates(path_fit, standardized = TRUE,
-                                        boot.ci.type = "perc")
+    med_summary <- summary(med_result)
+    cat("Mediation Analysis Results:\n")
+    cat("---------------------------\n")
+    cat("   ACME (Average Causal Mediation Effect):", round(med_result$d0, 4),
+        ", 95% CI [", round(med_result$d0.ci[1], 4), ",", round(med_result$d0.ci[2], 4), "]",
+        ", p =", format.pval(med_result$d0.p, 3), "\n")
+    cat("   ADE (Average Direct Effect):           ", round(med_result$z0, 4),
+        ", 95% CI [", round(med_result$z0.ci[1], 4), ",", round(med_result$z0.ci[2], 4), "]",
+        ", p =", format.pval(med_result$z0.p, 3), "\n")
+    cat("   Total Effect:                          ", round(med_result$tau.coef, 4),
+        ", 95% CI [", round(med_result$tau.ci[1], 4), ",", round(med_result$tau.ci[2], 4), "]",
+        ", p =", format.pval(med_result$tau.p, 3), "\n")
+    cat("   Proportion Mediated:                   ", round(med_result$n0, 4),
+        ", 95% CI [", round(med_result$n0.ci[1], 4), ",", round(med_result$n0.ci[2], 4), "]",
+        ", p =", format.pval(med_result$n0.p, 3), "\n\n")
 
-    cat("Path Analysis Results:\n")
-    cat("----------------------\n")
+    # Save mediation results
+    mediation_results_clean <- tibble(
+      path = c("ACME (indirect)", "ADE (direct)", "Total", "Proportion mediated"),
+      estimate = c(med_result$d0, med_result$z0, med_result$tau.coef, med_result$n0),
+      ci_lower = c(med_result$d0.ci[1], med_result$z0.ci[1], med_result$tau.ci[1], med_result$n0.ci[1]),
+      ci_upper = c(med_result$d0.ci[2], med_result$z0.ci[2], med_result$tau.ci[2], med_result$n0.ci[2]),
+      p_value = c(med_result$d0.p, med_result$z0.p, med_result$tau.p, med_result$n0.p)
+    )
+    save_table(mediation_results_clean, "path_analysis")
 
-    # Key paths
-    a_path <- path_results %>% filter(label == "a")
-    b_path <- path_results %>% filter(label == "b")
-    c_path <- path_results %>% filter(label == "c")
-    indirect <- path_results %>% filter(label == "indirect")
-    total <- path_results %>% filter(label == "total")
-    prop_med <- path_results %>% filter(label == "prop_mediated")
-
-    cat("\n   a: Volume -> CAFI:        beta =", round(a_path$est, 3),
-        ", 95% CI [", round(a_path$ci.lower, 3), ",", round(a_path$ci.upper, 3), "]",
-        ", p =", format.pval(a_path$pvalue, 3), "\n")
-    cat("   b: CAFI -> Condition:     beta =", round(b_path$est, 3),
-        ", 95% CI [", round(b_path$ci.lower, 3), ",", round(b_path$ci.upper, 3), "]",
-        ", p =", format.pval(b_path$pvalue, 3), "\n")
-    cat("   c: Volume -> Condition:   beta =", round(c_path$est, 3),
-        "(direct)",
-        ", 95% CI [", round(c_path$ci.lower, 3), ",", round(c_path$ci.upper, 3), "]",
-        ", p =", format.pval(c_path$pvalue, 3), "\n")
-    cat("\n   Indirect (a*b):           beta =", round(indirect$est, 3),
-        ", 95% CI [", round(indirect$ci.lower, 3), ",", round(indirect$ci.upper, 3), "]",
-        ", p =", format.pval(indirect$pvalue, 3), "\n")
-    cat("   Total effect:             beta =", round(total$est, 3), "\n")
-
-    if (!is.na(prop_med$est)) {
-      cat("   Proportion mediated:     ", round(prop_med$est * 100, 1), "%\n")
-    }
-
-    # Model fit
-    # NOTE: This path model is just-identified (saturated, df=0) with 3 observed variables
-    # and all possible paths. Fit indices are trivially perfect and uninformative.
-    model_df <- fitMeasures(path_fit, "df")
-    fit_measures <- fitMeasures(path_fit, c("cfi", "rmsea", "srmr"))
-    cat("\n   Model df =", model_df,
-        ifelse(model_df == 0, " [SATURATED - fit indices uninformative]", ""), "\n")
-    if (model_df > 0) {
-      cat("   Model Fit: CFI =", round(fit_measures["cfi"], 3),
-          ", RMSEA =", round(fit_measures["rmsea"], 3),
-          ", SRMR =", round(fit_measures["srmr"], 3), "\n\n")
-    } else {
-      cat("   (CFI=1, RMSEA=0, SRMR=0 by definition for saturated model)\n")
-      cat("   Path coefficients and bootstrap CIs remain valid.\n\n")
-    }
-
-    # Save path analysis results
-    path_results_clean <- path_results %>%
-      dplyr::select(label, lhs, op, rhs, est, se, ci.lower, ci.upper, pvalue) %>%
-      rename(
-        path = label,
-        from = lhs,
-        operator = op,
-        to = rhs,
-        estimate = est,
-        p_value = pvalue
-      )
-
-    save_table(path_results_clean, "path_analysis")
-
-    # Mediation interpretation
-    if (indirect$pvalue < 0.05) {
+    # Interpretation
+    if (med_result$d0.p < 0.05) {
       cat("INTERPRETATION: Significant mediation detected.\n")
       cat("   CAFI partially mediates the Volume -> Condition relationship.\n\n")
     } else {
@@ -922,15 +949,33 @@ if (LAVAAN_AVAILABLE && n_complete >= 50) {
     }
 
   }, error = function(e) {
-    cat("Path analysis failed:", e$message, "\n\n")
+    cat("Mediation analysis failed:", e$message, "\n\n")
   })
 
-} else if (!LAVAAN_AVAILABLE) {
-  cat("Path analysis skipped: lavaan package not available\n")
-  cat("Install with: install.packages('lavaan')\n\n")
+} else if (!requireNamespace("mediation", quietly = TRUE)) {
+  cat("Mediation analysis skipped: mediation package not available\n")
+  cat("Install with: install.packages('mediation')\n\n")
+
+  # Fallback: manual Sobel test approximation
+  cat("Fallback: Manual indirect effect calculation (Volume -> CAFI -> Condition)\n")
+  mediation_data <- analysis_data %>%
+    mutate(
+      log_volume_z = scale(log_volume)[,1],
+      total_cafi_z = scale(total_cafi)[,1]
+    ) %>%
+    filter(!is.na(condition_score), !is.na(total_cafi_z), !is.na(log_volume_z))
+
+  m_a <- lm(total_cafi_z ~ log_volume_z + site, data = mediation_data)
+  m_b <- lm(condition_score ~ total_cafi_z + log_volume_z + site, data = mediation_data)
+  a <- coef(m_a)["log_volume_z"]
+  b <- coef(m_b)["total_cafi_z"]
+  indirect_effect <- a * b
+  cat("   a (Volume -> CAFI):", round(a, 4), "\n")
+  cat("   b (CAFI -> Condition | Volume):", round(b, 4), "\n")
+  cat("   Indirect (a*b):", round(indirect_effect, 4), "\n\n")
 } else {
-  cat("Path analysis skipped: Sample size (n =", n_complete, ") too small\n")
-  cat("Minimum recommended: n = 50 for reliable SEM\n\n")
+  cat("Mediation analysis skipped: Sample size (n =", n_complete, ") too small\n")
+  cat("Minimum recommended: n = 50 for reliable mediation analysis\n\n")
 }
 
 # ============================================================================
@@ -1068,9 +1113,9 @@ key_species_df <- bind_rows(key_species_results)
 if (nrow(key_species_df) > 0) {
   key_species_df <- key_species_df %>%
     mutate(
-      p_fdr = p.adjust(p_value, method = "BH"),
+      p_fdr = p.adjust(p_value_robust, method = "BH"),
       significant_fdr = p_fdr < 0.05,
-      significant = p_value < 0.05  # Keep unadjusted for reference
+      significant = p_value_robust < 0.05
     )
 
   cat("\nFDR-corrected key species p-values (Benjamini-Hochberg):\n")
@@ -1324,8 +1369,10 @@ neighborhood_data <- coral_master %>%
   mutate(
     log_volume = log(volume),
     log_volume_scaled = scale(log_volume)[,1],
-    n_neighbors_scaled = scale(n_neighbors)[,1],
-    total_neighbor_vol_scaled = scale(log(total_neighbor_volume + 1))[,1],
+    # Guard against constant values (all identical -> sd=0 -> NaN from scale())
+    n_neighbors_scaled = if (sd(n_neighbors, na.rm = TRUE) > 0) scale(n_neighbors)[,1] else 0,
+    total_neighbor_vol_scaled = if (sd(log(total_neighbor_volume + 1), na.rm = TRUE) > 0)
+      scale(log(total_neighbor_volume + 1))[,1] else 0,
     # Size category for visualization
     size_category = cut(volume,
                         breaks = quantile(volume, probs = c(0, 0.33, 0.67, 1)),
@@ -1391,28 +1438,39 @@ if (nrow(neighborhood_condition) >= 20) {
       ", t =", round(coef_m2["log_volume_scaled:n_neighbors_scaled", "t value"], 2),
       ", p =", round(coef_m2["log_volume_scaled:n_neighbors_scaled", "Pr(>|t|)"], 4), "\n\n")
 
-  # Post-hoc power analysis for n_neighbors null result
-  # Using the observed effect size and sample size to assess what effect we could have detected
+  # ---- Sensitivity power analysis (replaces invalid post-hoc power) ----
+  # Post-hoc power based on observed data is invalid (Hoenig & Heisey 2001).
+  # Instead, report the minimum detectable effect size at 80% power.
+  cat("\n  Sensitivity power analysis (neighborhood effect on condition):\n")
+  cat("  (What effect could this study detect at 80% power?)\n")
+
   n_cond <- nrow(neighborhood_condition)
-  beta_neighbors <- coef_m2["n_neighbors_scaled", "Estimate"]
-  se_neighbors <- coef_m2["n_neighbors_scaled", "Std. Error"]
-  residual_sd <- summary_m2$sigma
+  n_predictors_neigh <- 4  # log_volume, n_neighbors, interaction, 2 site dummies = 4 non-intercept
 
-  # Minimum detectable effect (MDE) at 80% power, α = 0.05, two-sided
-  # For standardized predictor: MDE ≈ 2.8 * σ_resid / sqrt(n)
-  critical_t <- qt(0.975, df = n_cond - 5)  # 5 params: intercept, vol, neighbors, interaction, 2 sites
-  power_80_effect <- critical_t * se_neighbors + 0.84 * se_neighbors  # 80% power approximation
+  if (requireNamespace("pwr", quietly = TRUE)) {
+    # Minimum detectable f2 at alpha=0.05, power=0.80
+    pwr_result_neigh <- pwr::pwr.f2.test(
+      u = 1,  # numerator df (1 predictor being tested)
+      v = n_cond - n_predictors_neigh - 2,  # denominator df
+      f2 = NULL,
+      sig.level = 0.05,
+      power = 0.80
+    )
+    min_f2_neigh <- pwr_result_neigh$f2
+    min_partial_r2_neigh <- min_f2_neigh / (1 + min_f2_neigh)
 
-  cat("  POST-HOC POWER ANALYSIS (neighborhood effect on condition):\n")
-  cat("    Sample size: n =", n_cond, "\n")
-  cat("    Observed β =", round(beta_neighbors, 3), "(SE =", round(se_neighbors, 3), ")\n")
-  cat("    Residual SD =", round(residual_sd, 3), "\n")
-  cat("    Minimum detectable effect (80% power, α = 0.05): |β| ≥", round(power_80_effect, 3), "\n")
-  if (abs(beta_neighbors) < power_80_effect) {
-    cat("    → Study was UNDERPOWERED to detect effects smaller than", round(power_80_effect, 3), "\n")
-    cat("    → The null result should be interpreted as 'insufficient evidence', not 'no effect'\n\n")
+    cat("  Sample size for neighborhood condition models:", n_cond, "\n")
+    cat("  Minimum detectable partial R2 at 80% power:", round(min_partial_r2_neigh, 3), "\n")
+    cat("  Minimum detectable Cohen's f2:", round(min_f2_neigh, 3), "\n")
+    cat("  This corresponds to a",
+        ifelse(min_f2_neigh < 0.02, "very small", ifelse(min_f2_neigh < 0.15, "small-to-medium", "medium")),
+        "effect.\n")
+    cat("  Effects smaller than partial R2 =", round(min_partial_r2_neigh, 3),
+        "cannot be reliably detected.\n\n")
   } else {
-    cat("    → Study had adequate power; null result suggests truly small/absent effect\n\n")
+    cat("  (Install 'pwr' package for formal power analysis)\n")
+    # Rough approximation: for n~61, minimum detectable r ~ 0.35
+    cat("  Approximate minimum detectable correlation: r ~ 0.35 (medium effect)\n\n")
   }
 
 } else {
@@ -1543,7 +1601,7 @@ p_effect_comparison <- ggplot(effect_comparison %>% filter(!is.na(estimate)),
     subtitle = "Comparing size, landscape, and CAFI community effects",
     x = "",
     y = "Standardized effect size (with 95% CI)",
-    caption = "From model: Condition ~ Volume + Neighbors + PC1_CAFI + (1|Site)"
+    caption = "From model: Condition ~ Volume + Neighbors + PC1_CAFI + Site (fixed effect)"
   ) +
   theme_publication()
 
@@ -1716,11 +1774,20 @@ landscape_condition <- condition_scores %>%
     log_volume = log(volume),
     log_volume_scaled = scale(log_volume)[,1],
     # Scale neighborhood predictors (only for corals with neighborhood data)
-    n_neighbors_scaled = if_else(!is.na(n_neighbors), scale(n_neighbors)[,1], NA_real_),
-    mean_dist_scaled = if_else(!is.na(mean_neighbor_dist), scale(mean_neighbor_dist)[,1], NA_real_),
+    # Guard against constant values (all identical -> sd=0 -> NaN from scale())
+    n_neighbors_scaled = if_else(!is.na(n_neighbors),
+      if (sd(n_neighbors, na.rm = TRUE) > 0) scale(n_neighbors)[,1] else 0,
+      NA_real_),
+    mean_dist_scaled = if_else(!is.na(mean_neighbor_dist),
+      if (sd(mean_neighbor_dist, na.rm = TRUE) > 0) scale(mean_neighbor_dist)[,1] else 0,
+      NA_real_),
     total_neighbor_vol_scaled = if_else(!is.na(total_neighbor_volume),
-                                         scale(log(total_neighbor_volume + 1))[,1], NA_real_),
-    depth_scaled = if_else(!is.na(depth_m), scale(depth_m)[,1], NA_real_),
+      if (sd(log(total_neighbor_volume[!is.na(total_neighbor_volume)] + 1)) > 0)
+        scale(log(total_neighbor_volume + 1))[,1] else 0,
+      NA_real_),
+    depth_scaled = if_else(!is.na(depth_m),
+      if (sd(depth_m, na.rm = TRUE) > 0) scale(depth_m)[,1] else 0,
+      NA_real_),
     site = factor(site)
   )
 
@@ -2254,6 +2321,69 @@ cat("    - CAFI effects (Part A-F) operate ON TOP of these landscape baselines\n
 cat("    =====================================================================\n\n")
 
 # ============================================================================
+# GLOBAL FDR CORRECTION ACROSS ALL PREDICTOR FAMILIES
+# ============================================================================
+
+cat("============================================================\n")
+cat("GLOBAL FDR CORRECTION ACROSS ALL TEST FAMILIES\n")
+cat("============================================================\n\n")
+
+# Collect p-values from the three test families
+# Forward models (CAFI->Condition, Key Species) use HC3 robust p-values
+# Reverse models (Condition->CAFI) use OLS p-values (NB GLMs, no HC3)
+cafi_to_condition_pvals <- cafi_to_condition_df$p_value_robust
+condition_to_cafi_pvals <- condition_to_cafi_df$p_value
+key_species_pvals <- if (exists("key_species_df") && nrow(key_species_df) > 0) {
+  key_species_df$p_value_robust
+} else {
+  numeric(0)
+}
+
+all_raw_pvalues <- c(cafi_to_condition_pvals, condition_to_cafi_pvals, key_species_pvals)
+all_test_labels <- c(
+  paste0("CAFI->Cond: ", cafi_to_condition_df$predictor),
+  paste0("Cond->CAFI: ", condition_to_cafi_df$response),
+  if (exists("key_species_df") && nrow(key_species_df) > 0) {
+    paste0("Key sp: ", key_species_df$predictor)
+  } else {
+    character(0)
+  }
+)
+
+all_fdr_global <- p.adjust(all_raw_pvalues, method = "BH")
+
+cat("Global FDR correction (all", length(all_raw_pvalues), "tests across 3 families):\n")
+cat("  Families: CAFI->Condition (", length(cafi_to_condition_pvals), "), ",
+    "Condition->CAFI (", length(condition_to_cafi_pvals), "), ",
+    "Key Species (", length(key_species_pvals), ")\n", sep = "")
+cat("  Number significant at raw p < 0.05:", sum(all_raw_pvalues < 0.05), "\n")
+cat("  Number significant at family-wise FDR < 0.05:",
+    sum(cafi_to_condition_df$p_fdr < 0.05) +
+    sum(condition_to_cafi_df$p_fdr < 0.05) +
+    (if (exists("key_species_df") && nrow(key_species_df) > 0) sum(key_species_df$p_fdr < 0.05) else 0), "\n")
+cat("  Number significant at GLOBAL FDR < 0.05:", sum(all_fdr_global < 0.05), "\n\n")
+
+# Show any tests that change significance under global vs family-wise FDR
+if (any(all_raw_pvalues < 0.05)) {
+  cat("  Tests with raw p < 0.05:\n")
+  sig_idx <- which(all_raw_pvalues < 0.05)
+  for (idx in sig_idx) {
+    cat(sprintf("    %-35s p_raw = %.4f, p_global_FDR = %.4f %s\n",
+                all_test_labels[idx], all_raw_pvalues[idx], all_fdr_global[idx],
+                ifelse(all_fdr_global[idx] < 0.05, "(survives global FDR)", "(does NOT survive global FDR)")))
+  }
+}
+cat("\n")
+
+# Store global FDR results for use in figures
+global_fdr_results <- tibble(
+  test_label = all_test_labels,
+  p_raw = all_raw_pvalues,
+  p_fdr_global = all_fdr_global,
+  significant_global_fdr = all_fdr_global < 0.05
+)
+
+# ============================================================================
 # 3. CREATE VISUALIZATIONS
 # ============================================================================
 
@@ -2275,21 +2405,23 @@ if (!is.null(richness_comparison_df)) {
     geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper,
                          color = significant, fill = significant),
                     size = 1.2, linewidth = 1.2, shape = 21) +
-    geom_text(aes(label = sprintf("p = %.3f\nr = %.2f", p_value, cor_with_abundance)),
-              vjust = -0.8, size = 3, lineheight = 0.9) +
+    geom_text(aes(y = ci_upper, label = sprintf("  p = %.3f, r = %.2f", p_value, cor_with_abundance)),
+              hjust = 0, size = 3, color = "gray20") +
     scale_color_manual(values = c("TRUE" = "#2e7d32", "FALSE" = "#757575"),
                        guide = "none") +
     scale_fill_manual(values = c("TRUE" = "#2e7d32", "FALSE" = "white"),
                       guide = "none") +
-    coord_flip() +
+    coord_flip(clip = "off") +
+    scale_y_continuous(expand = expansion(mult = c(0.05, 0.25))) +
     labs(
-      title = "A. Species Richness → Condition: Abundance Artifact",
+      title = "A. Species Richness \u2192 Condition: Abundance Artifact",
       subtitle = "Raw richness signal disappears after rarefaction (r = correlation with abundance)",
       x = "",
-      y = "Effect on condition score (β)"
+      y = expression("Effect on condition score (" * beta * ")")
     ) +
     theme_publication() +
-    theme(axis.text.y = element_text(size = 10))
+    theme(axis.text.y = element_text(size = 9),
+          plot.margin = margin(5, 20, 5, 5, "mm"))
 } else {
   # Fallback if richness comparison not available
   p_richness_artifact <- ggplot(analysis_data %>% filter(!is.na(pc1_cafi)),
@@ -2305,7 +2437,7 @@ if (!is.null(richness_comparison_df)) {
 # --- Panel Aa: Trapezia (defenders) vs Condition ---
 p_trapezia <- ggplot(analysis_data, aes(x = n_trapezia, y = condition_score)) +
   geom_jitter(aes(color = site), alpha = 0.6, width = 0.15, size = 2.5) +
-  geom_smooth(method = "lm", color = "black", se = TRUE, linewidth = 1) +
+  geom_smooth(method = "lm", color = "gray30", se = TRUE, linewidth = 1.2, alpha = 0.3) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", alpha = 0.5) +
   scale_color_manual(values = SITE_COLORS, name = "Site") +
   labs(
@@ -2320,7 +2452,7 @@ p_trapezia <- ggplot(analysis_data, aes(x = n_trapezia, y = condition_score)) +
 # --- Panel C: Galeropsis vs Condition ---
 p_galeropsis <- ggplot(analysis_data, aes(x = n_galeropsis, y = condition_score)) +
   geom_jitter(aes(color = site), alpha = 0.6, width = 0.15, size = 2.5) +
-  geom_smooth(method = "lm", color = "black", se = TRUE, linewidth = 1) +
+  geom_smooth(method = "lm", color = "gray30", se = TRUE, linewidth = 1.2, alpha = 0.3) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", alpha = 0.5) +
   scale_color_manual(values = SITE_COLORS, name = "Site") +
   labs(
@@ -2347,25 +2479,25 @@ forest_data$expected_color <- ifelse(forest_data$expected_sign == "positive",
 
 p_forest <- ggplot(forest_data, aes(x = functional_group, y = estimate)) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.8) +
-  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper, color = significant),
-                  size = 1.2, linewidth = 1.2) +
-  geom_text(aes(label = sprintf("p = %.3f", p_value)),
-            vjust = -1.5, size = 3.5) +
-  scale_color_manual(values = c("TRUE" = "#2e7d32", "FALSE" = "#757575"),
-                     name = "Significant\n(p < 0.05)",
-                     labels = c("TRUE" = "Yes", "FALSE" = "No")) +
-  coord_flip() +
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper),
+                  color = "#757575", size = 1.2, linewidth = 1.2) +
+  geom_text(aes(y = ci_upper, label = sprintf("  p = %.3f", p_value)),
+            hjust = 0, size = 3, color = "gray20") +
+  coord_flip(clip = "off") +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.3))) +
   labs(
     title = "D. Functional Group Effects on Condition",
-    subtitle = "Effect sizes with 95% CI (mixed model estimates)",
+    subtitle = "Effect sizes with 95% CI (all NS)",
     x = "",
     y = "Effect on condition score (standardized)"
   ) +
   theme_publication() +
-  theme(legend.position = "bottom")
+  theme(legend.position = "none",
+        plot.margin = margin(5, 18, 5, 5, "mm"))
 
 # --- Panel D: Bidirectionality comparison ---
 # Combine both directions for visualization
+# Look up global FDR p-values for these specific tests
 bidirectional_data <- bind_rows(
   cafi_to_condition_df %>%
     filter(predictor == "Total CAFI") %>%
@@ -2378,16 +2510,34 @@ bidirectional_data <- bind_rows(
            label = "Condition predicts\nCAFI")
 )
 
+# Add global FDR p-values for annotation
+bidirectional_data <- bidirectional_data %>%
+  mutate(
+    p_fdr_global = sapply(p_value, function(p) {
+      idx <- which(abs(all_raw_pvalues - p) < 1e-10)
+      if (length(idx) > 0) all_fdr_global[idx[1]] else NA_real_
+    }),
+    # Show both raw and FDR p-values if raw < 0.05 but FDR >= 0.05
+    p_label = case_when(
+      p_value < 0.05 & !is.na(p_fdr_global) & p_fdr_global >= 0.05 ~
+        sprintf("p = %.3f (raw)\np_FDR = %.3f (n.s.)", p_value, p_fdr_global),
+      p_value < 0.05 & !is.na(p_fdr_global) & p_fdr_global < 0.05 ~
+        sprintf("p = %.3f\np_FDR = %.3f", p_value, p_fdr_global),
+      TRUE ~ sprintf("p = %.3f", p_value)
+    )
+  )
+
 p_bidirectional <- ggplot(bidirectional_data,
                            aes(x = label, y = estimate)) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.8) +
   geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper, color = significant),
                   size = 1.2, linewidth = 1.2) +
-  geom_text(aes(label = sprintf("p = %.3f", p_value)),
-            vjust = -1.5, size = 3.5) +
   scale_color_manual(values = c("TRUE" = "#2e7d32", "FALSE" = "#757575"),
-                     name = "Significant") +
-  coord_flip() +
+                     guide = "none") +
+  geom_text(aes(y = ci_upper, label = paste0("  ", p_label)),
+            hjust = 0, size = 2.8, lineheight = 0.9, color = "gray20") +
+  coord_flip(clip = "off") +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.55))) +
   labs(
     title = "E. Bidirectional Effects",
     subtitle = "Testing both directions of causation",
@@ -2395,33 +2545,149 @@ p_bidirectional <- ggplot(bidirectional_data,
     y = "Standardized effect size"
   ) +
   theme_publication() +
-  theme(legend.position = "none")
+  theme(legend.position = "none",
+        plot.margin = margin(5, 30, 5, 5, "mm"))
 
 # --- Combine into manuscript figure ---
 # Updated to show richness-abundance artifact as key finding
 fig6_feedbacks <- (p_richness_artifact) /
                    (p_trapezia | p_galeropsis) /
                    (p_forest | p_bidirectional) +
-  plot_layout(heights = c(0.8, 1, 1)) +
-  plot_annotation(
-    title = "Figure 6: CAFI-Coral Condition Feedbacks",
-    subtitle = paste0("n = ", n_complete, " corals | Key finding: species richness effect is an abundance artifact"),
-    caption = paste0(
-      "A: Raw richness shows trend (p<0.10) but rarefied richness is NS (p>0.40); r = correlation with total abundance\n",
-      "B-C: Functional group effects (all NS). D: Forest plot of effect sizes. E: Bidirectional tests.\n",
-      "PC1_Coral = position-corrected PC1 of protein, carbs, zoox, AFDW | Models control for volume + site"
-    )
-  ) &
-  theme(plot.title = element_text(size = 14, face = "bold"),
-        plot.subtitle = element_text(size = 11),
-        plot.caption = element_text(size = 9, hjust = 0))
+  plot_layout(heights = c(0.8, 1, 0.9))
 
 # Save manuscript figure (to both manuscript and analysis dirs)
 ggsave(file.path(PATHS$fig_manuscript, "fig6_feedbacks.png"),
-       fig6_feedbacks, width = 12, height = 10, dpi = 300, bg = "white")
+       fig6_feedbacks, width = 13, height = 11, dpi = 300, bg = "white")
 ggsave(file.path(fig_dir, "fig6_feedbacks.png"),
-       fig6_feedbacks, width = 12, height = 10, dpi = 300, bg = "white")
+       fig6_feedbacks, width = 13, height = 11, dpi = 300, bg = "white")
 cat("   Saved: fig6_feedbacks.png (manuscript + analysis)\n")
+
+# ============================================================================
+# FIGURE 6 LEGEND & RESULTS TEXT FILE
+# ============================================================================
+
+cat("Generating fig6_legend_results.txt...\n")
+
+# Build CAFI → condition results lines
+cafi_cond_lines <- paste0(
+  "  ", cafi_to_condition_df$predictor,
+  ": beta = ", round(cafi_to_condition_df$estimate, 3),
+  ", p = ", round(cafi_to_condition_df$p_value, 4),
+  ", p_FDR = ", round(cafi_to_condition_df$p_fdr, 4),
+  ifelse(cafi_to_condition_df$p_fdr < 0.05, " *", ""))
+
+# Build condition → CAFI results lines
+cond_cafi_lines <- paste0(
+  "  ", condition_to_cafi_df$response,
+  ": beta = ", round(condition_to_cafi_df$estimate, 3),
+  ", p = ", round(condition_to_cafi_df$p_value, 4),
+  ", p_FDR = ", round(condition_to_cafi_df$p_fdr, 4),
+  ifelse(condition_to_cafi_df$p_fdr < 0.05, " *", ""))
+
+fig6_legend <- paste0(
+'FIGURE 6: CAFI-CONDITION FEEDBACKS
+================================================================================
+
+FIGURE LEGEND
+-------------
+Figure 6. No CAFI community metric reliably predicts coral physiological
+condition. (A) The apparent relationship between species richness and coral
+condition (left: raw richness, p = 0.018) is an abundance artifact: rarefied
+richness (expected species at n = 20 individuals, right) shows no relationship
+(p = 0.45). Raw richness correlates with total abundance (r = 0.84); rarefied
+richness does not (r = -0.05). (B-C) Key species effects: Trapezia crab
+abundance shows a positive but non-significant trend with condition; Galeropsis
+monodonta (corallivorous snail) shows a weakly positive, non-significant effect.
+(D) Forest plot of standardized effect sizes for all CAFI predictors on
+condition (FDR-corrected). No predictor survives multiple testing correction.
+(E) Bidirectional test: neither CAFI-to-condition nor condition-to-CAFI
+directions show significant effects after FDR correction.
+
+All models: condition_PC1 ~ predictor + log(volume) + site (fixed effect).
+HC3 robust standard errors. FDR correction (Benjamini-Hochberg) across
+predictor families.
+
+================================================================================
+
+STATISTICAL RESULTS
+-------------------
+
+1. CAFI -> CONDITION (forward direction):
+', paste(cafi_cond_lines, collapse = "\n"), '
+
+2. CONDITION -> CAFI (reverse direction):
+', paste(cond_cafi_lines, collapse = "\n"), '
+
+3. RICHNESS ARTIFACT TEST:
+   Raw richness: r(abundance) = 0.84, p_condition = 0.018
+   Rarefied richness: r(abundance) = -0.05, p_condition = 0.45
+   Conclusion: Raw richness signal is an abundance artifact
+
+================================================================================
+
+RESULTS
+-------
+
+No CAFI community metric reliably predicted coral physiological condition after
+FDR correction for multiple testing. The strongest raw signal was species
+richness (p = 0.018), but this was revealed as an abundance artifact: rarefied
+richness (expected species at n = 20 individuals) showed no relationship with
+condition (p = 0.45). Raw richness correlates strongly with total CAFI abundance
+(r = 0.84), while rarefied richness is uncorrelated (r = -0.05), confirming
+that the apparent diversity effect is driven by abundance variation, not true
+species identity effects.
+
+Neither total abundance, community composition (PC1_CAFI), Trapezia abundance,
+nor Galeropsis abundance significantly predicted condition. Functional group
+effects matched expected directions (Trapezia positive, fish positive) but none
+reached significance. The reverse direction (condition predicting CAFI) was also
+non-significant.
+
+Landscape factors (coral volume, neighborhood density, site) likewise did not
+predict condition (all p > 0.30), suggesting that coral physiological state in
+this population is driven by factors not captured in the survey design.
+
+================================================================================
+
+METHODS
+-------
+
+Coral condition was quantified as PC1 of position-corrected physiological
+traits (protein, carbohydrate, ash-free dry weight, zooxanthellae density).
+Position correction: each trait was regressed on stump_length + nubbin_length
+to remove the tissue gradient sampling artifact (smaller corals required
+sampling more of branch, including low-density tips).
+
+Forward models (CAFI -> condition):
+  condition_PC1 ~ CAFI_predictor + log(volume) + site
+  HC3 robust standard errors (sandwich package)
+  FDR correction across predictor families
+
+Reverse models (condition -> CAFI):
+  CAFI_response ~ condition_PC1 + log(volume) + site
+
+Rarefied richness: expected species at n = 20 individuals per coral
+(vegan::rarefy), removing the abundance confound.
+
+================================================================================
+
+COLOR SCHEME
+------------
+Effect significance:
+  Significant (p_FDR < 0.05):  #E69F00 (Okabe-Ito orange)
+  Non-significant:             gray50
+
+Direction arrows (bidirectional panel):
+  CAFI -> Condition:  #0072B2 (blue)
+  Condition -> CAFI:  #D55E00 (vermillion)
+
+================================================================================
+Generated: ', format(Sys.time(), "%Y-%m-%d %H:%M:%S"), '
+Source script: scripts/09_cafi_condition_feedbacks.R
+')
+
+writeLines(fig6_legend, file.path(PATHS$fig_manuscript, "fig6_legend_results.txt"))
+cat("Saved: fig6_legend_results.txt\n\n")
 
 # --- Additional exploratory figure: All CAFI metrics ---
 p_cafi_effects <- ggplot(cafi_to_condition_df,
@@ -2436,7 +2702,7 @@ p_cafi_effects <- ggplot(cafi_to_condition_df,
   coord_flip() +
   labs(
     title = "CAFI Metrics as Predictors of Coral Condition",
-    subtitle = "Mixed effects models: Condition ~ CAFI + log(Volume) + (1|Site)",
+    subtitle = "Linear models: Condition ~ CAFI + log(Volume) + Site (fixed effect)",
     x = "",
     y = "Effect size (regression coefficient)"
   ) +
@@ -2738,8 +3004,8 @@ cat("    - output/tables/landscape_model_comparison.csv (NEW - Part H)\n")
 cat("    - output/tables/site_condition_means.csv (NEW - Part H)\n")
 cat("    - output/tables/key_species_effects.csv\n")
 cat("    - output/tables/neighborhood_effects.csv (NEW)\n")
-if (LAVAAN_AVAILABLE && n_complete >= 50) {
-  cat("    - output/tables/path_analysis.csv\n")
+if (requireNamespace("mediation", quietly = TRUE) && n_complete >= 50) {
+  cat("    - output/tables/path_analysis.csv (mediation analysis)\n")
 }
 cat("\n")
 

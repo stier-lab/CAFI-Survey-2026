@@ -46,19 +46,18 @@ cat("============================================================\n\n")
 # SETUP
 # ============================================================================
 
-# Load setup (packages, paths, theme)
-source(here::here("scripts/00_setup.R"))
+# Load setup (packages, paths, theme) — conditional to avoid re-sourcing in pipeline
+if (!exists("PATHS")) source(here::here("scripts/00_setup.R"))
 
-# Additional spatial packages - auto-install if needed
-cran_mirror <- "https://cran.rstudio.com"
+# Additional spatial packages
 suppressPackageStartupMessages({
   if (!requireNamespace("spdep", quietly = TRUE)) {
-    install.packages("spdep", repos = cran_mirror)
+    stop("Package 'spdep' is required but not installed. Install with: install.packages('spdep')")
   }
   library(spdep)
 
   if (!requireNamespace("sf", quietly = TRUE)) {
-    install.packages("sf", repos = cran_mirror)
+    stop("Package 'sf' is required but not installed. Install with: install.packages('sf')")
   }
   library(sf)
 })
@@ -81,7 +80,20 @@ coral_master <- load_object("coral_master")
 community_matrix <- load_object("community_matrix")
 
 cat("  Corals:", nrow(coral_master), "\n")
-cat("  Sites:", paste(unique(coral_master$site), collapse = ", "), "\n\n")
+cat("  Sites:", paste(unique(coral_master$site), collapse = ", "), "\n")
+
+# GPS data coverage check
+if (all(c("lat", "long") %in% names(coral_master)) ||
+    all(c("latitude", "longitude") %in% names(coral_master))) {
+  lat_col <- if ("latitude" %in% names(coral_master)) "latitude" else "lat"
+  lon_col <- if ("longitude" %in% names(coral_master)) "longitude" else "long"
+  n_with_gps <- sum(!is.na(coral_master[[lat_col]]) & !is.na(coral_master[[lon_col]]))
+  cat("  Corals with GPS coordinates:", n_with_gps, "of", nrow(coral_master), "\n")
+  if (n_with_gps < nrow(coral_master) * 0.5) {
+    cat("  WARNING: <50% of corals have GPS data; spatial analyses have limited power\n")
+  }
+}
+cat("\n")
 
 # ============================================================================
 # PREPARE SPATIAL DATA
@@ -108,7 +120,7 @@ spatial_data <- coral_master %>%
   mutate(
     # Ensure diversity metrics are available
     species_richness = replace_na(otu_richness, 0),
-    shannon = replace_na(shannon_diversity, 0)
+    shannon = replace_na(shannon, 0)
   )
 
 cat("  Corals with GPS coordinates:", nrow(spatial_data), "\n")
@@ -124,12 +136,18 @@ spatial_sf <- st_as_sf(spatial_data, coords = c("long", "lat"), crs = 4326)
 # ============================================================================
 
 create_idw_weights <- function(coords, max_dist = NULL) {
-  # Calculate distance matrix
-  dist_mat <- as.matrix(dist(coords))
-
-  # Convert to km (approximate at Mo'orea latitude ~17.5S)
-  # 1 degree lat ~ 111 km, 1 degree long ~ 106 km at this latitude
-  dist_km <- dist_mat * 111
+  # Use Haversine distance for accurate geographic distances
+  if (requireNamespace("geosphere", quietly = TRUE)) {
+    dist_km <- geosphere::distm(coords, fun = geosphere::distHaversine) / 1000
+  } else {
+    # Fallback with cosine correction for longitude at Mo'orea latitude (~17.5S)
+    lat_rad <- mean(coords[, 2], na.rm = TRUE) * pi / 180
+    lon_correction <- cos(lat_rad)
+    coords_corrected <- coords
+    coords_corrected[, 1] <- coords[, 1] * lon_correction
+    dist_km <- as.matrix(dist(coords_corrected)) * 111
+    cat("  Note: Using cosine-corrected Euclidean distances (geosphere not available)\n")
+  }
 
   # Determine bandwidth if not specified
   if (is.null(max_dist)) {
@@ -392,12 +410,20 @@ if (length(common_corals) > 20) {
   comm_dist <- vegdist(comm_subset, method = "bray")
   geo_coords <- as.matrix(spatial_subset[, c("long", "lat")])
 
-  # Geographic distance in km
-  geo_dist_raw <- as.matrix(dist(geo_coords))
-  geo_dist_km <- geo_dist_raw * 111  # Convert to km
+  # Geographic distance in km (Haversine for accuracy)
+  if (requireNamespace("geosphere", quietly = TRUE)) {
+    geo_dist_km <- geosphere::distm(geo_coords, fun = geosphere::distHaversine) / 1000
+  } else {
+    lat_rad <- mean(geo_coords[, 2], na.rm = TRUE) * pi / 180
+    lon_correction <- cos(lat_rad)
+    geo_coords_adj <- geo_coords
+    geo_coords_adj[, 1] <- geo_coords[, 1] * lon_correction
+    geo_dist_km <- as.matrix(dist(geo_coords_adj)) * 111
+  }
   geo_dist <- as.dist(geo_dist_km)
 
   # Mantel test
+  set.seed(42)
   mantel_result <- mantel(comm_dist, geo_dist, method = "pearson", permutations = 999)
 
   # Save results
@@ -471,11 +497,11 @@ if (length(common_corals) > 20) {
     if (nrow(decay_binned) >= 3) {
       p_decay <- p_decay +
         geom_point(data = decay_binned, aes(x = mean_dist, y = mean_dissim),
-                   color = "#0072B2", size = 3) +
+                   inherit.aes = FALSE, color = "#0072B2", size = 3) +
         geom_errorbar(data = decay_binned,
                       aes(x = mean_dist, ymin = mean_dissim - se_dissim,
                           ymax = mean_dissim + se_dissim),
-                      width = 0, color = "#0072B2")
+                      inherit.aes = FALSE, width = 0, color = "#0072B2")
     }
 
     save_figure(p_decay, "distance_decay", width = 8, height = 6, script_dir = "07_spatial")

@@ -13,6 +13,8 @@
 #
 #   This script uses ONLY corals with actual neighborhood data
 #
+# DEPENDENCIES: 00_setup.R, 01_load_data.R (coral_master.rds)
+#
 # SECTIONS:
 #   PART 1: Base Landscape Characterization
 #     - Focal coral size distribution
@@ -404,7 +406,7 @@ cat("Full Model (all candidate predictors):\n")
 cat("    (VIF > 5 indicates problematic multicollinearity)\n")
 
 if (nrow(full_vif_data) > 20) {
-  m_full_vif <- glm.nb(total_cafi ~ log(volume) + n_neighbors +
+  m_full_vif <- MASS::glm.nb(total_cafi ~ log(volume) + n_neighbors +
                         total_neighbor_volume + mean_neighbor_dist +
                         isolation_index + crowding_index + relative_size + site,
                        data = full_vif_data)
@@ -420,7 +422,7 @@ if (nrow(full_vif_data) > 20) {
 # Reduced model VIF
 cat("\nReduced Model (non-redundant subset):\n")
 
-m_reduced_vif <- glm.nb(total_cafi ~ log(volume) + n_neighbors +
+m_reduced_vif <- MASS::glm.nb(total_cafi ~ log(volume) + n_neighbors +
                          log(total_neighbor_volume + 1) + mean_neighbor_dist + site,
                         data = landscape_data)
 

@@ -12,6 +12,7 @@
 #
 #   This script uses ONLY corals with complete neighborhood data (filters !is.na())
 #
+# DEPENDENCIES: 00_setup.R, 01_load_data.R (coral_master.rds, cafi_clean.rds)
 # PREREQUISITE: Run 03_landscape_characterization.R first to understand
 #               landscape structure and predictor correlations
 #
@@ -114,6 +115,12 @@ cat("  4. mean_neighbor_dist     - Spatial isolation\n\n")
 # ============================================================================
 # PART 1: FOCAL CORAL SIZE EFFECTS
 # ============================================================================
+# Models use site as a FIXED EFFECT (not random) because k = 3 sites is
+# insufficient for reliable random intercept variance estimation
+# (Bolker et al. 2009, Trends Ecol Evol). This treats site as a nuisance
+# variable to absorb among-site differences rather than estimating site
+# variance as a population-level parameter.
+# ============================================================================
 
 cat("------------------------------------------------------------\n")
 cat("PART 1: FOCAL CORAL SIZE EFFECTS\n")
@@ -122,7 +129,7 @@ cat("------------------------------------------------------------\n\n")
 # 1.1 CAFI Abundance vs Volume (Power-law)
 cat("1.1 CAFI Abundance ~ Coral Volume:\n")
 
-m_abund_vol <- glm.nb(total_cafi ~ log(volume) + site, data = landscape_data)
+m_abund_vol <- MASS::glm.nb(total_cafi ~ log(volume) + site, data = landscape_data)
 m_summary <- summary(m_abund_vol)
 
 slope <- coef(m_abund_vol)["log(volume)"]
@@ -226,7 +233,7 @@ cat("------------------------------------------------------------\n\n")
 # 2.1 Neighbor count effect on abundance
 cat("2.1 Neighbor Count Effect:\n")
 
-m_neighbors <- glm.nb(total_cafi ~ n_neighbors + log(volume) + site, data = landscape_data)
+m_neighbors <- MASS::glm.nb(total_cafi ~ n_neighbors + log(volume) + site, data = landscape_data)
 m_neigh_summary <- summary(m_neighbors)
 
 cat("    β =", round(coef(m_neighbors)["n_neighbors"], 4),
@@ -234,7 +241,7 @@ cat("    β =", round(coef(m_neighbors)["n_neighbors"], 4),
     ", p =", format.pval(m_neigh_summary$coefficients["n_neighbors", "Pr(>|z|)"], 3), "\n")
 
 # Does adding neighbors improve model?
-m_size_only <- glm.nb(total_cafi ~ log(volume) + site, data = landscape_data)
+m_size_only <- MASS::glm.nb(total_cafi ~ log(volume) + site, data = landscape_data)
 lrt <- anova(m_size_only, m_neighbors, test = "Chisq")
 cat("    LRT vs size-only: χ² =", round(lrt$`LR stat.`[2], 2),
     ", p =", format.pval(lrt$`Pr(Chi)`[2], 3), "\n\n")
@@ -277,7 +284,7 @@ cat("------------------------------------------------------------\n\n")
 # 3.1 Total neighbor volume
 cat("3.1 Total Neighbor Volume Effect:\n")
 
-m_neigh_vol <- glm.nb(total_cafi ~ log(total_neighbor_volume + 1) + log(volume) + site,
+m_neigh_vol <- MASS::glm.nb(total_cafi ~ log(total_neighbor_volume + 1) + log(volume) + site,
                       data = landscape_data)
 m_nvol_summary <- summary(m_neigh_vol)
 
@@ -310,7 +317,7 @@ cat("------------------------------------------------------------\n\n")
 # 4.1 Mean neighbor distance
 cat("4.1 Mean Neighbor Distance Effect:\n")
 
-m_distance <- glm.nb(total_cafi ~ mean_neighbor_dist + log(volume) + site, data = landscape_data)
+m_distance <- MASS::glm.nb(total_cafi ~ mean_neighbor_dist + log(volume) + site, data = landscape_data)
 m_dist_summary <- summary(m_distance)
 
 cat("    β =", round(coef(m_distance)["mean_neighbor_dist"], 5),
@@ -345,7 +352,7 @@ cat("------------------------------------------------------------\n\n")
 # 5.1 Full model for CAFI Abundance
 cat("5.1 Full Model: CAFI Abundance ~ All 4 Predictors\n")
 
-m_abund_full <- glm.nb(total_cafi ~ log(volume) + n_neighbors +
+m_abund_full <- MASS::glm.nb(total_cafi ~ log(volume) + n_neighbors +
                         log(total_neighbor_volume + 1) + mean_neighbor_dist + site,
                        data = landscape_data)
 m_abund_full_summary <- summary(m_abund_full)
@@ -434,14 +441,14 @@ calc_r2 <- function(model, null) {
 # Build hierarchy of models
 cat("6.1 CAFI Abundance Models:\n\n")
 
-m_null <- glm.nb(total_cafi ~ site, data = landscape_data)
-m_size <- glm.nb(total_cafi ~ log(volume) + site, data = landscape_data)
-m_size_neighbors <- glm.nb(total_cafi ~ log(volume) + n_neighbors + site,
+m_null <- MASS::glm.nb(total_cafi ~ site, data = landscape_data)
+m_size <- MASS::glm.nb(total_cafi ~ log(volume) + site, data = landscape_data)
+m_size_neighbors <- MASS::glm.nb(total_cafi ~ log(volume) + n_neighbors + site,
                            data = landscape_data)
-m_size_neigh_vol <- glm.nb(total_cafi ~ log(volume) + n_neighbors +
+m_size_neigh_vol <- MASS::glm.nb(total_cafi ~ log(volume) + n_neighbors +
                             log(total_neighbor_volume + 1) + site,
                            data = landscape_data)
-m_full <- glm.nb(total_cafi ~ log(volume) + n_neighbors +
+m_full <- MASS::glm.nb(total_cafi ~ log(volume) + n_neighbors +
                   log(total_neighbor_volume + 1) + mean_neighbor_dist + site,
                  data = landscape_data)
 
@@ -547,17 +554,24 @@ cat("------------------------------------------------------------\n\n")
 
 cat("Does the effect of neighborhood depend on coral size?\n\n")
 
+# Center log_volume for interpretable main effects in interaction models
+# Centering ensures that the main effect of n_neighbors represents the neighborhood
+# effect at the AVERAGE coral size, not at log(volume) = 0 (which is volume = 1 cm³)
+landscape_data$log_volume_c <- landscape_data$log_volume - mean(landscape_data$log_volume, na.rm = TRUE)
+cat("  Centered log_volume: mean =", round(mean(landscape_data$log_volume, na.rm = TRUE), 3),
+    " (subtracted from log_volume for interaction models)\n\n")
+
 # 7.1 Size × Neighbor count interaction
 cat("7.1 Abundance ~ Size × Neighbor Count:\n")
 
-m_int_neighbors <- glm.nb(total_cafi ~ log(volume) * n_neighbors + site,
+m_int_neighbors <- MASS::glm.nb(total_cafi ~ log_volume_c * n_neighbors + site,
                           data = landscape_data)
 m_int_neigh_summary <- summary(m_int_neighbors)
 
-int_coef <- coef(m_int_neighbors)["log(volume):n_neighbors"]
-int_se <- m_int_neigh_summary$coefficients["log(volume):n_neighbors", "Std. Error"]
-int_z <- m_int_neigh_summary$coefficients["log(volume):n_neighbors", "z value"]
-int_p <- m_int_neigh_summary$coefficients["log(volume):n_neighbors", "Pr(>|z|)"]
+int_coef <- coef(m_int_neighbors)["log_volume_c:n_neighbors"]
+int_se <- m_int_neigh_summary$coefficients["log_volume_c:n_neighbors", "Std. Error"]
+int_z <- m_int_neigh_summary$coefficients["log_volume_c:n_neighbors", "z value"]
+int_p <- m_int_neigh_summary$coefficients["log_volume_c:n_neighbors", "Pr(>|z|)"]
 
 cat("    Interaction β =", round(int_coef, 4),
     ", z =", round(int_z, 2),
@@ -569,12 +583,12 @@ cat("    Interpretation:", ifelse(int_p < 0.05,
 # 7.2 Size × Neighbor volume interaction
 cat("7.2 Abundance ~ Size × Neighbor Volume:\n")
 
-m_int_vol <- glm.nb(total_cafi ~ log(volume) * log(total_neighbor_volume + 1) + site,
+m_int_vol <- MASS::glm.nb(total_cafi ~ log_volume_c * log(total_neighbor_volume + 1) + site,
                     data = landscape_data)
 m_int_vol_summary <- summary(m_int_vol)
 
-int_coef_vol <- coef(m_int_vol)["log(volume):log(total_neighbor_volume + 1)"]
-int_p_vol <- m_int_vol_summary$coefficients["log(volume):log(total_neighbor_volume + 1)", "Pr(>|z|)"]
+int_coef_vol <- coef(m_int_vol)["log_volume_c:log(total_neighbor_volume + 1)"]
+int_p_vol <- m_int_vol_summary$coefficients["log_volume_c:log(total_neighbor_volume + 1)", "Pr(>|z|)"]
 
 cat("    Interaction β =", round(int_coef_vol, 4),
     ", p =", format.pval(int_p_vol, 3), "\n")
@@ -585,18 +599,32 @@ cat("    Interpretation:", ifelse(int_p_vol < 0.05,
 # 7.3 Size × Distance interaction
 cat("7.3 Abundance ~ Size × Distance:\n")
 
-m_int_dist <- glm.nb(total_cafi ~ log(volume) * mean_neighbor_dist + site,
+m_int_dist <- MASS::glm.nb(total_cafi ~ log_volume_c * mean_neighbor_dist + site,
                      data = landscape_data)
 m_int_dist_summary <- summary(m_int_dist)
 
-int_coef_dist <- coef(m_int_dist)["log(volume):mean_neighbor_dist"]
-int_p_dist <- m_int_dist_summary$coefficients["log(volume):mean_neighbor_dist", "Pr(>|z|)"]
+int_coef_dist <- coef(m_int_dist)["log_volume_c:mean_neighbor_dist"]
+int_p_dist <- m_int_dist_summary$coefficients["log_volume_c:mean_neighbor_dist", "Pr(>|z|)"]
 
 cat("    Interaction β =", round(int_coef_dist, 6),
     ", p =", format.pval(int_p_dist, 3), "\n")
 cat("    Interpretation:", ifelse(int_p_dist < 0.05,
                                    "Isolation effects differ by coral size",
                                    "No size-dependent isolation effects"), "\n\n")
+
+# FDR correction across 3 interaction tests
+p_size_neighbors <- int_p
+p_size_vol <- int_p_vol
+p_size_dist <- int_p_dist
+interaction_pvals <- c(p_size_neighbors, p_size_vol, p_size_dist)
+interaction_fdr <- p.adjust(interaction_pvals, method = "BH")
+cat("  Interaction tests (FDR-corrected):\n")
+cat("    Size x Neighbors: p_raw =", round(p_size_neighbors, 3),
+    ", p_FDR =", round(interaction_fdr[1], 3), "\n")
+cat("    Size x Neighbor Volume: p_raw =", round(p_size_vol, 3),
+    ", p_FDR =", round(interaction_fdr[2], 3), "\n")
+cat("    Size x Distance: p_raw =", round(p_size_dist, 3),
+    ", p_FDR =", round(interaction_fdr[3], 3), "\n\n")
 
 # ============================================================================
 # PART 8: FUNCTIONAL GROUP RESPONSES
@@ -614,7 +642,7 @@ for (fg in functional_groups) {
     cat(paste0("8.", which(functional_groups == fg), " ", gsub("n_", "", fg), ":\n"))
 
     fg_model <- tryCatch({
-      glm.nb(as.formula(paste(fg, "~ log(volume) + n_neighbors + site")),
+      MASS::glm.nb(as.formula(paste(fg, "~ log(volume) + n_neighbors + site")),
              data = landscape_data)
     }, error = function(e) {
       cat("    [Note: NB failed for", fg, "- using Poisson fallback]\n")
@@ -727,9 +755,12 @@ ggsave(file.path(FIG_DIR, "abundance_vs_neighbors.png"), p_neighbor_count,
        width = 7, height = 5, dpi = 300, bg = "white")
 
 # Supplement S7: Neighborhood null results
+# Remove panel label "D." from multi-panel layout for standalone supplementary figure
 supplement_dir <- file.path(PATHS$figures, "supplement")
 dir.create(supplement_dir, showWarnings = FALSE, recursive = TRUE)
-ggsave(file.path(supplement_dir, "figS7_neighborhood_null.png"), p_neighbor_count,
+p_neighbor_count_s7 <- p_neighbor_count +
+  labs(title = "Neighbor Count Effect")
+ggsave(file.path(supplement_dir, "figS7_neighborhood_null.png"), p_neighbor_count_s7,
        width = 7, height = 5, dpi = 300, bg = "white")
 
 ggsave(file.path(FIG_DIR, "abundance_vs_neighbor_volume.png"), p_neighbor_vol,
@@ -1265,7 +1296,7 @@ loocv_abund <- tryCatch({
     test_data <- landscape_data_scaled[i, , drop = FALSE]
 
     # Fit on training data
-    m_cv <- glm.nb(total_cafi ~ log_vol_scaled + site, data = train_data)
+    m_cv <- MASS::glm.nb(total_cafi ~ log_vol_scaled + site, data = train_data)
 
     # Predict on held-out observation
     preds[i] <- predict(m_cv, newdata = test_data, type = "response")
@@ -2026,9 +2057,25 @@ cat("  Test vs β = 1: z =", round(z_vs_1, 2), ", p =", format.pval(p_vs_1, 3), 
 cat("  Interpretation:", landscape_results$scaling_exponent$interpretation, "\n\n")
 
 cat("KEY FINDING 2: VARIANCE EXPLAINED\n")
+n_neighborhood <- nrow(landscape_data)
 cat("  Size alone: R² =", round(calc_r2(m_size, m_null) * 100, 1), "%\n")
 cat("  Full model: R² =", round(calc_r2(m_full, m_null) * 100, 1), "%\n")
 cat("  Neighborhood adds:", round(delta_r2 * 100, 2), "% additional R²\n\n")
+
+cat("  Power analysis for neighborhood effects (n =", n_neighborhood, "):\n")
+if (requireNamespace("pwr", quietly = TRUE)) {
+  n_params <- 3  # log_volume + 2 site dummies
+  pwr_result <- pwr::pwr.f2.test(
+    u = 1, v = n_neighborhood - n_params - 2,
+    f2 = NULL, sig.level = 0.05, power = 0.80
+  )
+  min_f2 <- pwr_result$f2
+  cat("  Minimum detectable Cohen's f²:", round(min_f2, 3), "\n")
+  cat("  Minimum detectable partial R²:", round(min_f2 / (1 + min_f2), 3), "\n")
+  cat("  Effects smaller than this cannot be reliably detected with n =", n_neighborhood, "\n\n")
+} else {
+  cat("  [pwr package not available - install with install.packages('pwr')]\n\n")
+}
 
 cat("KEY FINDING 3: INTERACTION EFFECTS\n")
 cat("  Size × Neighbors: p =", format.pval(int_p, 3),

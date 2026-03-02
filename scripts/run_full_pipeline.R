@@ -1,4 +1,6 @@
 #!/usr/bin/env Rscript
+# REPRODUCIBILITY NOTE: Run renv::init() and renv::snapshot() to pin package versions.
+# See renv.lock for the locked environment used in analysis.
 # ============================================================================
 # run_full_pipeline.R - CAFI Survey Complete Analysis Pipeline
 # ============================================================================
@@ -48,7 +50,7 @@
 #     12_model_evaluation.R
 #
 #   Note: Manuscript figures are created by their respective analysis scripts
-#     (01 → Fig 1, 05 → Fig 2, 06 → Fig 4, 08 → Fig 3, 09 → Fig 5)
+#     (01 → Fig 1, 05 → Fig 2, 02 → Fig 3, 08 → Fig 4, 06 → Fig 5, 09 → Fig 6)
 #
 # OUTPUTS:
 #   - output/pipeline.log          - Detailed execution log
@@ -81,7 +83,8 @@ PIPELINE_SCRIPTS <- list(
     list(name = "06_network_analysis.R", desc = "Co-occurrence network analysis", required = FALSE),
     list(name = "07_spatial_autocorrelation.R", desc = "Spatial autocorrelation", required = FALSE),
     list(name = "08_functional_groups.R", desc = "Functional group analysis", required = FALSE),
-    list(name = "09_cafi_condition_feedbacks.R", desc = "CAFI-condition feedbacks", required = FALSE)
+    list(name = "09_cafi_condition_feedbacks.R", desc = "CAFI-condition feedbacks", required = FALSE),
+    list(name = "13_taxonomy_sensitivity.R", desc = "Taxonomy sensitivity analysis", required = FALSE)
   ),
 
   # Machine Learning (exploratory - not in default pipeline)
@@ -98,7 +101,10 @@ EXPECTED_OUTPUTS <- list(
   "01_load_data.R" = c(
     "output/objects/coral_master.rds",
     "output/objects/cafi_clean.rds",
-    "output/objects/community_matrix.rds"
+    "output/objects/community_matrix.rds",
+    "output/objects/condition_scores.rds",
+    "output/objects/cafi_pca_results.rds",
+    "output/objects/cafi_by_coral.rds"
   ),
   "02_community_analysis.R" = c(
     "output/objects/community_analysis_results.rds",
@@ -109,7 +115,7 @@ EXPECTED_OUTPUTS <- list(
     "output/tables/landscape_structure_summary.csv"
   ),
   "04_landscape_effects.R" = c(
-    "output/tables/landscape_effects_summary.csv"
+    "output/tables/landscape_full_model_results.csv"
   ),
   "05_species_scaling_analysis.R" = c(
     "output/objects/scaling_analysis_results.rds",
@@ -121,6 +127,20 @@ EXPECTED_OUTPUTS <- list(
   ),
   "07_spatial_autocorrelation.R" = c(
     "output/tables/morans_i_results.csv"
+  ),
+  "08_functional_groups.R" = c(
+    "output/figures/manuscript/fig4_functional_groups.png",
+    "output/tables/taxonomic_group_scaling.csv",
+    "output/objects/functional_analysis_results.rds"
+  ),
+  "09_cafi_condition_feedbacks.R" = c(
+    "output/figures/manuscript/fig6_feedbacks.png",
+    "output/tables/cafi_condition_models.csv"
+  ),
+  "13_taxonomy_sensitivity.R" = c(
+    "output/tables/taxonomy_sensitivity.csv",
+    "output/tables/taxonomy_sensitivity_species_scaling.csv",
+    "output/figures/supplement/figS8_taxonomy_sensitivity.png"
   )
 )
 
@@ -200,7 +220,10 @@ verify_dependencies <- function(script_name) {
     "04_landscape_effects.R" = list(objects = c("coral_master")),
     "05_species_scaling_analysis.R" = list(objects = c("coral_master", "cafi_clean")),
     "06_network_analysis.R" = list(objects = c("coral_master", "community_matrix", "cafi_clean")),
-    "07_spatial_autocorrelation.R" = list(objects = c("coral_master", "community_matrix"))
+    "07_spatial_autocorrelation.R" = list(objects = c("coral_master", "community_matrix")),
+    "08_functional_groups.R" = list(objects = c("coral_master", "cafi_clean")),
+    "09_cafi_condition_feedbacks.R" = list(objects = c("coral_master", "cafi_clean", "community_matrix", "condition_scores")),
+    "13_taxonomy_sensitivity.R" = list(objects = c("coral_master"))
   )
 
   script_deps <- deps[[script_name]]

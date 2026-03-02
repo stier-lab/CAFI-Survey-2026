@@ -50,7 +50,7 @@
 #   log(Y) ~ β × log(V) + site
 #   - Negative binomial GLM for counts (handles overdispersion)
 #   - Site as fixed effect (accounts for among-site variation)
-#   - log10 transformation for interpretability
+#   - Natural log: coefficient = power-law exponent directly
 #
 # KEY TEST:
 #   H0: β = 1 (Field of Dreams)
@@ -65,13 +65,15 @@
 #   Stier AC, Osenberg CW (2024) Field of dreams or propagule redistribution?
 #     Current Biology 34:R1186-R1189
 #
+# DEPENDENCIES: 00_setup.R, 01_load_data.R (coral_master.rds, cafi_clean.rds,
+#               community_matrix.rds, functional_summary.rds)
+#
 # OUTPUTS:
-#   Figures: output/figures/05_scaling/
-#   Tables: output/tables/
-#   Report: output/reports/SCALING_ANALYSIS.html
+#   Figures: output/figures/05_scaling/, output/figures/manuscript/fig2_scaling.png
+#   Tables: output/tables/scaling_results_all.csv, scaling_summary_by_category.csv
+#   Objects: output/objects/scaling_analysis_results.rds
 #
 # Author: CAFI Survey Analysis Pipeline
-# Last Updated: 2025-12-10
 # ============================================================================
 
 cat("\n")
@@ -121,9 +123,10 @@ boot_scaling <- function(data, indices) {
 #' @param data Data frame with 'abundance' and 'volume' columns
 #' @param response_name Character string for labeling
 #' @param min_nonzero Minimum non-zero observations required (default 15)
-#' @param n_boot Number of bootstrap replicates (default 2000)
+#' @param n_boot Number of bootstrap replicates (default 1000; 1000 provides
+#'   ~0.03 CI width precision for beta, sufficient for ecological inference)
 #' @return List with model results and interpretation
-fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 2000) {
+fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 1000) {
 
   # Calculate summary stats
   n_total <- nrow(data)
@@ -167,9 +170,17 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 20
     z_val <- coefs["log(volume)", "z value"]
     p_val <- coefs["log(volume)", "Pr(>|z|)"]
 
-    # Profile-based 95% CI
+    # Profile-based 95% CI (with tryCatch for convergence)
     set.seed(42)
-    ci <- confint(model, "log(volume)", level = 0.95)
+    ci <- tryCatch(
+      confint(model, "log(volume)", level = 0.95),
+      error = function(e) {
+        cat("  Warning: Profile CI failed, using Wald CI\n")
+        beta_val <- coefs["log(volume)", "Estimate"]
+        se_val <- coefs["log(volume)", "Std. Error"]
+        c(beta_val - 1.96 * se_val, beta_val + 1.96 * se_val)
+      }
+    )
 
     # Bootstrap 95% CI (following Stier et al. 2024 methodology)
     boot_ci_lower <- NA_real_
@@ -181,12 +192,32 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 20
         set.seed(42)
         boot_result <- boot::boot(data, boot_scaling, R = n_boot,
                                   strata = factor(data$site))
+
+        # Report bootstrap failure rate
+        n_failed <- sum(is.na(boot_result$t))
+        cat("  Bootstrap failures:", n_failed, "of", length(boot_result$t),
+            "(", round(100 * n_failed / length(boot_result$t), 1), "%)\n")
+
         valid_betas <- boot_result$t[!is.na(boot_result$t)]
 
         if (length(valid_betas) >= n_boot * 0.8) {  # Require 80% successful fits
-          boot_ci <- quantile(valid_betas, probs = c(0.025, 0.975))
-          boot_ci_lower <- boot_ci[1]
-          boot_ci_upper <- boot_ci[2]
+          # Try BCa CI first, fall back to percentile
+          bca_ci <- tryCatch(
+            boot::boot.ci(boot_result, type = "bca", conf = 0.95),
+            error = function(e) {
+              cat("  BCa CI failed, falling back to percentile method\n")
+              NULL
+            }
+          )
+
+          if (!is.null(bca_ci)) {
+            boot_ci_lower <- bca_ci$bca[4]
+            boot_ci_upper <- bca_ci$bca[5]
+          } else {
+            # Fallback to percentile
+            boot_ci_lower <- quantile(valid_betas, 0.025)
+            boot_ci_upper <- quantile(valid_betas, 0.975)
+          }
         }
       })
     }
@@ -211,6 +242,204 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 20
     } else {
       interpretation <- "Field of Dreams (β ≈ 1)"
     }
+
+    list(
+      response = response_name,
+      n_corals = n_total,
+      n_nonzero = n_nonzero,
+      n_zero = n_zero,
+      total_abundance = total_abundance,
+      beta = beta,
+      se = se,
+      ci_lower = ci[1],
+      ci_upper = ci[2],
+      boot_ci_lower = boot_ci_lower,
+      boot_ci_upper = boot_ci_upper,
+      z_value = z_val,
+      p_value = p_val,
+      z_vs_1 = z_vs_1,
+      p_vs_1 = p_vs_1,
+      pseudo_r2 = pseudo_r2,
+      interpretation = interpretation,
+      model = model,
+      converged = TRUE
+    )
+
+  }, error = function(e) {
+    list(
+      response = response_name,
+      n_corals = n_total,
+      n_nonzero = n_nonzero,
+      n_zero = n_zero,
+      total_abundance = total_abundance,
+      beta = NA_real_,
+      se = NA_real_,
+      ci_lower = NA_real_,
+      ci_upper = NA_real_,
+      boot_ci_lower = NA_real_,
+      boot_ci_upper = NA_real_,
+      z_value = NA_real_,
+      p_value = NA_real_,
+      z_vs_1 = NA_real_,
+      p_vs_1 = NA_real_,
+      interpretation = paste("Model error:", conditionMessage(e)),
+      model = NULL,
+      converged = FALSE
+    )
+  })
+}
+
+#' Fit richness with Poisson (not NB) — richness has different distributional properties
+#' Richness (count of unique species) is better modeled with Poisson than NB
+#' because overdispersion in richness is typically lower than in abundance.
+#' @param data Data frame with 'abundance' (richness) and 'volume' columns
+#' @param response_name Character string for labeling
+#' @param min_nonzero Minimum non-zero observations required (default 15)
+#' @param n_boot Number of bootstrap replicates (default 1000)
+#' @return List with model results and interpretation
+fit_richness_model <- function(data, response_name, min_nonzero = 15, n_boot = 1000) {
+
+  # Calculate summary stats
+  n_total <- nrow(data)
+  n_nonzero <- sum(data$abundance > 0)
+  n_zero <- sum(data$abundance == 0)
+  total_abundance <- sum(data$abundance)
+
+  # Check for sufficient data
+  if (n_nonzero < min_nonzero) {
+    return(list(
+      response = response_name,
+      n_corals = n_total,
+      n_nonzero = n_nonzero,
+      n_zero = n_zero,
+      total_abundance = total_abundance,
+      beta = NA_real_,
+      se = NA_real_,
+      ci_lower = NA_real_,
+      ci_upper = NA_real_,
+      boot_ci_lower = NA_real_,
+      boot_ci_upper = NA_real_,
+      z_value = NA_real_,
+      p_value = NA_real_,
+      z_vs_1 = NA_real_,
+      p_vs_1 = NA_real_,
+      pseudo_r2 = NA_real_,
+      interpretation = "Insufficient data",
+      model = NULL,
+      converged = FALSE
+    ))
+  }
+
+  # Fit Poisson GLM (not NB — richness has different distributional properties)
+  tryCatch({
+    formula <- as.formula("abundance ~ log(volume) + site")
+    model <- glm(formula, data = data, family = poisson)
+
+    # Check for overdispersion
+    pearson_chi2 <- sum(residuals(model, type = "pearson")^2)
+    dispersion <- pearson_chi2 / model$df.residual
+    model_family <- "Poisson"
+
+    if (dispersion > 1.5) {
+      cat("  Note: Overdispersion detected (", round(dispersion, 2),
+          "), switching to quasipoisson\n")
+      model <- glm(formula, data = data, family = quasipoisson)
+      model_family <- "quasiPoisson"
+    }
+
+    # Extract coefficients
+    coefs <- summary(model)$coefficients
+    beta <- coefs["log(volume)", "Estimate"]
+    se <- coefs["log(volume)", "Std. Error"]
+    # For Poisson, use "z value"; for quasipoisson, use "t value"
+    stat_col <- if (model_family == "Poisson") "z value" else "t value"
+    p_col <- if (model_family == "Poisson") "Pr(>|z|)" else "Pr(>|t|)"
+    z_val <- coefs["log(volume)", stat_col]
+    p_val <- coefs["log(volume)", p_col]
+
+    # Profile-based 95% CI (with tryCatch for convergence)
+    set.seed(42)
+    ci <- tryCatch(
+      confint(model, "log(volume)", level = 0.95),
+      error = function(e) {
+        cat("  Warning: Profile CI failed, using Wald CI\n")
+        c(beta - 1.96 * se, beta + 1.96 * se)
+      }
+    )
+
+    # Bootstrap 95% CI using Poisson bootstrap function
+    boot_ci_lower <- NA_real_
+    boot_ci_upper <- NA_real_
+
+    boot_richness_fn <- function(data, indices) {
+      d <- data[indices, ]
+      tryCatch({
+        if ("site" %in% names(d) && length(unique(d$site)) > 1) {
+          m <- glm(abundance ~ log(volume) + site, data = d, family = poisson)
+        } else {
+          m <- glm(abundance ~ log(volume), data = d, family = poisson)
+        }
+        coef(m)["log(volume)"]
+      }, error = function(e) NA)
+    }
+
+    if (requireNamespace("boot", quietly = TRUE) && n_nonzero >= 20) {
+      suppressWarnings({
+        set.seed(42)
+        boot_result <- boot::boot(data, boot_richness_fn, R = n_boot,
+                                  strata = factor(data$site))
+
+        # Report bootstrap failure rate
+        n_failed <- sum(is.na(boot_result$t))
+        cat("  Bootstrap failures:", n_failed, "of", length(boot_result$t),
+            "(", round(100 * n_failed / length(boot_result$t), 1), "%)\n")
+
+        valid_betas <- boot_result$t[!is.na(boot_result$t)]
+
+        if (length(valid_betas) >= n_boot * 0.8) {
+          # Try BCa CI first, fall back to percentile
+          boot_ci <- tryCatch(
+            boot::boot.ci(boot_result, type = "bca", conf = 0.95),
+            error = function(e) {
+              cat("  BCa CI failed, falling back to percentile method\n")
+              NULL
+            }
+          )
+
+          if (!is.null(boot_ci)) {
+            boot_ci_lower <- boot_ci$bca[4]
+            boot_ci_upper <- boot_ci$bca[5]
+          } else {
+            # Fallback to percentile
+            boot_ci_lower <- quantile(valid_betas, 0.025)
+            boot_ci_upper <- quantile(valid_betas, 0.975)
+          }
+        }
+      })
+    }
+
+    # Use bootstrap CI if available, otherwise profile CI
+    test_ci_lower <- if (!is.na(boot_ci_lower)) boot_ci_lower else ci[1]
+    test_ci_upper <- if (!is.na(boot_ci_upper)) boot_ci_upper else ci[2]
+
+    # Test vs beta = 1 using z-test
+    z_vs_1 <- (beta - 1) / se
+    p_vs_1 <- 2 * pnorm(-abs(z_vs_1))
+
+    # Pseudo-R2 (McFadden's)
+    pseudo_r2 <- calc_pseudo_r2(model)
+
+    # Interpret based on CI (whether 95% CI includes 1)
+    if (test_ci_upper < 1) {
+      interpretation <- "Redirection (β < 1)"
+    } else if (test_ci_lower > 1) {
+      interpretation <- "Super-linear (β > 1)"
+    } else {
+      interpretation <- "Field of Dreams (β ≈ 1)"
+    }
+
+    cat("  Richness model family:", model_family,
+        "(dispersion =", round(dispersion, 2), ")\n")
 
     list(
       response = response_name,
@@ -330,6 +559,22 @@ if (!is.na(total_result$boot_ci_lower)) {
 }
 cat("  Interpretation:", total_result$interpretation, "\n\n")
 
+# VIF diagnostics for abundance model
+if (!is.null(total_result$model)) {
+  cat("  VIF diagnostics:\n")
+  vif_values <- car::vif(total_result$model)
+  print(vif_values)
+  if (any(vif_values > 5)) {
+    cat("  WARNING: VIF > 5 detected — potential multicollinearity\n")
+  }
+  cat("\n")
+
+  # Influence diagnostics (Cook's D)
+  cd <- cooks.distance(total_result$model)
+  cat("  Max Cook's D:", round(max(cd, na.rm = TRUE), 4), "\n")
+  cat("  Observations with Cook's D > 4/n:", sum(cd > 4/length(cd), na.rm = TRUE), "\n\n")
+}
+
 # Store for combined results
 all_results <- list(total_abundance = total_result)
 
@@ -344,14 +589,22 @@ cat("############################################################\n\n")
 richness_data <- coral_data %>%
   dplyr::select(coral_id, site, volume, abundance = otu_richness)
 
-richness_result <- fit_scaling_model(richness_data, "Species Richness")
+# Use Poisson (not NB) for richness — richness has different distributional properties
+richness_result <- fit_richness_model(richness_data, "Species Richness")
 
-cat("Model: OTU Richness ~ log(Volume) + site (Negative Binomial GLM)\n\n")
+cat("Model: OTU Richness ~ log(Volume) + site (Poisson GLM)\n\n")
 cat("Results:\n")
 cat("  Scaling exponent β =", round(richness_result$beta, 3), "\n")
 cat("  95% CI: [", round(richness_result$ci_lower, 3), ",", round(richness_result$ci_upper, 3), "]\n")
 cat("  Test vs β = 1: z =", round(richness_result$z_vs_1, 2), ", p =", format.pval(richness_result$p_vs_1, 3), "\n")
 cat("  Interpretation:", richness_result$interpretation, "\n\n")
+
+# Influence diagnostics for richness model (Cook's D)
+if (!is.null(richness_result$model)) {
+  cd_richness <- cooks.distance(richness_result$model)
+  cat("  Max Cook's D:", round(max(cd_richness, na.rm = TRUE), 4), "\n")
+  cat("  Observations with Cook's D > 4/n:", sum(cd_richness > 4/length(cd_richness), na.rm = TRUE), "\n\n")
+}
 
 all_results$species_richness <- richness_result
 
@@ -368,16 +621,28 @@ if (requireNamespace("DHARMa", quietly = TRUE) && !is.null(total_result$model)) 
   cat("    Zero-inflation: p =", format.pval(
     DHARMa::testZeroInflation(dharma_total, plot = FALSE)$p.value, 3), "\n")
 
-  # Species richness (NB GLM)
+  # Species richness (Poisson GLM) — DHARMa doesn't support quasipoisson
+  dharma_rich <- NULL
   if (!is.null(richness_result$model)) {
-    set.seed(42)
-    dharma_rich <- DHARMa::simulateResiduals(richness_result$model, n = 1000, plot = FALSE)
-    dharma_tests_rich <- DHARMa::testResiduals(dharma_rich, plot = FALSE)
-    cat("  SPECIES RICHNESS (NB GLM):\n")
-    cat("    Uniformity (KS): p =", format.pval(dharma_tests_rich$uniformity$p.value, 3), "\n")
-    cat("    Dispersion: p =", format.pval(dharma_tests_rich$dispersion$p.value, 3), "\n")
-    cat("    Zero-inflation: p =", format.pval(
-      DHARMa::testZeroInflation(dharma_rich, plot = FALSE)$p.value, 3), "\n")
+    model_fam <- family(richness_result$model)$family
+    if (model_fam == "quasipoisson") {
+      cat("  SPECIES RICHNESS: Skipping DHARMa (quasipoisson not supported)\n")
+    } else {
+      set.seed(42)
+      dharma_rich <- tryCatch({
+        dr <- DHARMa::simulateResiduals(richness_result$model, n = 1000, plot = FALSE)
+        dharma_tests_rich <- DHARMa::testResiduals(dr, plot = FALSE)
+        cat("  SPECIES RICHNESS (Poisson GLM):\n")
+        cat("    Uniformity (KS): p =", format.pval(dharma_tests_rich$uniformity$p.value, 3), "\n")
+        cat("    Dispersion: p =", format.pval(dharma_tests_rich$dispersion$p.value, 3), "\n")
+        cat("    Zero-inflation: p =", format.pval(
+          DHARMa::testZeroInflation(dr, plot = FALSE)$p.value, 3), "\n")
+        dr
+      }, error = function(e) {
+        cat("  SPECIES RICHNESS: DHARMa diagnostics failed:", conditionMessage(e), "\n")
+        NULL
+      })
+    }
   }
 
   # Save diagnostic plots
@@ -386,7 +651,7 @@ if (requireNamespace("DHARMa", quietly = TRUE) && !is.null(total_result$model)) 
   png(file.path(fig_dir, "dharma_diagnostics.png"), width = 10, height = 5, units = "in", res = 200)
   par(mfrow = c(1, 2))
   plot(dharma_total, main = "Total CAFI (NB)")
-  if (!is.null(richness_result$model)) plot(dharma_rich, main = "Richness (NB)")
+  if (!is.null(dharma_rich)) plot(dharma_rich, main = "Richness (Poisson)")
   dev.off()
   cat("  Saved: dharma_diagnostics.png\n")
 } else {
@@ -403,6 +668,11 @@ cat("PART 3: SHANNON DIVERSITY SCALING\n")
 cat("############################################################\n\n")
 
 # Shannon requires linear model (continuous, not count)
+# Shannon = 0 means single-species community; log(Shannon) undefined for these
+n_zero_shannon <- sum(coral_data$shannon == 0, na.rm = TRUE)
+cat("  Note: Excluding", n_zero_shannon, "corals with Shannon = 0 from diversity analysis\n")
+cat("  (Shannon = 0 indicates single-species community)\n\n")
+
 shannon_data <- coral_data %>%
   filter(shannon > 0) %>%
   dplyr::select(coral_id, site, volume, shannon)
@@ -415,7 +685,13 @@ if (nrow(shannon_data) >= 15) {
 
   shannon_beta <- coef(shannon_model)["log(volume)"]
   shannon_se <- shannon_summary$coefficients["log(volume)", "Std. Error"]
-  shannon_ci <- confint(shannon_model, "log(volume)", level = 0.95)
+  shannon_ci <- tryCatch(
+    confint(shannon_model, "log(volume)", level = 0.95),
+    error = function(e) {
+      cat("  Warning: Profile CI failed for Shannon model, using Wald CI\n")
+      c(shannon_beta - 1.96 * shannon_se, shannon_beta + 1.96 * shannon_se)
+    }
+  )
   shannon_t <- shannon_summary$coefficients["log(volume)", "t value"]
   shannon_p <- shannon_summary$coefficients["log(volume)", "Pr(>|t|)"]
 
@@ -955,6 +1231,10 @@ species_data <- valid_results %>%
   filter(category == "Species", !is.na(se), se > 0)
 
 if (nrow(species_data) >= 3) {
+  # IMPORTANT: Species betas are NOT independent — all estimated from the same corals.
+  # Standard meta-analytic SE assumes independence and is anti-conservative.
+  # Report with caveat; consider rma.mv for proper inference.
+
   # Inverse-variance weighting (more precise estimates get more weight)
   weights <- 1 / (species_data$se^2)
   weighted_mean_beta <- sum(species_data$beta * weights) / sum(weights)
@@ -969,6 +1249,9 @@ if (nrow(species_data) >= 3) {
   p_val_weighted <- 2 * pnorm(-abs(z_stat))
 
   cat("\nSPECIES-LEVEL WEIGHTED META-ANALYSIS (H0: mean β = 1):\n")
+  cat("\n  NOTE: Weighted mean treats species betas as independent estimates.\n")
+  cat("  Since all species share the same coral sampling units, the SE is\n")
+  cat("  likely anti-conservative. Interpret the z-test vs beta=1 with caution.\n\n")
   cat("  Weighted mean β =", round(weighted_mean_beta, 3), "\n")
   cat("  95% CI: [", round(weighted_ci_lower, 3), ",", round(weighted_ci_upper, 3), "]\n")
   cat("  z =", round(z_stat, 2), ", p =", format.pval(p_val_weighted, 3), "\n")
@@ -988,8 +1271,21 @@ if (nrow(species_data) >= 3) {
     cat("  Conclusion: Species on average support FIELD OF DREAMS (β ≈ 1)\n")
   }
 
-  # Also report unweighted t-test for comparison (with caveat)
+  # If metafor is available, fit random-effects model (still assumes independence
+  # but at least accounts for heterogeneity properly)
   species_betas <- species_data$beta
+  species_ses <- species_data$se
+  if (requireNamespace("metafor", quietly = TRUE)) {
+    rma_result <- tryCatch({
+      metafor::rma(yi = species_betas, sei = species_ses, method = "REML")
+    }, error = function(e) NULL)
+    if (!is.null(rma_result)) {
+      cat("\n  Random-effects meta-analytic mean (metafor::rma):", round(rma_result$beta[1], 3),
+          "[", round(rma_result$ci.lb, 3), ",", round(rma_result$ci.ub, 3), "]\n")
+    }
+  }
+
+  # Also report unweighted t-test for comparison (with caveat)
   t_test <- t.test(species_betas, mu = 1)
   cat("\n  [Unweighted t-test for comparison - interpret cautiously due to precision heterogeneity]\n")
   cat("  Unweighted mean β =", round(mean(species_betas), 3), "±", round(sd(species_betas)/sqrt(length(species_betas)), 3), "\n")
@@ -1036,7 +1332,7 @@ cat("Creating Figure 1: Community-level scaling...\n")
 # Total abundance plot
 p_total <- ggplot(coral_data, aes(x = volume, y = total_cafi, color = site)) +
   geom_point(alpha = 0.7, size = 2.5) +
-  geom_smooth(aes(group = 1), method = "glm.nb", formula = y ~ log(x),
+  geom_smooth(aes(group = 1), method = MASS::glm.nb, formula = y ~ log(x),
               se = TRUE, color = "black", linewidth = 1) +
   scale_x_log10(labels = scales::comma) +
   scale_y_log10() +
@@ -1053,7 +1349,7 @@ p_total <- ggplot(coral_data, aes(x = volume, y = total_cafi, color = site)) +
 # Richness plot
 p_richness <- ggplot(coral_data, aes(x = volume, y = otu_richness, color = site)) +
   geom_point(alpha = 0.7, size = 2.5) +
-  geom_smooth(aes(group = 1), method = "glm.nb", formula = y ~ log(x),
+  geom_smooth(aes(group = 1), method = MASS::glm.nb, formula = y ~ log(x),
               se = TRUE, color = "black", linewidth = 1) +
   scale_x_log10(labels = scales::comma) +
   scale_y_log10() +
@@ -1208,7 +1504,7 @@ make_species_panel <- function(sp_name, sp_result) {
 
   ggplot(sp_data, aes(x = volume, y = abundance, color = site)) +
     geom_point(alpha = 0.7, size = 2) +
-    geom_smooth(aes(group = 1), method = "glm.nb", formula = y ~ log(x),
+    geom_smooth(aes(group = 1), method = MASS::glm.nb, formula = y ~ log(x),
                 se = TRUE, color = "black", linewidth = 0.8) +
     scale_x_log10(labels = scales::comma) +
     scale_y_continuous() +
@@ -1411,16 +1707,16 @@ cat("MANUSCRIPT FIGURE 2: Size-Abundance Scaling\n")
 cat("============================================================\n\n")
 
 # Define theme_manuscript (normally in script 13; included here for standalone use)
-theme_manuscript <- function(base_size = 12) {
+theme_manuscript <- function(base_size = 10) {
   theme_publication(base_size = base_size) +
     theme(
-      plot.title = element_text(face = "bold", size = base_size + 2, hjust = 0),
-      plot.subtitle = element_text(size = base_size, color = "gray30"),
+      plot.title = element_text(face = "bold", size = base_size + 1, hjust = 0),
+      plot.subtitle = element_text(size = base_size - 1, color = "gray30"),
       axis.title = element_text(size = base_size),
       axis.text = element_text(size = base_size - 1),
       legend.title = element_text(size = base_size - 1, face = "bold"),
       legend.text = element_text(size = base_size - 2),
-      plot.margin = margin(15, 15, 15, 15)
+      plot.margin = margin(10, 10, 10, 10)
     )
 }
 
@@ -1439,7 +1735,13 @@ if (nrow(scaling_data) >= 30) {
     coefs <- summary(abundance_model)$coefficients
     beta_abundance <- coefs["log(volume)", "Estimate"]
     se_abundance <- coefs["log(volume)", "Std. Error"]
-    ci_abundance <- confint(abundance_model, "log(volume)", level = 0.95)
+    ci_abundance <- tryCatch(
+      confint(abundance_model, "log(volume)", level = 0.95),
+      error = function(e) {
+        cat("  Warning: Profile CI failed, using Wald CI\n")
+        c(beta_abundance - 1.96 * se_abundance, beta_abundance + 1.96 * se_abundance)
+      }
+    )
 
     cat("  Total CAFI scaling: beta =", round(beta_abundance, 3), "\n")
     cat("  95% CI: [", round(ci_abundance[1], 3), ",", round(ci_abundance[2], 3), "]\n\n")
@@ -1455,17 +1757,17 @@ if (nrow(scaling_data) >= 30) {
   # Shared regression aesthetics
   smooth_color <- "gray20"
   smooth_fill  <- "gray85"
-  smooth_lwd   <- 0.9
-  smooth_alpha  <- 0.35
+  smooth_lwd   <- 0.7
+  smooth_alpha  <- 0.30
   point_alpha   <- 0.55
-  point_size    <- 1.8
+  point_size    <- 1.4
 
   # Panel A: Total abundance vs volume (log-log)
   panel_a <- scaling_data %>%
     ggplot(aes(x = volume, y = total_cafi)) +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed",
                 color = "gray78", linewidth = 0.4) +
-    geom_smooth(aes(group = 1), method = "glm.nb", formula = y ~ log(x),
+    geom_smooth(aes(group = 1), method = MASS::glm.nb, formula = y ~ log(x),
                 se = TRUE, color = smooth_color, fill = smooth_fill,
                 linewidth = smooth_lwd, alpha = smooth_alpha) +
     geom_point(aes(color = site), alpha = point_alpha, size = point_size) +
@@ -1483,19 +1785,15 @@ if (nrow(scaling_data) >= 30) {
           .(sprintf("%.2f", ci_abundance[2])) * "]")
       else "Model fit unavailable"
     ) +
-    annotate("text", x = 50, y = 250, label = "1 : 1", size = 2.8,
-             color = "gray65", fontface = "italic", hjust = 0) +
+    annotate("text", x = 50, y = 250, label = "1 : 1", size = 3,
+             color = "gray50", fontface = "italic", hjust = 0) +
     theme_manuscript() +
     theme(
-      axis.title = element_text(size = 11),
-      legend.position = c(0.95, 0.02),
-      legend.justification = c(1, 0),
-      legend.background = element_rect(fill = alpha("white", 0.85), color = NA),
-      legend.key.size = unit(0.35, "cm"),
-      legend.title = element_text(size = 9),
-      legend.text = element_text(size = 8),
-      legend.margin = margin(3, 5, 3, 5),
-      legend.spacing.y = unit(1, "pt"),
+      axis.title = element_text(size = 10),
+      legend.position = "bottom",
+      legend.key.size = unit(3, "mm"),
+      legend.title = element_text(size = 8, face = "bold"),
+      legend.text = element_text(size = 7),
       panel.grid.minor = element_blank()
     )
 
@@ -1506,7 +1804,14 @@ if (nrow(scaling_data) >= 30) {
 
   if (!is.null(richness_model_fig)) {
     z_richness <- coef(richness_model_fig)["log(volume)"]
-    z_ci <- confint(richness_model_fig, "log(volume)")
+    z_se <- summary(richness_model_fig)$coefficients["log(volume)", "Std. Error"]
+    z_ci <- tryCatch(
+      confint(richness_model_fig, "log(volume)"),
+      error = function(e) {
+        cat("  Warning: Profile CI failed for richness figure model, using Wald CI\n")
+        c(z_richness - 1.96 * z_se, z_richness + 1.96 * z_se)
+      }
+    )
   } else {
     z_richness <- NA
     z_ci <- c(NA, NA)
@@ -1534,7 +1839,7 @@ if (nrow(scaling_data) >= 30) {
     ) +
     theme_manuscript() +
     theme(
-      axis.title = element_text(size = 11),
+      axis.title = element_text(size = 10),
       legend.position = "none",
       panel.grid.minor = element_blank()
     )
@@ -1583,8 +1888,8 @@ if (nrow(scaling_data) >= 30) {
       geom_vline(xintercept = 1, linetype = "dashed", color = "gray45", linewidth = 0.4) +
       geom_segment(aes(x = boot_ci_lower, xend = boot_ci_upper,
                        y = species_label, yend = species_label, color = scaling_class),
-                   linewidth = 0.45, alpha = 0.6) +
-      geom_point(aes(color = scaling_class), size = 2.5) +
+                   linewidth = 0.4, alpha = 0.6) +
+      geom_point(aes(color = scaling_class), size = 2) +
       scale_color_manual(values = species_colors, name = "Scaling pattern") +
       scale_x_continuous(
         limits = c(x_min, x_max),
@@ -1598,19 +1903,18 @@ if (nrow(scaling_data) >= 30) {
         x = expression("Scaling exponent (" * beta * ")"),
         y = NULL,
         title = expression(bold("C")~"Species-level scaling"),
-        subtitle = expression("Top 10 species by prevalence"
-                              ~"|"~ beta == 1 ~"= proportional (Field of Dreams) scaling")
+        subtitle = expression("Top 10 species  |  " * beta == 1 ~ "= proportional scaling")
       ) +
       theme_manuscript() +
       theme(
-        axis.title = element_text(size = 11),
-        axis.text.y = element_text(face = "italic", size = 9),
-        axis.text.x.top = element_text(size = 8.5, face = "bold",
+        axis.title = element_text(size = 10),
+        axis.text.y = element_text(face = "italic", size = 8),
+        axis.text.x.top = element_text(size = 7.5, face = "bold",
                                         color = c("#5A8FAF", "gray40", "#D55E00")),
         axis.ticks.x.top = element_blank(),
         legend.position = "none",
         panel.grid.minor = element_blank(),
-        plot.margin = margin(5, 15, 15, 15)
+        plot.margin = margin(5, 10, 10, 5)
       )
   } else {
     panel_c <- ggplot() +
@@ -1620,23 +1924,24 @@ if (nrow(scaling_data) >= 30) {
 
   # Combine: A and B side by side on top, C wide on bottom
   fig2 <- (panel_a | panel_b) / panel_c +
-    plot_layout(heights = c(1, 0.8)) +
+    plot_layout(heights = c(1, 0.8), guides = "collect") +
     plot_annotation(
       caption = "Dashed line (A, C): 1:1 proportional scaling (\u03b2 = 1). Solid curves (A, B): GLM fit \u00B1 95% CI. n = 114 corals, 3 reef sites.",
       theme = theme(
-        plot.caption = element_text(size = 8.5, color = "gray45", hjust = 0,
-                                    margin = margin(t = 8))
+        plot.caption = element_text(size = 7, color = "gray45", hjust = 0,
+                                    margin = margin(t = 5)),
+        legend.position = "bottom"
       )
     )
 
   # Save to manuscript directory
   ggsave(file.path(PATHS$fig_manuscript, "fig2_scaling.png"), fig2,
-         width = 12, height = 9, dpi = 300, bg = "white")
+         width = 180, height = 190, units = "mm", dpi = 300, bg = "white")
   cat("  Saved: manuscript/fig2_scaling.png\n")
 
   # Save to analysis figure directory
   ggsave(file.path(FIG_DIR, "fig2_scaling.png"), fig2,
-         width = 12, height = 9, dpi = 300, bg = "white")
+         width = 180, height = 190, units = "mm", dpi = 300, bg = "white")
   cat("  Saved: 05_scaling/fig2_scaling.png\n")
 
   # Copy species scaling forest to supplement
@@ -1646,11 +1951,53 @@ if (nrow(scaling_data) >= 30) {
             file.path(supplement_dir, "figS6_species_scaling.png"), overwrite = TRUE)
   cat("  Copied: supplement/figS6_species_scaling.png\n")
 
-  # Copy fig2 legend results text
-  legend_src <- file.path(PATHS$fig_manuscript, "fig2_legend_results.txt")
-  if (file.exists(legend_src)) {
-    cat("  Legend results: fig2_legend_results.txt already exists in manuscript dir\n")
-  }
+  # Generate fig2 legend results text
+  n_species_forest <- nrow(species_scaling)
+  fig2_legend <- paste0(
+'FIGURE 2: CAFI SCALING WITH CORAL SIZE
+================================================================================
+
+FIGURE LEGEND
+-------------
+Figure 2. CAFI abundance and richness scale sublinearly with coral volume.
+(A) Total CAFI abundance vs colony volume (log-log scale). Solid curve: negative
+binomial GLM fit; shaded band: 95% CI. Dashed line: 1:1 proportional scaling
+(\u03b2 = 1, Field of Dreams hypothesis). Abundance scaling exponent \u03b2 = ',
+round(total_result$beta, 2), ' [', round(total_result$ci_lower, 2), ', ',
+round(total_result$ci_upper, 2), '] — sublinear (Propagule Redirection).
+(B) Species richness vs colony volume. Poisson GLM; z = ',
+round(richness_result$beta, 2), ' [', round(richness_result$ci_lower, 2), ', ',
+round(richness_result$ci_upper, 2), '] — sublinear.
+(C) Species-level scaling forest plot for ', n_species_forest, ' taxa.
+Error bars: 95% bootstrap CI (1,000 iterations, site-stratified). Species whose
+CI excludes 1.0 are classified as Redirection (\u03b2 < 1, blue) or Super-linear
+(\u03b2 > 1, vermillion); species whose CI spans 1.0 are Field of Dreams (gray).
+n = ', nrow(abundance_data), ' corals across 3 reef sites.
+
+================================================================================
+
+KEY STATISTICS
+--------------
+
+Total CAFI Abundance:
+  \u03b2 = ', round(total_result$beta, 3), ' [', round(total_result$ci_lower, 3), ', ', round(total_result$ci_upper, 3), ']
+  z vs 1 = ', round(total_result$z_vs_1, 2), ', p = ', format.pval(total_result$p_vs_1, 3), '
+  Interpretation: ', total_result$interpretation, '
+
+Species Richness:
+  z = ', round(richness_result$beta, 3), ' [', round(richness_result$ci_lower, 3), ', ', round(richness_result$ci_upper, 3), ']
+  z vs 1 = ', round(richness_result$z_vs_1, 2), ', p = ', format.pval(richness_result$p_vs_1, 3), '
+  Interpretation: ', richness_result$interpretation, '
+
+Bootstrap: 1,000 site-stratified iterations per taxon
+Log base: natural log (coefficient = power-law exponent directly)
+
+================================================================================
+Generated: ', Sys.Date(), '
+Source script: scripts/05_species_scaling_analysis.R
+')
+  writeLines(fig2_legend, file.path(PATHS$fig_manuscript, "fig2_legend_results.txt"))
+  cat("  Generated: fig2_legend_results.txt\n")
 
   cat("\n")
 

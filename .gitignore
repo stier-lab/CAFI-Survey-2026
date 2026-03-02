@@ -41,5 +41,5 @@ output/
 # Session files
 .Renviron
 
-# Archive - large unused files (optional, uncomment to exclude from git)
-# archive/gis/
+# Legacy notebooks
+COMPREHENSIVE_CAFI_ANALYSIS_FULL.*

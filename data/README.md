@@ -145,23 +145,13 @@ These files document the original data collection protocols:
 
 ## Subdirectories
 
-### gis/
-
-OpenStreetMap shapefiles for Mo'orea island (buildings, landuse, roads, water bodies). Used for map visualizations. ~100 MB total.
-
-**Key files**: `gis_osm_natural_a_free_1.*` (natural features), `gis_osm_water_a_free_1.*` (water bodies)
-
 ### traits/
 
 Trait database for CAFI species compiled from multiple sources (WoRMS, FishBase, OBIS).
 
-**Authoritative file**: `cafi_traits_final.csv` - Use this for trait-based analyses.
+**Authoritative file**: `cafi_traits_final.csv` — Use this for trait-based analyses.
 
-Other files are intermediate extraction steps (documented in `TRAIT_EXTRACTION_GUIDE.md`).
-
-### projects/
-
-Internal state files for analysis pipeline. Not needed for data analysis.
+Extraction methodology documented in `TRAIT_EXTRACTION_GUIDE.md`.
 
 ---
 
@@ -198,8 +188,9 @@ master <- coral %>%
 
 **Or use the pre-built pipeline**:
 ```r
-source("scripts/01_load_clean_data.R")
-# Creates: cafi_clean, coral_clean, physio_clean, coral_master
+source("scripts/00_setup.R")
+source("scripts/01_load_data.R")
+# Creates: cafi_clean, coral_master, community_matrix, condition_scores
 # Saves to: output/objects/
 ```
 
@@ -211,9 +202,9 @@ source("scripts/01_load_clean_data.R")
 |----------|-------|
 | Collection period | June–August 2019 |
 | Location | Mo'orea, French Polynesia (17°30'S, 149°50'W) |
-| Sites | HAU (Hauru), MAT (Maatea), MRB (Moorea Barrier Reef) |
+| Sites | HAU (Hauru), MAT (Maatea), MRB (Maharepa barrier reef) |
 | Host coral | *Pocillopora* spp. |
-| Sample size | 114 colonies, 3,989 CAFI individuals, 87 OTUs |
+| Sample size | 114 colonies, 3,989 CAFI individuals, 243 OTUs |
 | Collectors | Field team initials in data (JC, AP, AS, CO) |
 
 ---

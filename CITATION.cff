@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "CAFI Survey Analysis: Coral-Associated Fauna Communities in Mo'orea"
+type: software
+authors:
+  - family-names: Stier
+    given-names: Adrian C.
+    orcid: "https://orcid.org/0000-0002-5765-4512"
+    affiliation: "University of California, Santa Barbara"
+repository-code: "https://github.com/stier-lab/CAFI-Survey-2026"
+license: CC-BY-4.0
+date-released: "2026-03-01"
+keywords:
+  - coral reef ecology
+  - community assembly
+  - species-area relationships
+  - Mo'orea
+  - Pocillopora
+  - coral-associated fauna

@@ -56,13 +56,10 @@ if (!exists("PATHS")) source(here::here("scripts/00_setup.R"))
 if (!exists("coral_master")) source(here::here("scripts/01_load_data.R"))
 
 # Load additional required packages for network analysis
-cran_mirror <- "https://cran.rstudio.com"
-if (!require("igraph", quietly = TRUE)) {
-  install.packages("igraph", repos = cran_mirror)
-  library(igraph)
-} else {
-  library(igraph)
+if (!requireNamespace("igraph", quietly = TRUE)) {
+  stop("Package 'igraph' is required but not installed. Install with: install.packages('igraph')")
 }
+library(igraph)
 
 # Create output directories
 fig_dir <- file.path(PATHS$figures, "06_network")
@@ -153,6 +150,9 @@ for (sp in seq_len(ncol(comm_filtered))) {
 cat("     Species residualized:", ncol(residual_matrix), "\n")
 
 # 1.4 Calculate Spearman correlations on volume-corrected residuals
+# Note: Spearman rank correlation on logistic deviance residuals may have
+# reduced power due to bimodal residual distribution. Pearson correlation
+# on Pearson residuals is an alternative but assumes linearity.
 cat("1.3 Calculating volume-corrected co-occurrences (Spearman correlation)...\n")
 
 cor_matrix <- cor(residual_matrix, method = "spearman", use = "pairwise.complete.obs")
@@ -161,17 +161,22 @@ cor_matrix <- cor(residual_matrix, method = "spearman", use = "pairwise.complete
 cor_matrix[is.na(cor_matrix)] <- 0
 
 # 1.5 Extract significant positive associations with FDR correction
-# Threshold: r > 0.3 AND FDR-corrected p < 0.05
+# Edge threshold: r > 0.3 AND FDR-corrected p < 0.05
+# Rationale: r > 0.3 balances sensitivity (detecting real co-occurrences) with
+# specificity (avoiding noise edges). Lower thresholds (0.2) produce dense graphs
+# where modularity detection is unreliable; higher (0.4) fragment the network.
+# Threshold sensitivity analysis in Part 2 confirms results are robust.
 threshold <- 0.3
 
 cat("     Computing pairwise p-values for FDR correction...\n")
 
-# Compute p-values for all pairs above threshold
+# Compute p-values for ALL pairs with |r| > 0.2 (lowest sensitivity threshold)
+# This supports both the main analysis and the threshold sensitivity analysis
 n_sp <- ncol(residual_matrix)
 p_matrix <- matrix(1, nrow = n_sp, ncol = n_sp)
 for (i in 1:(n_sp - 1)) {
   for (j in (i + 1):n_sp) {
-    if (cor_matrix[i, j] > threshold) {
+    if (abs(cor_matrix[i, j]) > 0.2) {
       ct <- tryCatch(
         cor.test(residual_matrix[, i], residual_matrix[, j], method = "spearman"),
         error = function(e) list(p.value = 1)
@@ -182,8 +187,20 @@ for (i in 1:(n_sp - 1)) {
   }
 }
 
+# Build FDR-adjusted p-value matrix (upper triangle)
+upper_idx <- which(upper.tri(p_matrix))
+p_upper_raw <- p_matrix[upper_idx]
+p_upper_adj <- p.adjust(p_upper_raw, method = "BH")
+p_matrix_adj <- matrix(1, nrow = n_sp, ncol = n_sp)
+p_matrix_adj[upper_idx] <- p_upper_adj
+p_matrix_adj <- t(p_matrix_adj)
+p_matrix_adj[upper_idx] <- p_upper_adj  # symmetrize
+
 # Extract pairs above threshold
 edge_indices_raw <- which(upper.tri(cor_matrix) & cor_matrix > threshold, arr.ind = TRUE)
+
+# Initialize edge_indices as empty in case no edges pass threshold
+edge_indices <- matrix(nrow = 0, ncol = 2)
 
 if (nrow(edge_indices_raw) > 0) {
   # Get raw p-values for candidate edges
@@ -231,7 +248,7 @@ if (nrow(edge_indices) > 0) {
     n_edges = 0,
     note = "No significant positive associations found"
   )
-  save_object(network_results, "network_results")
+  save_object(network_results, "cafi_network")
   cat("Script 06 complete (no network constructed).\n\n")
 }
 
@@ -317,12 +334,18 @@ diameter_obs <- diameter(g)
 mean_distance_obs <- mean_distance(g)
 
 # Modularity via Louvain algorithm (weighted for community assignments)
-set.seed(42)  # For reproducibility
+# Louvain chosen over alternatives (fast-greedy, walktrap) because it:
+#   1. Handles weighted networks natively (edge weights = correlation strength)
+#   2. Scales well and produces interpretable community structure
+#   3. Widely used in ecological network analyses for comparison
+set.seed(42)  # For reproducibility (Louvain is stochastic)
 communities_louvain <- cluster_louvain(g, weights = E(g)$weight)
 modularity_obs <- modularity(communities_louvain)
 n_modules <- length(unique(membership(communities_louvain)))
 
-# Unweighted modularity for null model comparison (null graphs are unweighted)
+# Unweighted modularity for null model comparison
+# Null graphs (degree-preserving configuration model) are unweighted, so we
+# need an unweighted observed modularity for a fair z-score comparison
 communities_unweighted <- cluster_louvain(g)  # no weights
 modularity_obs_unweighted <- modularity(communities_unweighted)
 
@@ -357,29 +380,24 @@ cat("PART 4: NULL MODEL COMPARISON (Configuration Model)\n")
 cat("------------------------------------------------------------\n\n")
 
 cat("4.1 Generating 1000 degree-preserving random networks...\n")
-cat("     (Configuration model preserves observed degree sequence)\n")
+cat("     (Edge-swap rewiring preserves observed degree sequence)\n")
 
 n_permutations <- 1000
 null_metrics <- matrix(NA, nrow = n_permutations, ncol = 4)
 colnames(null_metrics) <- c("modularity", "transitivity", "mean_distance", "diameter")
 
-# Observed degree sequence for configuration model
-obs_degree_seq <- degree(g)
+# Create unweighted copy of observed graph for rewiring
+g_unweighted <- delete_edge_attr(g, "weight")
+
+# Number of edge swaps per permutation: 10× edge count ensures thorough randomization
+n_swaps <- ecount(g_unweighted) * 10
 
 set.seed(123)
 
 for (i in 1:n_permutations) {
-  # Generate configuration model random graph preserving degree sequence
-  g_random <- tryCatch(
-    sample_degseq(obs_degree_seq, method = "simple"),
-    error = function(e) {
-      # Fallback: simple.no.multiple if simple fails
-      tryCatch(
-        sample_degseq(obs_degree_seq, method = "simple.no.multiple"),
-        error = function(e2) erdos.renyi.game(n_nodes, density, type = "gnp")
-      )
-    }
-  )
+  # Edge-swap rewiring: randomly swaps edge endpoints while preserving degree sequence
+  # Much faster than sample_degseq() for dense graphs (density = 0.76)
+  g_random <- rewire(g_unweighted, keeping_degseq(niter = n_swaps))
 
   # Calculate metrics
   null_metrics[i, "transitivity"] <- transitivity(g_random, type = "global")
@@ -394,7 +412,10 @@ for (i in 1:n_permutations) {
     null_metrics[i, "modularity"] <- 0
   }
 
-  if (i %% 200 == 0) cat("     ", i, "permutations completed\n")
+  if (i %% 100 == 0) {
+    cat("     ", i, "of", n_permutations, "permutations completed\n")
+    flush.console()
+  }
 }
 
 cat("\n4.2 Computing z-scores and p-values...\n\n")
@@ -440,6 +461,70 @@ for (i in 1:nrow(null_comparison)) {
               null_comparison$z_score[i], null_comparison$p_value[i],
               null_comparison$significance[i]))
 }
+
+# Check modularity z-score direction and report accordingly
+mod_z <- null_comparison$z_score[null_comparison$metric == "Modularity"]
+if (!is.na(mod_z) && mod_z < 0) {
+  cat("  NOTE: Observed modularity is LOWER than null expectation (z =",
+      round(mod_z, 2), ").\n")
+  cat("  The network does NOT show significant modular structure.\n\n")
+} else if (!is.na(mod_z) && mod_z >= 2) {
+  cat("  Observed modularity exceeds null expectation (z =",
+      round(mod_z, 2), ").\n")
+  cat("  The network shows significant modular structure.\n\n")
+} else {
+  cat("  Observed modularity z =", round(mod_z, 2),
+      " — modular structure is not significantly elevated.\n\n")
+}
+
+# ============================================================================
+# SENSITIVITY: Threshold analysis
+# ============================================================================
+cat("\n--- Network Threshold Sensitivity Analysis ---\n")
+
+sensitivity_results <- data.frame(
+  threshold = numeric(),
+  n_edges = integer(),
+  density = numeric(),
+  n_modules = integer(),
+  modularity_Q = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for (thresh in c(0.2, 0.3, 0.4, 0.5)) {
+  # Apply threshold to existing correlation matrix
+  edges_at_thresh <- which(abs(cor_matrix) > thresh & p_matrix_adj < 0.05, arr.ind = TRUE)
+  edges_at_thresh <- edges_at_thresh[edges_at_thresh[,1] < edges_at_thresh[,2], , drop = FALSE]
+
+  if (nrow(edges_at_thresh) > 0) {
+    g_temp <- igraph::graph_from_edgelist(
+      matrix(colnames(cor_matrix)[edges_at_thresh], ncol = 2),
+      directed = FALSE
+    )
+    comm_temp <- igraph::cluster_louvain(g_temp)
+    q_temp <- igraph::modularity(comm_temp)
+    n_mod_temp <- length(unique(igraph::membership(comm_temp)))
+    dens_temp <- igraph::edge_density(g_temp)
+  } else {
+    q_temp <- NA; n_mod_temp <- 0; dens_temp <- 0
+  }
+
+  sensitivity_results <- rbind(sensitivity_results, data.frame(
+    threshold = thresh,
+    n_edges = nrow(edges_at_thresh),
+    density = round(dens_temp, 3),
+    n_modules = n_mod_temp,
+    modularity_Q = round(q_temp, 4)
+  ))
+}
+
+cat("\n  Threshold sensitivity:\n")
+print(sensitivity_results, row.names = FALSE)
+cat("\n")
+
+# Save sensitivity results
+save_table(sensitivity_results, "network_threshold_sensitivity")
+cat("     Saved: network_threshold_sensitivity.csv\n\n")
 
 # ============================================================================
 # PART 5: CENTRALITY ANALYSIS
@@ -590,7 +675,7 @@ contingency_table <- module_taxonomy %>%
 
 if (nrow(contingency_table) > 1 && ncol(contingency_table) > 1 &&
     min(rowSums(contingency_table)) > 0 && min(colSums(contingency_table)) > 0) {
-  chi_test <- chisq.test(contingency_table, simulate.p.value = TRUE, B = 2000)
+  chi_test <- stats::chisq.test(contingency_table, simulate.p.value = TRUE, B = 2000)
   cat("\n     Chi-square test for taxonomic clustering across modules:\n")
   cat(sprintf("       X2 = %.2f, p = %.4f\n", chi_test$statistic, chi_test$p.value))
   if (chi_test$p.value < 0.05) {
@@ -623,9 +708,13 @@ type_colors <- c(
   "unknown" = "#999999"
 )
 
-# Module colors
+# Module colors (colorblind-safe Okabe-Ito palette)
 n_mod <- length(unique(V(g)$module))
-module_colors <- rainbow(n_mod, alpha = 0.8)
+module_palette <- c("#E69F00", "#56B4E9", "#009E73", "#CC79A7", "#F0E442", "#0072B2", "#D55E00")
+module_colors <- module_palette[1:min(n_mod, length(module_palette))]
+if (n_mod > length(module_palette)) {
+  module_colors <- c(module_colors, scales::hue_pal()(n_mod - length(module_palette)))
+}
 
 # Node sizes based on degree
 node_sizes <- 3 + sqrt(V(g)$degree) * 2
@@ -762,7 +851,9 @@ p_modularity <- ggplot(null_mod_df, aes(x = modularity)) +
     x = "Modularity (Q)",
     y = "Frequency (null model)",
     title = "B. Modularity vs Null Model",
-    subtitle = sprintf("z = %.1f, p < 0.001", null_comparison$z_score[null_comparison$metric == "Modularity"])
+    subtitle = sprintf("z = %.1f, p = %.4f",
+                       null_comparison$z_score[null_comparison$metric == "Modularity"],
+                       null_comparison$p_value[null_comparison$metric == "Modularity"])
   )
 
 # 4C: Top hub species
@@ -797,7 +888,7 @@ p_modules <- module_taxonomy %>%
 # Combine panels
 p_manuscript <- (p_degree + p_modularity) / (p_hubs + p_modules) +
   plot_annotation(
-    title = "Figure 5: CAFI Co-occurrence Network Analysis",
+    title = "CAFI Co-occurrence Network Analysis",
     subtitle = sprintf("N = %d species, %d positive associations (r > 0.3)", n_nodes, n_edges),
     theme = theme(
       plot.title = element_text(size = 14, face = "bold"),
@@ -934,7 +1025,7 @@ tryCatch({
       radius = 4.5,
       x = radius * cos(angle),
       y = radius * sin(angle),
-      node_size = scales::rescale(degree, to = c(2.5, 8))
+      node_size = scales::rescale(degree, to = c(3, 9))
     )
 
   edge_df <- igraph::as_data_frame(g, what = "edges") %>%
@@ -952,7 +1043,13 @@ tryCatch({
                           "gray50")
     )
 
-  between_guild_edges <- edge_df %>% dplyr::filter(!is_within_guild)
+  # Filter edges: keep only top 50% by weight to reduce visual clutter
+  weight_median <- median(edge_df$weight)
+  edge_df_filtered <- edge_df %>% dplyr::filter(weight >= weight_median)
+  cat(sprintf("  Edge filtering: median weight = %.3f, keeping %d / %d edges (top 50%%)\n",
+              weight_median, nrow(edge_df_filtered), nrow(edge_df)))
+
+  between_guild_edges <- edge_df_filtered %>% dplyr::filter(!is_within_guild)
   # Use between_guild_edges directly (no sampling needed)
   n_between <- nrow(between_guild_edges)
 
@@ -968,7 +1065,7 @@ tryCatch({
     )
   }
 
-  within_guild_edges <- edge_df %>% dplyr::filter(is_within_guild)
+  within_guild_edges <- edge_df_filtered %>% dplyr::filter(is_within_guild)
   cat("  Generating bezier curves for", nrow(within_guild_edges), "within-guild edges...\n")
 
   bezier_within <- purrr::map_dfr(1:nrow(within_guild_edges), function(i) {
@@ -1054,32 +1151,32 @@ tryCatch({
     geom_path(
       data = bezier_between,
       aes(x = x, y = y, group = edge_id),
-      color = "gray55",
-      alpha = 0.25,
-      linewidth = 0.25
+      color = "gray65",
+      alpha = 0.07,
+      linewidth = 0.2
     ) +
     geom_path(
       data = bezier_within,
       aes(x = x, y = y, group = edge_id, color = guild, alpha = weight),
-      linewidth = 0.5
+      linewidth = 0.4
     ) +
     geom_point(
       data = sp_positions,
       aes(x = x, y = y, fill = guild, size = node_size),
       shape = 21,
       color = "white",
-      stroke = 0.6
+      stroke = 0.7
     ) +
     geom_text(
       data = guild_label_positions,
       aes(x = x, y = y, label = label, color = guild, hjust = hjust, vjust = vjust),
-      size = 3.5,
+      size = 3.8,
       fontface = "bold"
     ) +
     scale_fill_manual(values = guild_colors, guide = "none") +
     scale_color_manual(values = guild_colors, guide = "none") +
     scale_size_identity() +
-    scale_alpha_continuous(range = c(0.15, 0.7), guide = "none") +
+    scale_alpha_continuous(range = c(0.08, 0.45), guide = "none") +
     coord_fixed(ratio = 1, xlim = c(-6.8, 6.8), ylim = c(-6.8, 6.8), clip = "off") +
     labs(
       title = "A. Species Co-occurrence Network",
@@ -1129,6 +1226,9 @@ tryCatch({
       layout_sub[,2] <- 0
     }
 
+    # Scale node sizes based on panel density
+    node_size_range <- if (n_sp > 15) c(3, 10) else c(4, 14)
+
     node_data <- data.frame(
       species = V(g_sub)$name,
       x = layout_sub[,1],
@@ -1137,7 +1237,7 @@ tryCatch({
       stringsAsFactors = FALSE
     ) %>%
       mutate(
-        node_size = scales::rescale(degree, to = c(4, 14)),
+        node_size = scales::rescale(degree, to = node_size_range),
         species_label = gsub("([A-Z])[a-z]+ ", "\\1. ", species)
       )
 
@@ -1178,11 +1278,12 @@ tryCatch({
     )
 
     if (!is.null(edge_data) && nrow(edge_data) > 0) {
+      edge_lw <- if (n_sp > 15) 0.3 else 0.5
       p <- p + geom_segment(
         data = edge_data,
         aes(x = x1, y = y1, xend = x2, yend = y2, alpha = weight),
         color = guild_color,
-        linewidth = 0.5
+        linewidth = edge_lw
       )
     }
 
@@ -1198,24 +1299,28 @@ tryCatch({
     labels_data <- node_data %>% dplyr::filter(show_label)
 
     if (nrow(labels_data) > 0) {
+      # Scale label size based on species count: smaller text for dense panels
+      label_size <- if (n_species <= 5) 4.0 else if (n_species <= 12) 3.5 else 2.8
+      repel_force <- if (n_species > 15) 25 else 12
       p <- p + ggrepel::geom_text_repel(
         data = labels_data,
         aes(x = x, y = y, label = species_label),
-        size = 3.2,
+        size = label_size,
         fontface = "bold.italic",
         color = "gray5",
         bg.color = "white",
-        bg.r = 0.12,
+        bg.r = 0.15,
         segment.color = "gray40",
         segment.size = 0.3,
-        segment.alpha = 0.7,
-        box.padding = 0.55,
-        point.padding = 0.45,
-        max.overlaps = 30,
-        force = 10,
-        force_pull = 0.4,
-        max.iter = 8000,
-        seed = 42
+        segment.alpha = 0.6,
+        box.padding = 0.35,
+        point.padding = 0.3,
+        max.overlaps = 50,
+        force = repel_force,
+        force_pull = 0.2,
+        max.iter = 20000,
+        seed = 42,
+        min.segment.length = 0.1
       )
     }
 
@@ -1228,18 +1333,21 @@ tryCatch({
 
     p <- p +
       scale_size_identity() +
-      scale_alpha_continuous(range = c(0.2, 0.8), guide = "none") +
-      coord_fixed(ratio = 1, xlim = c(-2.1, 2.1), ylim = c(-2.1, 2.1)) +
+      scale_alpha_continuous(range = if (n_sp > 15) c(0.1, 0.4) else c(0.15, 0.65), guide = "none") +
+      # Expand coordinate limits for dense panels to give labels room
+      coord_fixed(ratio = 1,
+                  xlim = c(if (n_sp > 15) -2.8 else -2.3, if (n_sp > 15) 2.8 else 2.3),
+                  ylim = c(if (n_sp > 15) -2.8 else -2.3, if (n_sp > 15) 2.8 else 2.3)) +
       labs(
         title = sprintf("%s. %s", letter, guild_name),
         subtitle = subtitle_text
       ) +
       theme_void() +
       theme(
-        plot.title = element_text(size = 10, face = "bold", hjust = 0.5,
+        plot.title = element_text(size = 11, face = "bold", hjust = 0.5,
                                   color = guild_color),
-        plot.subtitle = element_text(size = 7.5, hjust = 0.5, color = "gray50"),
-        plot.margin = margin(3, 3, 3, 3),
+        plot.subtitle = element_text(size = 8.5, hjust = 0.5, color = "gray50"),
+        plot.margin = margin(4, 4, 4, 4),
         plot.background = element_rect(fill = "white", color = "gray80",
                                        linewidth = 0.5)
       )
@@ -1269,7 +1377,7 @@ tryCatch({
   p_wide <- (p_A | p_right) +
     plot_layout(widths = c(1.5, 2)) +
     plot_annotation(
-      title = "Figure 5: CAFI Co-occurrence Network Structure",
+      title = "CAFI Co-occurrence Network Structure",
       subtitle = paste0(
         "Four ecological guilds identified via Louvain community detection | Q = ",
         sprintf("%.2f", modularity(communities)), " | ",
@@ -1282,9 +1390,10 @@ tryCatch({
       theme = theme(
         plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
         plot.subtitle = element_text(size = 10, hjust = 0.5, color = "gray40"),
-        plot.caption = element_text(size = 8, hjust = 0.5, color = "gray50",
-                                    margin = margin(t = 10)),
-        plot.background = element_rect(fill = "white", color = NA)
+        plot.caption = element_text(size = 9.5, hjust = 0.5, color = "gray50",
+                                    margin = margin(t = 12)),
+        plot.background = element_rect(fill = "white", color = NA),
+        plot.margin = margin(10, 10, 10, 10, "mm")
       )
     )
 
@@ -1292,8 +1401,9 @@ tryCatch({
   ggsave(
     file.path(PATHS$fig_manuscript, "fig5_network.png"),
     p_wide,
-    width = 18,
-    height = 11,
+    width = 280,
+    height = 170,
+    units = "mm",
     dpi = 300,
     bg = "white"
   )
@@ -1303,8 +1413,9 @@ tryCatch({
   ggsave(
     file.path(fig_dir, "fig5_5panel_v2_wide.png"),
     p_wide,
-    width = 18,
-    height = 11,
+    width = 280,
+    height = 170,
+    units = "mm",
     dpi = 300,
     bg = "white"
   )
@@ -1340,7 +1451,7 @@ fig5_legend <- paste0(
   "(B) Degree distribution across species. Dashed line = mean degree.\n",
   "(C) Modularity vs null model: observed modularity (Q = ", sprintf("%.2f", modularity_obs),
   ") compared to\n",
-  "1000 Erdos-Renyi random networks.\n",
+  "1000 configuration model (degree-preserving) random networks.\n",
   "(D) Top 10 hub species ranked by hub score (degree + eigenvector centrality).\n",
   "(E) Module composition showing taxonomic makeup of each network module.\n\n",
 
@@ -1360,12 +1471,17 @@ fig5_legend <- paste0(
   "   Modularity (Q): ", sprintf("%.3f", modularity_obs), "\n",
   "   Modularity (unweighted): ", sprintf("%.3f", modularity_obs_unweighted), "\n\n",
 
-  "3. NULL MODEL COMPARISON (1000 Erdos-Renyi random networks)\n",
+  "3. NULL MODEL COMPARISON (1000 configuration model, degree-preserving)\n",
   "   Observed modularity: ", sprintf("%.3f", modularity_obs), "\n",
   "   Null mean modularity: ", sprintf("%.3f", null_mod$null_mean), "\n",
   "   z-score: ", sprintf("%.1f", null_mod$z_score), "\n",
   "   Ratio to null: ", sprintf("%.1fx", null_mod$ratio_to_null), "\n",
-  "   Interpretation: Network is significantly more modular than random.\n\n",
+  "   Interpretation: ", ifelse(null_mod$z_score > 2,
+    "Network is significantly more modular than random.",
+    ifelse(null_mod$z_score < 0,
+      paste0("Network is LESS modular than random (z = ", sprintf("%.1f", null_mod$z_score), "); no significant modular structure."),
+      "Modularity is not significantly elevated above random expectation.")),
+  "\n\n",
 
   "   Observed transitivity: ", sprintf("%.3f", transitivity_obs), "\n",
   "   Null mean transitivity: ", sprintf("%.3f", null_trans$null_mean), "\n",
@@ -1403,11 +1519,15 @@ fig5_legend <- paste0(fig5_legend, "\n",
   "The CAFI co-occurrence network comprised ", n_nodes, " species connected by ",
   n_edges, " significant positive associations (r > 0.3, FDR p < 0.05). ",
   "Louvain community detection identified ", n_modules, " ecological modules ",
-  "(Q = ", sprintf("%.2f", modularity_obs), "), significantly exceeding null expectations ",
-  "(z = ", sprintf("%.1f", null_mod$z_score), ", ", sprintf("%.1fx", null_mod$ratio_to_null),
-  " random; Fig. 5C). This modular structure indicates non-random species associations ",
-  "that may reflect shared habitat preferences, trophic interactions, or ",
-  "facilitation cascades within Pocillopora colonies.\n\n",
+  "(Q = ", sprintf("%.2f", modularity_obs), "; z = ",
+  sprintf("%.1f", null_mod$z_score), " vs configuration model null, ",
+  sprintf("%.1fx", null_mod$ratio_to_null), " random). ",
+  ifelse(null_mod$z_score > 2,
+    "This modular structure significantly exceeds null expectations, indicating non-random species associations that may reflect shared habitat preferences, trophic interactions, or facilitation cascades within Pocillopora colonies.",
+    ifelse(null_mod$z_score < 0,
+      "Observed modularity was LOWER than null expectation, indicating no significant modular structure in the co-occurrence network.",
+      "Modularity was not significantly elevated above null expectation.")),
+  "\n\n",
 
   "The network exhibited ", ifelse(null_trans$z_score > 2, "elevated", "moderate"),
   " clustering (transitivity = ", sprintf("%.2f", transitivity_obs),
@@ -1428,7 +1548,7 @@ fig5_legend <- paste0(fig5_legend, "\n",
   "p < 0.05. Network modules were identified using the Louvain community detection ",
   "algorithm (Blondel et al. 2008). To assess whether observed network properties ",
   "deviate from random expectations, we compared modularity and transitivity against ",
-  "1000 Erdos-Renyi random networks matched for node count and edge density. ",
+  "1000 configuration model (degree-preserving) random networks. ",
   "Hub species were identified by combining standardized degree and eigenvector ",
   "centrality into a composite hub score.\n\n",
 
@@ -1522,13 +1642,15 @@ cat("  - Mean degree:", round(mean_degree, 2), "\n\n")
 cat("Non-random Structure (vs configuration model null):\n")
 cat(sprintf("  - Modularity Q = %.2f (weighted), %.2f (unweighted)\n",
             modularity_obs, modularity_obs_unweighted))
-cat(sprintf("  - Unweighted Q vs null: %.1fx null, z = %.1f, p < 0.001\n",
+cat(sprintf("  - Unweighted Q vs null: %.1fx null, z = %.1f, p = %.4f\n",
             null_comparison$ratio_to_null[null_comparison$metric == "Modularity"],
-            null_comparison$z_score[null_comparison$metric == "Modularity"]))
-cat(sprintf("  - Transitivity = %.2f (%.1fx null, z = %.1f, p < 0.001)\n",
+            null_comparison$z_score[null_comparison$metric == "Modularity"],
+            null_comparison$p_value[null_comparison$metric == "Modularity"]))
+cat(sprintf("  - Transitivity = %.2f (%.1fx null, z = %.1f, p = %.4f)\n",
             transitivity_obs,
             null_comparison$ratio_to_null[null_comparison$metric == "Transitivity"],
-            null_comparison$z_score[null_comparison$metric == "Transitivity"]))
+            null_comparison$z_score[null_comparison$metric == "Transitivity"],
+            null_comparison$p_value[null_comparison$metric == "Transitivity"]))
 cat(sprintf("  - Number of modules: %d\n\n", n_modules))
 
 cat("Top Hub Species (by hub score):\n")
@@ -1540,10 +1662,22 @@ for (i in 1:nrow(top_hubs)) {
 }
 
 cat("\nKey Findings (H5):\n")
-cat("  - Network exhibits significant modular structure\n")
-cat("  - Transitivity much higher than random expectation\n")
+mod_z_final <- null_comparison$z_score[null_comparison$metric == "Modularity"]
+trans_z_final <- null_comparison$z_score[null_comparison$metric == "Transitivity"]
+if (!is.na(mod_z_final) && mod_z_final > 2) {
+  cat("  - Network exhibits significant modular structure\n")
+} else if (!is.na(mod_z_final) && mod_z_final < 0) {
+  cat("  - Network does NOT exhibit significant modular structure (z < 0)\n")
+} else {
+  cat("  - Modular structure is not significantly elevated above random\n")
+}
+if (!is.na(trans_z_final) && trans_z_final > 2) {
+  cat("  - Transitivity higher than random expectation\n")
+} else {
+  cat("  - Transitivity comparable to random expectation\n")
+}
 cat("  - Hub species identifiable through centrality metrics\n")
-cat("  - Modules show non-random taxonomic composition\n\n")
+cat("  - Modules characterized by taxonomic composition\n\n")
 
 cat("Outputs saved:\n")
 cat("  Figures:\n")

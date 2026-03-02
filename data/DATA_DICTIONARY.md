@@ -15,7 +15,7 @@ This data dictionary describes all data files associated with the manuscript "La
 **Study Location**: Mo'orea, French Polynesia (17°30'S, 149°50'W)
 **Survey Period**: June–August 2019
 **Host Coral**: *Pocillopora* spp.
-**Sample Size**: 114 coral colonies, 3,989 CAFI records, 87 OTUs
+**Sample Size**: 114 coral colonies, 3,989 CAFI records, 243 OTUs
 
 ---
 
@@ -79,13 +79,13 @@ The study employed two complementary sampling designs:
 
 | survey_type | Coral IDs | Description | N |
 |-------------|-----------|-------------|---|
-| **neighborhood** | POC01-POC21 at each site | Full 5m radius neighborhood surveys + size + CAFI | 63 |
+| **neighborhood** | POC01-POC21 at each site | Full 5m radius neighborhood surveys + size + CAFI | 63 (61 after volume filter) |
 | **size** | POC22+ at each site | Size and CAFI measurements only (NO neighborhood census) | 51 |
 
 ⚠️ **Important**: Corals with `survey_type == "size"` have **NA values for all neighborhood metrics** (number_of_neighbors, mean_neighbor_distance, etc.). These should NOT be interpreted as "isolated" corals—they simply were not surveyed for neighbors.
 
 **Notes**:
-- Volume calculated as: V = (2/3) × π × r₁ × r₂ × h (hemi-ellipsoid)
+- Volume calculated as: V = (4/3) × π × a × b × c (ellipsoid, where a, b, c are semi-axes)
 - Branch width classified based on inter-branch spacing: tight (<10mm), wide (≥10mm)
 - GPS accuracy approximately ±3 m
 - 2 colonies excluded from final analysis due to incomplete data
@@ -197,7 +197,7 @@ Sampling position (stump_length) correlates with colony size (r = 0.565), creati
 
 **Description**: Species-level summary statistics.
 
-**Rows**: 87 species (OTUs)
+**Rows**: 243 species (OTUs)
 **Location**: `output/tables/`
 
 | Variable | Type | Description |

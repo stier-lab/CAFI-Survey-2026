@@ -123,7 +123,7 @@ ggsave(file.path(FIG_DIR, "abundance_by_site.png"), p_abundance_site,
 # 1.4 Abundance vs coral volume
 cat("1.4 Abundance vs Coral Volume (Power Law):\n")
 
-m_abundance_vol <- glm.nb(total_cafi ~ log(volume) + site, data = coral_master)
+m_abundance_vol <- MASS::glm.nb(total_cafi ~ log(volume) + site, data = coral_master)
 m_summary <- summary(m_abundance_vol)
 
 slope <- coef(m_abundance_vol)["log(volume)"]
@@ -148,7 +148,7 @@ cat("    Interpretation:", ifelse(p_vs_1 < 0.05,
                                   "β not different from 1 → Field of Dreams"), "\n\n")
 
 # Pseudo-R²
-null_model <- glm.nb(total_cafi ~ 1, data = coral_master)
+null_model <- MASS::glm.nb(total_cafi ~ 1, data = coral_master)
 pseudo_r2 <- 1 - (logLik(m_abundance_vol)[1] / logLik(null_model)[1])
 cat("    McFadden's pseudo-R²:", round(pseudo_r2, 3), "\n\n")
 
@@ -409,6 +409,7 @@ ggsave(file.path(FIG_DIR, "diversity_vs_volume.png"), p_diversity_vol,
 cat("3.4 Species Accumulation:\n")
 
 # Rarefaction curve
+set.seed(42)
 specaccum_result <- specaccum(community_matrix, method = "random", permutations = 999)
 
 cat("    At 50 corals: ", round(specaccum_result$richness[50], 1),
@@ -420,7 +421,19 @@ cat("    Total observed:", ncol(community_matrix), "species\n")
 # Chao1 estimator
 chao1 <- estimateR(colSums(community_matrix))["S.chao1"]
 cat("    Chao1 estimate:", round(chao1, 0), "species\n")
-cat("    % sampled:", round(ncol(community_matrix) / chao1 * 100, 1), "%\n\n")
+cat("    % sampled:", round(ncol(community_matrix) / chao1 * 100, 1), "%\n")
+
+# Site-level completeness
+cat("\n  Site-level species richness estimates:\n")
+for (s in unique(coral_master$site)) {
+  site_corals <- coral_master$coral_id[coral_master$site == s]
+  site_matrix <- community_matrix[rownames(community_matrix) %in% site_corals, , drop = FALSE]
+  site_chao <- vegan::estimateR(colSums(site_matrix))
+  cat("    ", s, ": Observed =", site_chao["S.obs"],
+      ", Chao1 =", round(site_chao["S.chao1"], 0),
+      ", Coverage =", round(site_chao["S.obs"] / site_chao["S.chao1"] * 100, 1), "%\n")
+}
+cat("\n")
 
 # Figure: Species accumulation
 accum_df <- data.frame(
@@ -471,7 +484,24 @@ nmds <- metaMDS(comm_hell, distance = "bray", k = 2, trymax = 100, trace = 0)
 cat("    Stress: ", round(nmds$stress, 3), "\n", sep = "")
 cat("    Interpretation: ", ifelse(nmds$stress < 0.1, "Excellent",
                                     ifelse(nmds$stress < 0.2, "Good",
-                                           ifelse(nmds$stress < 0.3, "Acceptable", "Poor"))), "\n\n", sep = "")
+                                           ifelse(nmds$stress < 0.3, "Acceptable", "Poor"))), "\n", sep = "")
+
+if (nmds$stress > 0.20) {
+  cat("\n  CAUTION: 2D NMDS stress =", round(nmds$stress, 3),
+      "exceeds 0.20 threshold (Clarke 1993).\n")
+  cat("  Consider 3D solution or interpret 2D ordination with caution.\n")
+
+  # Try 3D solution for comparison
+  nmds_3d <- tryCatch(
+    vegan::metaMDS(comm_hell, distance = "bray", k = 3,
+                   trymax = 100, trace = 0),
+    error = function(e) NULL
+  )
+  if (!is.null(nmds_3d)) {
+    cat("  3D NMDS stress:", round(nmds_3d$stress, 3), "\n")
+  }
+}
+cat("\n")
 
 # Extract scores
 nmds_scores <- as.data.frame(scores(nmds, display = "sites"))
@@ -493,18 +523,21 @@ coral_for_perm <- coral_master %>%
 # Raw community matrix aligned to coral_for_perm (used in Part 4B & 4C)
 comm_aligned_raw <- community_matrix[coral_for_perm$coral_id, ]
 
+# Type I (sequential) — retained for comparison only; marginal (Type III) used for reporting
+set.seed(42)
 permanova <- adonis2(comm_hell_aligned ~ log(volume) + site,
                      data = coral_for_perm,
                      permutations = 999,
                      method = "bray",
-                     by = "terms")  # Get individual term effects
+                     by = "terms")  # Get individual term effects (Type I, sequential)
 
 cat("\n")
 print(permanova)
 
 # Extract individual term results (rows now include: log(volume), site, Residual, Total)
 perm_df <- as.data.frame(permanova)
-cat("\n    Volume effect: R² = ", round(perm_df["log(volume)", "R2"], 3),
+cat("\n    [Type I — sequential, for comparison only]\n")
+cat("    Volume effect: R² = ", round(perm_df["log(volume)", "R2"], 3),
     ", F = ", round(perm_df["log(volume)", "F"], 2),
     ", p = ", format.pval(perm_df["log(volume)", "Pr(>F)"], 3), "\n", sep = "")
 cat("    Site effect: R² = ", round(perm_df["site", "R2"], 3),
@@ -512,21 +545,29 @@ cat("    Site effect: R² = ", round(perm_df["site", "R2"], 3),
     ", p = ", format.pval(perm_df["site", "Pr(>F)"], 3), "\n\n", sep = "")
 
 # Marginal PERMANOVA (Type III - order-independent, more robust)
+set.seed(42)
 permanova_margin <- adonis2(comm_hell_aligned ~ log(volume) + site,
                             data = coral_for_perm,
                             permutations = 999,
                             method = "bray",
                             by = "margin")
 perm_margin_df <- as.data.frame(permanova_margin)
-cat("    Marginal (Type III) PERMANOVA:\n")
+cat("    Marginal (Type III) PERMANOVA [used for reporting]:\n")
 cat("    Volume: R² = ", round(perm_margin_df["log(volume)", "R2"], 3),
     ", F = ", round(perm_margin_df["log(volume)", "F"], 2),
     ", p = ", format.pval(perm_margin_df["log(volume)", "Pr(>F)"], 3), "\n", sep = "")
-cat("    Site: R² = ", round(perm_margin_df["site", "R2"], 3),
+r2_site <- perm_margin_df["site", "R2"]
+r2_volume <- perm_margin_df["log(volume)", "R2"]
+cat("    Site: R² = ", round(r2_site, 3),
     ", F = ", round(perm_margin_df["site", "F"], 2),
-    ", p = ", format.pval(perm_margin_df["site", "Pr(>F)"], 3), "\n\n", sep = "")
+    ", p = ", format.pval(perm_margin_df["site", "Pr(>F)"], 3), "\n", sep = "")
+cat("  Note: Site explains ", round(r2_site * 100, 1),
+    "% of compositional variation (statistically significant but modest;\n", sep = "")
+cat("  ", round((1 - r2_site - r2_volume) * 100, 1),
+    "% of variation is within-site, indicating high local heterogeneity).\n\n", sep = "")
 
 # Interaction PERMANOVA (volume × site)
+set.seed(42)
 permanova_interaction <- adonis2(comm_hell_aligned ~ log(volume) * site,
                                  data = coral_for_perm,
                                  permutations = 999,
@@ -545,6 +586,7 @@ cat("4.3 PERMDISP (homogeneity of dispersions by site):\n")
 
 bray_dist <- vegdist(comm_hell_aligned, method = "bray")
 disp <- betadisper(bray_dist, coral_for_perm$site)
+set.seed(42)
 disp_test <- permutest(disp, permutations = 999)
 
 cat("    F = ", round(disp_test$statistic, 2),
@@ -558,12 +600,12 @@ if (!is.null(disp_test$pval) && !is.na(disp_test$pval)) {
 }
 
 # Figure: NMDS
-# Extract PERMANOVA results safely using the data frame
-site_r2 <- round(perm_df["site", "R2"], 2)
-site_p <- perm_df["site", "Pr(>F)"]
+# Extract PERMANOVA results from marginal (Type III) for reporting
+site_r2 <- round(perm_margin_df["site", "R2"], 2)
+site_p <- perm_margin_df["site", "Pr(>F)"]
 site_p_text <- if (!is.na(site_p)) format.pval(site_p, 3) else "< 0.001"
-vol_r2 <- round(perm_df["log(volume)", "R2"], 2)
-vol_p <- perm_df["log(volume)", "Pr(>F)"]
+vol_r2 <- round(perm_margin_df["log(volume)", "R2"], 2)
+vol_p <- perm_margin_df["log(volume)", "Pr(>F)"]
 vol_p_text <- if (!is.na(vol_p)) format.pval(vol_p, 3) else "< 0.001"
 
 # Compute axis limits excluding extreme outliers (>3 IQR from median)
@@ -583,7 +625,9 @@ p_nmds_site <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2, color = site)) +
   scale_size_continuous(name = expression(log[10]*"(Volume)"), range = c(2, 6)) +
   labs(
     title = "NMDS Ordination of CAFI Communities",
-    subtitle = paste0("Stress = ", round(nmds$stress, 3), "; PERMANOVA: Site R² = ",
+    subtitle = paste0("Stress = ", round(nmds$stress, 3),
+                      ifelse(nmds$stress > 0.20, " (>0.20; interpret with caution)", ""),
+                      "; PERMANOVA (marginal): Site R² = ",
                       site_r2, ", p = ", site_p_text),
     caption = if (n_outliers > 0) paste0(n_outliers, " outlier(s) beyond axis limits") else NULL,
     color = "Site"
@@ -604,7 +648,7 @@ p_nmds_size <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2, color = log_volume)
   scale_color_viridis_c(name = expression(log[10]*"(Volume)")) +
   labs(
     title = "CAFI Community Composition Varies with Coral Size",
-    subtitle = paste0("PERMANOVA: Volume R² = ", vol_r2, ", p = ", vol_p_text),
+    subtitle = paste0("PERMANOVA (marginal): Volume R² = ", vol_r2, ", p = ", vol_p_text),
     caption = if (n_outliers > 0) paste0(n_outliers, " outlier(s) beyond axis limits") else NULL
   ) +
   coord_fixed(xlim = nmds1_lim, ylim = nmds2_lim, clip = "on")
@@ -645,7 +689,7 @@ for (i in 1:ncol(site_pairs)) {
 # ============================================================================
 
 cat("\n------------------------------------------------------------\n")
-cat("PART 4B: COMPOSITION DIVERGENCE BY SIZE (Fig 3B Analog)\n")
+cat("PART 4B: COMPOSITION DIVERGENCE BY SIZE (Fig S5)\n")
 cat("------------------------------------------------------------\n\n")
 
 cat("Testing: Do larger corals have more distinct CAFI communities?\n")
@@ -771,6 +815,7 @@ cat("\n")
 # 4B.3 Statistical test: PERMDISP by size class
 cat("4B.3 PERMDISP Test (does dispersion differ by size?):\n")
 
+set.seed(42)
 disp_size_test <- permutest(disp_size, permutations = 999)
 
 cat("    F = ", round(disp_size_test$statistic, 2),
@@ -812,6 +857,7 @@ cat("\n")
 cat("\n    --- RAREFIED DATA (abundance-controlled) ---\n")
 cat("    Rarefaction depth:", min_depth, "individuals\n\n")
 
+set.seed(42)
 disp_size_rarefied_test <- permutest(disp_size_rarefied, permutations = 999)
 cat("    PERMDISP (rarefied): F = ", round(disp_size_rarefied_test$statistic, 2),
     ", df = ", paste(disp_size_rarefied_test$df, collapse = ", "),
@@ -1143,6 +1189,7 @@ distance_configs <- list(
 )
 
 # Run PERMANOVA and betadisper for each metric
+set.seed(42)
 sensitivity_results <- lapply(names(distance_configs), function(metric_name) {
   cat("  ", metric_name, "... ")
   d <- distance_configs[[metric_name]]$dist
@@ -1356,17 +1403,20 @@ cat("------------------------------------------------------------\n\n")
 
 library(ggrepel)
 
-# --- Taxonomic group colors (Paul Tol palette, colorblind-safe) ---
+# --- Taxonomic group colors (broad palette, colorblind-safe) ---
+# Shrimp, Crabs, and Gastropods deliberately use distinct hue families
+# to avoid pink/magenta confusion in the stacked barchart
 type_colors <- c(
-  "Shrimp" = "#882255",
-  "Crabs" = "#CC6677",
+  "Shrimp" = "#D55E00",
+  "Crabs" = "#0072B2",
   "Hermit crabs" = "#117733",
   "Fish" = "#DDCC77",
-  "Gastropods" = "#AA4499",
+  "Gastropods" = "#CC79A7",
   "Echinoderms" = "#88CCEE",
   "Polychaetes" = "#999999",
   "Amphipods" = "#332288",
-  "Squat lobsters" = "#661100"
+  "Squat lobsters" = "#661100",
+  "Other" = "#BBBBBB"
 )
 
 site_labels_fig3 <- c(HAU = "Hauru", MAT = "Maatea", MRB = "Maharepa")
@@ -1394,7 +1444,21 @@ cat("    Corals for figure:", nrow(fig3_comm), "(excluded", n_fig3_excluded, "wi
 fig3_comm_hell <- decostand(fig3_comm, method = "hellinger")
 set.seed(42)
 fig3_nmds <- metaMDS(fig3_comm_hell, distance = "bray", k = 2, trymax = 100, trace = 0)
-cat("    NMDS stress:", round(fig3_nmds$stress, 3), "\n")
+cat("    NMDS stress (2D):", round(fig3_nmds$stress, 3), "\n")
+
+# Also compute 3D NMDS for stress comparison annotation
+set.seed(42)
+fig3_nmds_3d <- tryCatch(
+  metaMDS(fig3_comm_hell, distance = "bray", k = 3, trymax = 100, trace = 0),
+  error = function(e) NULL
+)
+if (!is.null(fig3_nmds_3d)) {
+  cat("    NMDS stress (3D):", round(fig3_nmds_3d$stress, 3), "\n")
+}
+
+if (fig3_nmds$stress > 0.20) {
+  cat("    CAUTION: 2D stress exceeds 0.20 threshold (Clarke 1993); interpret with caution.\n")
+}
 
 # PERMANOVA & PERMDISP on figure subset
 fig3_dist <- vegdist(fig3_comm_hell, method = "bray")
@@ -1402,6 +1466,7 @@ set.seed(42)
 fig3_perm <- adonis2(fig3_dist ~ site, data = fig3_coral, permutations = 999)
 
 fig3_disp_obj <- betadisper(fig3_dist, fig3_coral$site)
+set.seed(42)
 fig3_disp_test_obj <- permutest(fig3_disp_obj, permutations = 999)
 
 # Extract NMDS scores for figure
@@ -1493,18 +1558,26 @@ site_centroids <- fig3_nmds_scores %>%
 site_label_positions <- site_centroids %>%
   mutate(
     label_x = case_when(
-      site == "MAT" ~ NMDS1 - 0.55,
-      site == "HAU" ~ NMDS1 + 0.45,
+      site == "MAT" ~ NMDS1 - 0.60,
+      site == "HAU" ~ NMDS1 + 0.55,
       site == "MRB" ~ NMDS1 + 0.55
     ),
     label_y = case_when(
       site == "MAT" ~ NMDS2 + 0.45,
-      site == "HAU" ~ NMDS2 + 0.55,
-      site == "MRB" ~ NMDS2 - 0.35
+      site == "HAU" ~ NMDS2 + 0.70,
+      site == "MRB" ~ NMDS2 - 0.40
     )
   )
 
 vector_types <- c("Shrimp", "Fish", "Hermit crabs", "Crabs", "Gastropods")
+
+# Build stress annotation text (include 3D stress if available)
+stress_label <- if (!is.null(fig3_nmds_3d)) {
+  paste0("2D stress = ", sprintf("%.2f", fig3_nmds$stress),
+         " (3D = ", sprintf("%.2f", fig3_nmds_3d$stress), ")")
+} else {
+  paste0("Stress = ", sprintf("%.2f", fig3_nmds$stress))
+}
 
 panel_a <- ggplot() +
   geom_point(data = fig3_nmds_scores,
@@ -1514,7 +1587,7 @@ panel_a <- ggplot() +
   stat_ellipse(data = fig3_nmds_scores,
                aes(x = NMDS1, y = NMDS2, color = site),
                level = 0.95, linewidth = 0.9, linetype = "solid",
-               alpha = 0.85) +
+               alpha = 0.55) +
   geom_segment(data = top_vectors,
                aes(x = 0, y = 0, xend = NMDS1_scaled, yend = NMDS2_scaled,
                    color = type_clean),
@@ -1522,14 +1595,14 @@ panel_a <- ggplot() +
                linewidth = 0.65, alpha = 0.85) +
   geom_text_repel(
     data = top_vectors,
-    aes(x = NMDS1_scaled * 1.3, y = NMDS2_scaled * 1.3,
+    aes(x = NMDS1_scaled * 1.35, y = NMDS2_scaled * 1.35,
         label = species_short, color = type_clean),
     size = 2.5, fontface = "italic",
     max.overlaps = 30,
-    segment.size = 0.15, segment.alpha = 0.4, segment.color = "gray45",
-    box.padding = 0.55, point.padding = 0.3,
-    min.segment.length = 0.1, force = 6, force_pull = 0.15,
-    seed = 789, show.legend = FALSE
+    segment.size = 0.2, segment.alpha = 0.5, segment.color = "gray40",
+    box.padding = 1.2, point.padding = 0.5,
+    min.segment.length = 0, force = 25, force_pull = 0.03,
+    seed = 42, show.legend = FALSE
   ) +
   geom_text(data = site_label_positions,
             aes(x = label_x, y = label_y, label = site_labels_fig3[site], color = site),
@@ -1541,8 +1614,8 @@ panel_a <- ggplot() +
     guide = guide_legend(override.aes = list(linewidth = 1.5, alpha = 1))
   ) +
   annotate("text", x = 0.95, y = 0.95,
-           label = paste0("Stress = ", sprintf("%.2f", fig3_nmds$stress)),
-           size = 2.8, color = "gray30", hjust = 1, fontface = "italic") +
+           label = stress_label,
+           size = 2.6, color = "gray30", hjust = 1, fontface = "italic") +
   labs(x = "NMDS1", y = "NMDS2") +
   coord_fixed(ratio = 1, xlim = c(-1.35, 1.0), ylim = c(-0.95, 1.0)) +
   theme_minimal(base_size = 9, base_family = "Helvetica") +
@@ -1554,21 +1627,22 @@ panel_a <- ggplot() +
     axis.line = element_line(color = "black", linewidth = 0.4),
     axis.title = element_text(size = 9, color = "black"),
     axis.text = element_blank(), axis.ticks = element_blank(),
-    legend.position = c(0.12, 0.25),
+    legend.position = "bottom",
     legend.background = element_rect(fill = alpha("white", 0.93),
                                      color = "gray80", linewidth = 0.3),
     legend.text = element_text(size = 6.5),
     legend.key.size = unit(0.32, "cm"),
     legend.key.height = unit(0.32, "cm"),
     legend.spacing.y = unit(0.03, "cm"),
-    legend.margin = margin(4, 6, 4, 6),
-    plot.margin = margin(5, 2, 5, 5)
+    legend.margin = margin(2, 6, 2, 6),
+    plot.margin = margin(5, 2, 2, 5)
   )
 
 # --- Panel B: Taxonomic composition by site ---
 cat("  Panel B: Taxonomic composition stacked barchart...\n")
 
-type_summary <- cafi_clean %>%
+# Collapse rare taxonomic groups (<3% overall) into "Other"
+cafi_plot_data <- cafi_clean %>%
   filter(!is.na(type), type != "", type != "amph") %>%
   mutate(
     type_clean = case_when(
@@ -1583,7 +1657,20 @@ type_summary <- cafi_clean %>%
       type == "squat_lobster" ~ "Squat lobsters",
       TRUE ~ type
     )
-  ) %>%
+  )
+
+group_props <- cafi_plot_data %>%
+  count(type_clean) %>%
+  mutate(prop = n / sum(n))
+
+rare_groups <- group_props$type_clean[group_props$prop < 0.03]
+if (length(rare_groups) > 0) {
+  cat("    Collapsing rare groups (<3%) into 'Other':", paste(rare_groups, collapse = ", "), "\n")
+  cafi_plot_data <- cafi_plot_data %>%
+    mutate(type_clean = if_else(type_clean %in% rare_groups, "Other", type_clean))
+}
+
+type_summary <- cafi_plot_data %>%
   group_by(site, type_clean) %>%
   summarise(n = sum(abundance, na.rm = TRUE), .groups = "drop") %>%
   group_by(site) %>%
@@ -1646,9 +1733,9 @@ fig3_composition <- panel_a_labeled + panel_b_labeled +
   )
 
 ggsave(file.path(PATHS$fig_manuscript, "fig3_composition.png"), fig3_composition,
-       width = 10, height = 4.6, dpi = 300, bg = "white")
+       width = 10, height = 5.0, dpi = 300, bg = "white")
 ggsave(file.path(FIG_DIR, "fig3_composition.png"), fig3_composition,
-       width = 10, height = 4.6, dpi = 300, bg = "white")
+       width = 10, height = 5.0, dpi = 300, bg = "white")
 cat("  Saved: fig3_composition.png\n")
 
 # --- Generate legend and results text ---
@@ -1770,11 +1857,15 @@ for (i in 1:nrow(pairwise_df)) {
 
 legend_text <- paste0(legend_text, "\n",
   "4. ORDINATION QUALITY\n",
-  "   NMDS stress: ", sprintf("%.3f", fig3_nmds$stress), "\n",
+  "   NMDS stress (2D): ", sprintf("%.3f", fig3_nmds$stress), "\n",
+  if (!is.null(fig3_nmds_3d)) paste0("   NMDS stress (3D): ", sprintf("%.3f", fig3_nmds_3d$stress), "\n") else "",
   "   Interpretation: ",
   ifelse(fig3_nmds$stress < 0.1, "Excellent representation (stress < 0.10)",
          ifelse(fig3_nmds$stress < 0.2, "Good representation (stress < 0.20)",
-                "Fair representation (stress >= 0.20)")), "\n\n",
+                paste0("Fair representation (stress >= 0.20; Clarke 1993).\n",
+                       "   Ordination should be interpreted with caution. ",
+                       "PERMANOVA results remain valid as they use the full distance matrix."))),
+  "\n\n",
 
   "5. SPECIES DRIVING COMPOSITIONAL DIFFERENCES\n",
   "   Method: envfit (permutation test, 999 permutations)\n",
@@ -1841,11 +1932,11 @@ legend_text <- paste0(legend_text, "\n",
   "  MAT (Maatea):   #0072B2 (Okabe-Ito blue)\n",
   "  MRB (Maharepa): #009E73 (Okabe-Ito green)\n\n",
   "Taxonomic group palette (Panel B, species vectors):\n",
-  "  Shrimp:       #882255 (deep magenta)\n",
-  "  Crabs:        #CC6677 (rose pink)\n",
+  "  Shrimp:       #D55E00 (vermillion)\n",
+  "  Crabs:        #0072B2 (blue)\n",
   "  Hermit crabs: #117733 (forest green)\n",
   "  Fish:         #DDCC77 (warm sand)\n",
-  "  Gastropods:   #AA4499 (purple)\n",
+  "  Gastropods:   #CC79A7 (reddish purple)\n",
   "  Echinoderms:  #88CCEE (sky blue)\n\n",
 
   "================================================================================\n",
@@ -1905,7 +1996,7 @@ results_list <- list(
     permanova_interaction = permanova_interaction,
     permdisp = disp_test
   ),
-  # NEW: Composition divergence by size (parallels Stier et al. Fig 3B)
+  # Composition divergence by size (Fig S5; tests whether larger corals
   divergence = divergence_results,
   # Multi-metric sensitivity analysis
   sensitivity = sensitivity_summary
@@ -1934,7 +2025,7 @@ cat("============================================================\n\n")
 
 cat("Key findings:\n")
 cat("  1. Abundance scales sublinearly with coral size (β =", round(slope, 2), ")\n")
-cat("  2. Site explains", round(permanova$R2[2] * 100, 1), "% of compositional variance\n")
-cat("  3. Volume explains", round(permanova$R2[1] * 100, 1), "% of compositional variance\n")
+cat("  2. Site explains", round(perm_margin_df["site", "R2"] * 100, 1), "% of compositional variance (marginal)\n")
+cat("  3. Volume explains", round(perm_margin_df["log(volume)", "R2"] * 100, 1), "% of compositional variance (marginal)\n")
 cat("  4. ", round(chao1, 0), " total species estimated (", round(ncol(community_matrix)/chao1*100, 0), "% sampled)\n", sep = "")
-cat("  5. Composition divergence (Fig 3B analog):", divergence_results$interpretation, "\n\n")
+cat("  5. Composition divergence (Fig S5):", divergence_results$interpretation, "\n\n")

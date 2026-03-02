@@ -101,6 +101,15 @@ if (has_pdp) cat("   - pdp: Partial dependence plots\n")
 if (has_shapviz) cat("   - shapviz: SHAP values\n")
 cat("\n")
 
+# Proper R² (coefficient of determination) — can be negative if model is worse than mean
+# Note: Using 1 - SS_res/SS_tot (can be negative), not cor()^2 (always non-negative)
+# This matches the definition in script 12 and standard ML evaluation practice
+calc_r2 <- function(observed, predicted) {
+  ss_res <- sum((observed - predicted)^2)
+  ss_tot <- sum((observed - mean(observed))^2)
+  1 - ss_res / ss_tot
+}
+
 # Create figure subdirectory
 fig_dir <- file.path(PATHS$figures, "machine_learning")
 dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
@@ -146,7 +155,8 @@ cafi_features <- cafi_clean %>%
     prop_snails = sum(type == "snail") / n(),
 
     # Dominant species proportion
-    dominant_prop = if(n() > 0) max(table(species)) / n() else NA_real_,
+    # Use explicit .data pronoun to avoid global environment reference
+    dominant_prop = if(n() > 0) max(table(.data$otu)) / n() else NA_real_,
 
     .groups = "drop"
   )
@@ -159,9 +169,9 @@ ml_data <- coral_master %>%
     cafi_abundance = total_cafi,
     cafi_richness = otu_richness,
 
-    # Log transformations for predictors
-    log_volume = log10(volume + 1),
-    log_total_neighbor_volume = log10(coalesce(total_neighbor_volume, 0) + 1),
+    # Natural log, consistent with core pipeline (scripts 01-09)
+    log_volume = log(volume),
+    log_total_neighbor_volume = log(coalesce(total_neighbor_volume, 0) + 1),
 
     # Derived features
     cafi_density = total_cafi / (volume + 1) * 1000,
@@ -259,7 +269,7 @@ glm_abundance_formula <- as.formula(paste(
 ))
 
 glm_abundance <- tryCatch({
-  glm.nb(glm_abundance_formula, data = train_data)
+  MASS::glm.nb(glm_abundance_formula, data = train_data)
 }, error = function(e) {
   cat("  Warning: glm.nb failed, using Poisson\n")
   glm(glm_abundance_formula, data = train_data, family = poisson)
@@ -272,7 +282,7 @@ test_data$glm_pred_abundance <- predict(glm_abundance, test_data, type = "respon
 # Metrics
 glm_abund_rmse_train <- sqrt(mean((train_data$cafi_abundance - train_data$glm_pred_abundance)^2))
 glm_abund_rmse_test <- sqrt(mean((test_data$cafi_abundance - test_data$glm_pred_abundance)^2))
-glm_abund_r2_test <- cor(test_data$cafi_abundance, test_data$glm_pred_abundance, use = "complete")^2
+glm_abund_r2_test <- calc_r2(test_data$cafi_abundance, test_data$glm_pred_abundance)
 glm_abund_mae_test <- mean(abs(test_data$cafi_abundance - test_data$glm_pred_abundance))
 
 results_list$glm_abundance <- data.frame(
@@ -298,7 +308,7 @@ train_data$glm_pred_richness <- predict(glm_richness, train_data, type = "respon
 test_data$glm_pred_richness <- predict(glm_richness, test_data, type = "response")
 
 glm_rich_rmse_test <- sqrt(mean((test_data$cafi_richness - test_data$glm_pred_richness)^2))
-glm_rich_r2_test <- cor(test_data$cafi_richness, test_data$glm_pred_richness, use = "complete")^2
+glm_rich_r2_test <- calc_r2(test_data$cafi_richness, test_data$glm_pred_richness)
 glm_rich_mae_test <- mean(abs(test_data$cafi_richness - test_data$glm_pred_richness))
 
 results_list$glm_richness <- data.frame(
@@ -324,7 +334,7 @@ train_data$glm_pred_shannon <- predict(glm_shannon, train_data)
 test_data$glm_pred_shannon <- predict(glm_shannon, test_data)
 
 glm_shan_rmse_test <- sqrt(mean((test_data$shannon - test_data$glm_pred_shannon)^2))
-glm_shan_r2_test <- cor(test_data$shannon, test_data$glm_pred_shannon, use = "complete")^2
+glm_shan_r2_test <- calc_r2(test_data$shannon, test_data$glm_pred_shannon)
 glm_shan_mae_test <- mean(abs(test_data$shannon - test_data$glm_pred_shannon))
 
 results_list$glm_shannon <- data.frame(
@@ -394,7 +404,7 @@ train_data$rf_pred_abundance <- predict(rf_abundance, train_data)$predictions
 test_data$rf_pred_abundance <- predict(rf_abundance, test_data)$predictions
 
 rf_abund_rmse_test <- sqrt(mean((test_data$cafi_abundance - test_data$rf_pred_abundance)^2))
-rf_abund_r2_test <- cor(test_data$cafi_abundance, test_data$rf_pred_abundance, use = "complete")^2
+rf_abund_r2_test <- calc_r2(test_data$cafi_abundance, test_data$rf_pred_abundance)
 rf_abund_mae_test <- mean(abs(test_data$cafi_abundance - test_data$rf_pred_abundance))
 
 results_list$rf_abundance <- data.frame(
@@ -423,7 +433,7 @@ train_data$rf_pred_richness <- predict(rf_richness, train_data)$predictions
 test_data$rf_pred_richness <- predict(rf_richness, test_data)$predictions
 
 rf_rich_rmse_test <- sqrt(mean((test_data$cafi_richness - test_data$rf_pred_richness)^2))
-rf_rich_r2_test <- cor(test_data$cafi_richness, test_data$rf_pred_richness, use = "complete")^2
+rf_rich_r2_test <- calc_r2(test_data$cafi_richness, test_data$rf_pred_richness)
 
 results_list$rf_richness <- data.frame(
   model = "Random Forest", target = "richness",
@@ -452,7 +462,7 @@ train_data$rf_pred_shannon <- predict(rf_shannon, train_data)$predictions
 test_data$rf_pred_shannon <- predict(rf_shannon, test_data)$predictions
 
 rf_shan_rmse_test <- sqrt(mean((test_data$shannon - test_data$rf_pred_shannon)^2))
-rf_shan_r2_test <- cor(test_data$shannon, test_data$rf_pred_shannon, use = "complete")^2
+rf_shan_r2_test <- calc_r2(test_data$shannon, test_data$rf_pred_shannon)
 
 results_list$rf_shannon <- data.frame(
   model = "Random Forest", target = "shannon",
@@ -525,7 +535,7 @@ train_data$xgb_pred_abundance <- predict(xgb_abundance, dtrain_abund)
 test_data$xgb_pred_abundance <- predict(xgb_abundance, dtest_abund)
 
 xgb_abund_rmse_test <- sqrt(mean((test_data$cafi_abundance - test_data$xgb_pred_abundance)^2))
-xgb_abund_r2_test <- cor(test_data$cafi_abundance, test_data$xgb_pred_abundance, use = "complete")^2
+xgb_abund_r2_test <- calc_r2(test_data$cafi_abundance, test_data$xgb_pred_abundance)
 xgb_abund_mae_test <- mean(abs(test_data$cafi_abundance - test_data$xgb_pred_abundance))
 
 results_list$xgb_abundance <- data.frame(
@@ -582,7 +592,7 @@ train_data$xgb_pred_richness <- predict(xgb_richness, dtrain_rich)
 test_data$xgb_pred_richness <- predict(xgb_richness, dtest_rich)
 
 xgb_rich_rmse_test <- sqrt(mean((test_data$cafi_richness - test_data$xgb_pred_richness)^2))
-xgb_rich_r2_test <- cor(test_data$cafi_richness, test_data$xgb_pred_richness, use = "complete")^2
+xgb_rich_r2_test <- calc_r2(test_data$cafi_richness, test_data$xgb_pred_richness)
 
 results_list$xgb_richness <- data.frame(
   model = "XGBoost", target = "richness",
@@ -639,7 +649,7 @@ train_data$xgb_pred_shannon <- predict(xgb_shannon, dtrain_shan)
 test_data$xgb_pred_shannon <- predict(xgb_shannon, dtest_shan)
 
 xgb_shan_rmse_test <- sqrt(mean((test_data$shannon - test_data$xgb_pred_shannon)^2))
-xgb_shan_r2_test <- cor(test_data$shannon, test_data$xgb_pred_shannon, use = "complete")^2
+xgb_shan_r2_test <- calc_r2(test_data$shannon, test_data$xgb_pred_shannon)
 
 results_list$xgb_shannon <- data.frame(
   model = "XGBoost", target = "shannon",
@@ -683,7 +693,7 @@ for (test_site in sites) {
     site = test_site,
     n_test = nrow(test_loso),
     rmse = sqrt(mean((test_loso$cafi_abundance - pred_loso)^2)),
-    r2 = cor(test_loso$cafi_abundance, pred_loso, use = "complete")^2,
+    r2 = calc_r2(test_loso$cafi_abundance, pred_loso),
     mae = mean(abs(test_loso$cafi_abundance - pred_loso))
   )
 }

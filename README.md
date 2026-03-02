@@ -8,7 +8,7 @@ Mo'orea, French Polynesia | Summer 2019 | *Pocillopora* corals
 
 ## What This Project Is
 
-This repository contains a complete R analysis pipeline for a coral reef ecology manuscript. We surveyed 114 *Pocillopora* coral colonies across 3 reef sites and catalogued ~4,000 individual coral-associated fauna (CAFI) spanning 87 species. The analysis tests how coral size and neighborhood context shape CAFI community assembly, and whether CAFI communities in turn affect coral physiological condition.
+This repository contains a complete R analysis pipeline for a coral reef ecology manuscript. We surveyed 114 *Pocillopora* coral colonies across 3 reef sites and catalogued ~4,000 individual coral-associated fauna (CAFI) spanning 243 OTUs. The analysis tests how coral size and neighborhood context shape CAFI community assembly, and whether CAFI communities in turn affect coral physiological condition.
 
 **Key question**: Do landscape characteristics (coral size, local density) drive CAFI community structure, and do CAFI provide measurable benefits to their host corals?
 
@@ -31,9 +31,9 @@ source("scripts/run_full_pipeline.R")
 run_pipeline()
 ```
 
-This runs the complete pipeline (~6-7 min) and generates:
-- 5 manuscript figures in `output/figures/manuscript/`
-- 7 supplementary figures in `output/figures/supplement/`
+This runs the complete pipeline (~3 min) and generates:
+- 6 manuscript figures in `output/figures/manuscript/`
+- 8 supplementary figures in `output/figures/supplement/`
 - Exploratory figures in `output/figures/` (by analysis)
 - Statistical tables in `output/tables/`
 - Processed data objects in `output/objects/`
@@ -92,8 +92,7 @@ CAFI-Survey-2026/
 │   ├── survey_cafi_data_*.csv     # CAFI specimen records (3,989 rows)
 │   ├── survey_coral_*.csv         # Coral colony attributes (114 rows)
 │   ├── survey_master_phys_*.csv   # Physiology measurements (108 rows)
-│   ├── traits/                    # CAFI trait database
-│   ├── gis/                       # Mo'orea shapefiles for maps
+│   ├── traits/                    # CAFI trait database (cafi_traits_final.csv)
 │   └── README.md                  # DATA DOCUMENTATION (start here)
 │
 ├── scripts/                       # R analysis scripts (see below)
@@ -105,17 +104,17 @@ CAFI-Survey-2026/
 │   ├── 03_landscape_characterization.R # Landscape metrics
 │   ├── 04_landscape_effects.R     # Neighborhood effects (Q4)
 │   ├── 05_species_scaling_analysis.R # Size-abundance scaling (Q1), Fig 2
-│   ├── 06_network_analysis.R      # Co-occurrence networks, Fig 4
+│   ├── 06_network_analysis.R      # Co-occurrence networks, Fig 5
 │   ├── 07_spatial_autocorrelation.R # Spatial patterns (Moran's I)
-│   ├── 08_functional_groups.R     # Taxonomic group scaling, Fig 3
-│   ├── 09_cafi_condition_feedbacks.R # CAFI-condition feedbacks (Q3), Fig 5
-│   ├── 10-12_*.R                  # Machine learning (exploratory, not in default pipeline)
-│   └── archive/                   # Deprecated scripts (reference only)
+│   ├── 08_functional_groups.R     # Taxonomic group scaling, Fig 4
+│   ├── 09_cafi_condition_feedbacks.R # CAFI-condition feedbacks (Q3), Fig 6
+│   ├── 13_taxonomy_sensitivity.R  # Taxonomy sensitivity analysis, Fig S8
+│   └── 10-12_*.R                  # Machine learning (exploratory, not in default pipeline)
 │
 ├── output/                        # Generated outputs (gitignored)
 │   ├── figures/
-│   │   ├── manuscript/            # 5 publication figures (fig1-fig5)
-│   │   ├── supplement/            # 7 supplementary figures (figS1-S7)
+│   │   ├── manuscript/            # 6 publication figures (fig1-fig6) + legend files
+│   │   ├── supplement/            # 8 supplementary figures (figS1-S8)
 │   │   ├── 01_data/              # Study design figures
 │   │   ├── 02_community/         # Community analysis (11 figures)
 │   │   ├── 03_landscape/         # Landscape characterization (3 figures)
@@ -125,7 +124,7 @@ CAFI-Survey-2026/
 │   │   ├── feedbacks/            # CAFI-condition feedbacks (8 figures)
 │   │   └── functional_groups/    # Taxonomic group analysis (7 figures)
 │   ├── tables/                    # ~46 CSV statistical results
-│   └── objects/                   # 17 RDS R data objects
+│   └── objects/                   # 20 RDS R data objects
 │
 ├── manuscript/                    # Manuscript drafts
 ├── CLAUDE.md                      # AI assistant context (detailed)
@@ -151,13 +150,14 @@ Each manuscript figure is created by its source analysis script with dual saves 
 | `04_landscape_effects.R` | Size and neighborhood effects on CAFI | Fig S7, Q4 tables |
 | `05_species_scaling_analysis.R` | NB GLM scaling, bootstrap CI | **Fig 2**, Fig S6 |
 
-#### Extended Analyses (scripts 06-09)
+#### Extended Analyses (scripts 06-09, 13)
 | Script | Purpose | Output |
 |--------|---------|--------|
-| `06_network_analysis.R` | Co-occurrence networks, modularity, hubs | **Fig 4** |
+| `06_network_analysis.R` | Co-occurrence networks, modularity, hubs | **Fig 5** |
 | `07_spatial_autocorrelation.R` | Moran's I, LISA, Mantel tests | Fig S4 |
-| `08_functional_groups.R` | Taxonomic group scaling and composition | **Fig 3** |
-| `09_cafi_condition_feedbacks.R` | PCA, fixed-effect LMs, FDR correction | **Fig 5** |
+| `08_functional_groups.R` | Taxonomic group scaling and composition | **Fig 4** |
+| `09_cafi_condition_feedbacks.R` | PCA, fixed-effect LMs, FDR correction | **Fig 6** |
+| `13_taxonomy_sensitivity.R` | Taxonomy robustness across 5 OTU scenarios | Fig S8 |
 
 #### Exploratory ML (not in default pipeline)
 | Script | Purpose |
@@ -259,8 +259,8 @@ Tests whether neighborhood density (n_neighbors within 5m) acts as a source of C
 | Code | Name | Environment | N |
 |------|------|-------------|---|
 | HAU | Hauru | Fringing reef, north shore | 38 |
-| MAT | Maatea | Lagoon, back reef | 38 |
-| MRB | Barrier Reef | Outer barrier, oceanic | 38 |
+| MAT | Maatea | Lagoon, back reef | 39 |
+| MRB | Maharepa | Barrier reef, north shore | 35 |
 
 **Location**: Mo'orea, French Polynesia (17°30'S, 149°50'W)
 
@@ -291,9 +291,10 @@ coral_master <- readRDS("output/objects/coral_master.rds")
 |--------|---------|----------|--------|
 | Fig 1 | Study design: satellite map + volume/neighborhood histograms | Overview | `01_load_data.R` |
 | Fig 2 | Size-abundance scaling (power law) + species forest plot | Q1 | `05_species_scaling_analysis.R` |
-| Fig 3 | Taxonomic group scaling and composition | Q1 | `08_functional_groups.R` |
-| Fig 4 | Co-occurrence network: hero layout + guild panels | Q2 | `06_network_analysis.R` |
-| Fig 5 | CAFI-condition feedback models | Q3 | `09_cafi_condition_feedbacks.R` |
+| Fig 3 | NMDS ordination + taxonomic composition by site | Q2 | `02_community_analysis.R` |
+| Fig 4 | Taxonomic group scaling and composition | Q1 | `08_functional_groups.R` |
+| Fig 5 | Co-occurrence network: hero layout + guild panels | Q2 | `06_network_analysis.R` |
+| Fig 6 | CAFI-condition feedback models | Q3 | `09_cafi_condition_feedbacks.R` |
 
 ### Supplementary Figures (`output/figures/supplement/`)
 
@@ -306,6 +307,7 @@ coral_master <- readRDS("output/objects/coral_master.rds")
 | S5 | Composition divergence by size | `02_community_analysis.R` |
 | S6 | Species-level scaling forest plot | `05_species_scaling_analysis.R` |
 | S7 | Neighborhood null results | `04_landscape_effects.R` |
+| S8 | Taxonomy sensitivity forest plot | `13_taxonomy_sensitivity.R` |
 
 ### Statistical Tables (`output/tables/`, 46 files)
 
@@ -320,7 +322,7 @@ Key output files:
 - `landscape_full_model_results.csv` — Full GLM results for landscape effects
 - `pipeline_timing.csv` — Script execution times
 
-### Data Objects (`output/objects/`, 17 files)
+### Data Objects (`output/objects/`, 20 files)
 
 Key RDS files:
 - `coral_master.rds` — Main merged dataset (coral + CAFI + physiology)
@@ -388,8 +390,8 @@ Marine Ecology Progress Series [submitted].
 
 ## License
 
-MIT License
+CC-BY-4.0 — see [LICENSE](LICENSE) for details.
 
 ---
 
-*Last updated: February 2026*
+*Last updated: March 2026*

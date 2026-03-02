@@ -7,9 +7,10 @@
 # RUNS AFTER: 11_machine_learning.R
 #
 # EXPECTED INPUTS (from 11_machine_learning.R):
-#   - output/objects/ml_results.rds        : Main ML results object
-#   - output/objects/cv_results.rds        : Cross-validation results
-#   - output/objects/final_models.rds      : Trained model objects
+#   - output/objects/machine_learning_models.rds  : Main ML results
+#   - output/objects/rf_model_abundance.rds       : Random Forest abundance model
+#   - output/objects/rf_model_richness.rds        : Random Forest richness model
+#   - output/objects/xgb_model_abundance.rds      : XGBoost abundance model
 #
 # EVALUATION COMPONENTS:
 #   A. Cross-Validation Analysis
@@ -524,7 +525,8 @@ cat("============================================================\n\n")
 analysis_data <- coral_master %>%
   filter(!is.na(volume), volume > 0, !is.na(total_cafi)) %>%
   mutate(
-    log_volume = log10(volume),
+    # Natural log, consistent with core pipeline (scripts 01-09)
+    log_volume = log(volume),
     log_cafi = log10(total_cafi + 1)
   )
 

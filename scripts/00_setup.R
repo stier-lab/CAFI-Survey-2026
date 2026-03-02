@@ -22,14 +22,32 @@ cat("============================================================\n\n")
 # PACKAGES
 # ============================================================================
 
+# Pre-flight check: verify all required packages are installed
+required_pkgs <- c(
+  # Core
+  "here", "tidyverse", "readxl", "janitor", "conflicted",
+  # Statistical
+  "vegan", "lme4", "MuMIn", "broom", "car", "moments",
+  # Visualization
+  "patchwork", "viridis", "scales",
+  # Used by downstream scripts (06, 07, 09)
+  "igraph", "spdep", "sf", "sandwich", "lmtest", "DHARMa", "ggrepel"
+)
+missing_pkgs <- required_pkgs[!sapply(required_pkgs, requireNamespace, quietly = TRUE)]
+if (length(missing_pkgs) > 0) {
+  stop("Missing required packages: ", paste(missing_pkgs, collapse = ", "),
+       "\nInstall with: install.packages(c(\"", paste(missing_pkgs, collapse = "\", \""), "\"))")
+}
+
 # Core packages
 library(here)        # Project-relative paths
 library(tidyverse)   # Data manipulation & visualization
 library(readxl)      # Read Excel files
 library(janitor)     # Data cleaning helpers
+library(conflicted)  # Detect & resolve namespace conflicts
 
 # Statistical packages
-library(MASS)        # Negative binomial GLM (glm.nb)
+# MASS loaded on-demand via MASS::glm.nb() and MASS::theta.ml()
 library(vegan)       # Community ecology (diversity, NMDS, PERMANOVA)
 library(lme4)        # Mixed effects models (optional)
 library(MuMIn)       # R² for mixed models (r.squaredGLMM)
@@ -41,6 +59,20 @@ library(moments)     # Skewness, kurtosis
 library(patchwork)   # Combine ggplots
 library(viridis)     # Color scales
 library(scales)      # Axis formatting
+
+# Ensure dplyr::select() always wins (safety net for any future MASS load)
+conflicted::conflict_prefer("select", "dplyr")
+conflicted::conflict_prefer("filter", "dplyr")
+conflicted::conflict_prefer("lag", "dplyr")
+conflicted::conflict_prefer("recode", "dplyr")
+conflicted::conflict_prefer("some", "purrr")
+conflicted::conflict_prefer("discard", "purrr")
+conflicted::conflict_prefer("expand", "tidyr")
+conflicted::conflict_prefer("pack", "tidyr")
+conflicted::conflict_prefer("unpack", "tidyr")
+conflicted::conflict_prefer("chisq.test", "stats")
+conflicted::conflict_prefer("fisher.test", "stats")
+conflicted::conflict_prefer("col_factor", "scales")
 
 cat("[OK] Packages loaded\n")
 
@@ -102,7 +134,7 @@ theme_publication <- function(base_size = 12) {
       axis.ticks = element_line(color = "black", linewidth = 0.3),
 
       # Legend
-      legend.position = "right",
+      legend.position = "bottom",
       legend.background = element_blank(),
       legend.key = element_blank(),
       legend.title = element_text(size = base_size - 1, face = "bold"),
@@ -115,7 +147,8 @@ theme_publication <- function(base_size = 12) {
       # Plot
       plot.title = element_text(size = base_size + 2, face = "bold", hjust = 0),
       plot.subtitle = element_text(size = base_size, hjust = 0),
-      plot.caption = element_text(size = base_size - 3, hjust = 1, color = "gray50")
+      plot.caption = element_text(size = base_size - 3, hjust = 1, color = "gray50"),
+      plot.margin = margin(10, 10, 10, 10, "mm")
     )
 }
 
@@ -199,15 +232,40 @@ save_table <- function(df, name) {
 }
 
 # Calculate pseudo-R² (McFadden's)
+# Note: pass null_model explicitly when calling from inside functions,
+# because update(model, . ~ 1) can fail due to R scoping (the 'data'
+# argument in the model call is a symbol that may not resolve in this scope).
 calc_pseudo_r2 <- function(model, null_model = NULL) {
   if (is.null(null_model)) {
-    # Extract from model if possible
-    null_dev <- model$null.deviance
-    res_dev <- model$deviance
-    1 - (res_dev / null_dev)
-  } else {
-    1 - (logLik(model)[1] / logLik(null_model)[1])
+    null_model <- tryCatch(
+      update(model, . ~ 1),
+      error = function(e) NULL
+    )
   }
+  if (is.null(null_model)) {
+    # Fallback: use null.deviance (available on all glm objects)
+    # This gives 1 - D_model/D_null, which approximates McFadden's R²
+    if (!is.null(model$null.deviance) && !is.null(model$deviance)) {
+      return(1 - (model$deviance / model$null.deviance))
+    }
+    return(NA_real_)
+  }
+  ll_full <- as.numeric(logLik(model))
+  ll_null <- as.numeric(logLik(null_model))
+  1 - (ll_full / ll_null)
+}
+
+# Compute Cook's D and flag influential observations
+flag_influential <- function(model, threshold = NULL) {
+  cd <- cooks.distance(model)
+  n <- length(cd)
+  if (is.null(threshold)) threshold <- 4 / n
+  list(
+    cooks_d = cd,
+    max_d = max(cd, na.rm = TRUE),
+    n_influential = sum(cd > threshold, na.rm = TRUE),
+    influential_ids = which(cd > threshold)
+  )
 }
 
 cat("[OK] Helper functions defined\n")

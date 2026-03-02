@@ -154,7 +154,9 @@ cafi_by_coral <- cafi_clean %>%
     n_other         = sum(functional_group == "Other"),
 
     # Taxonomic group counts
+    # Note: n_crabs counts true crabs only (type == "crab"); hermit crabs tracked separately
     n_crabs   = sum(type == "crab"),
+    n_hermit  = sum(type == "hermit", na.rm = TRUE),
     n_shrimps = sum(type == "shrimp"),
     n_fish    = sum(type == "fish"),
     n_snails  = sum(type == "snail"),
@@ -214,6 +216,12 @@ coral_clean <- coral_raw %>%
   ) %>%
   filter(!is.na(site), !is.na(volume), volume > 0)
 
+dropped_corals <- setdiff(coral_raw$coral_id, coral_clean$coral_id)
+if (length(dropped_corals) > 0) {
+  cat("  WARNING: Dropped", length(dropped_corals), "corals with missing volume:",
+      paste(dropped_corals, collapse = ", "), "\n")
+}
+
 cat("   Clean records:", nrow(coral_clean), "\n")
 cat("   Sites:", paste(unique(coral_clean$site), collapse = ", "), "\n")
 cat("   Survey types:\n")
@@ -233,7 +241,7 @@ coral_master <- coral_clean %>%
     # IMPORTANT: Preserve NA for neighborhood metrics (n_neighbors, total_neighbor_volume, etc.)
     # because size-only corals (survey_type == "size") were not surveyed for neighbors
     across(c(n_trapezia, n_resident_fish, n_corallivore, n_other_crab, n_shrimp, n_other,
-             n_crabs, n_shrimps, n_fish, n_snails, total_cafi, otu_richness),
+             n_crabs, n_hermit, n_shrimps, n_fish, n_snails, total_cafi, otu_richness),
            ~replace_na(., 0)),
     shannon = replace_na(shannon, 0),
 
@@ -302,16 +310,29 @@ cat("5. Computing position-corrected condition scores...\n")
 
 physio_vars <- c("protein_mg_cm2", "carb_mg_cm2", "zoox_cells_cm2", "afdw_mg_cm2")
 
+cat("  Condition pipeline:\n")
+cat("    Physio records available:", nrow(physio_raw), "\n")
+
 physio_merged <- physio_raw %>%
   left_join(coral_clean %>% dplyr::select(coral_id, site, volume, stump_length, nubbin_length),
-            by = "coral_id") %>%
+            by = "coral_id")
+
+cat("    After join with coral data:", nrow(physio_merged), "\n")
+cat("    Lost to missing volume:", sum(is.na(physio_merged$volume)), "\n")
+
+physio_merged <- physio_merged %>%
   filter(!is.na(stump_length) | !is.na(nubbin_length))
+
+cat("    After position filter (stump/nubbin):", nrow(physio_merged), "\n")
 
 if (nrow(physio_merged) > 20) {
 
+  n_before_dropna <- nrow(physio_merged)
   correction_data <- physio_merged %>%
     dplyr::select(coral_id, site, volume, stump_length, nubbin_length, any_of(physio_vars)) %>%
     drop_na()
+
+  cat("    Lost to missing physio vars:", n_before_dropna - nrow(correction_data), "\n")
 
   corrected_traits <- correction_data %>%
     dplyr::select(coral_id, site, volume, stump_length, nubbin_length)
@@ -343,6 +364,8 @@ if (nrow(physio_merged) > 20) {
       dplyr::select(all_of(corrected_vars)) %>%
       drop_na()
 
+    cat("    Final for PCA:", nrow(pca_data), "\n")
+
     if (nrow(pca_data) > 10) {
       pca_result <- prcomp(pca_data, scale. = FALSE, center = TRUE)
 
@@ -356,7 +379,8 @@ if (nrow(physio_merged) > 20) {
       var_explained <- summary(pca_result)$importance[2, 1] * 100
 
       corrected_traits$condition_score <- NA
-      corrected_traits$condition_score[complete.cases(pca_data)] <- condition_pc1
+      complete_idx <- which(complete.cases(corrected_traits[, corrected_vars]))
+      corrected_traits$condition_score[complete_idx] <- condition_pc1
 
       cat("   Position correction applied\n")
       cat("   Condition score (PC1):", round(var_explained, 1), "% variance\n")
@@ -415,6 +439,186 @@ if (length(missing_corals) > 0) {
 }
 
 cat("   Matrix:", nrow(community_matrix), "corals x", ncol(community_matrix), "OTUs\n\n")
+
+# ============================================================================
+# 6a. TAXONOMY METADATA & SENSITIVITY SCENARIOS
+# ============================================================================
+# Build OTU-level taxonomy lookup and pre-build scenario datasets for
+# sensitivity analysis (script 13). This eliminates duplicate raw data reads
+# and moves taxonomy processing into the data loading phase.
+# ============================================================================
+
+cat("6a. Building OTU taxonomy metadata & sensitivity scenarios...\n")
+
+# --- OTU taxonomy lookup ---
+# cafi_clean retains lowest_level, genus, family from raw CSV
+otu_taxonomy <- cafi_clean %>%
+  group_by(otu) %>%
+  summarise(
+    lowest_level = first(na.omit(lowest_level)),
+    genus = first(na.omit(genus)),
+    family = first(na.omit(family)),
+    n_records = n(),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    resolution = case_when(
+      lowest_level %in% c("species", "subspecies") ~ "species",
+      lowest_level == "genus" ~ "genus",
+      lowest_level %in% c("family", "subfamily") ~ "family",
+      TRUE ~ "higher"
+    )
+  )
+
+# Genera with BOTH a genus-only bin AND species-level bins (richness inflation)
+genus_bin_genera <- otu_taxonomy %>%
+  filter(resolution == "genus") %>%
+  pull(genus) %>%
+  unique() %>%
+  na.omit()
+
+species_bin_genera <- otu_taxonomy %>%
+  filter(resolution == "species") %>%
+  pull(genus) %>%
+  unique() %>%
+  na.omit()
+
+overlap_genera <- intersect(genus_bin_genera, species_bin_genera)
+
+cat("   OTU taxonomy lookup:", nrow(otu_taxonomy), "OTUs\n")
+cat("   Resolution:",
+    sum(otu_taxonomy$resolution == "species"), "species,",
+    sum(otu_taxonomy$resolution == "genus"), "genus,",
+    sum(otu_taxonomy$resolution == "family"), "family,",
+    sum(otu_taxonomy$resolution == "higher"), "higher\n")
+cat("   Overlap genera:", length(overlap_genera), "\n")
+
+# --- Scenario transformation functions ---
+# Each takes cafi_clean and returns a modified version with remapped 'otu'
+
+apply_baseline <- function(cafi_df) cafi_df
+
+apply_species_only <- function(cafi_df) {
+  species_otus <- otu_taxonomy %>% filter(resolution == "species") %>% pull(otu)
+  cafi_df %>% filter(otu %in% species_otus)
+}
+
+apply_merge_up <- function(cafi_df) {
+  species_genus_lookup <- otu_taxonomy %>%
+    filter(resolution == "species", !is.na(genus)) %>%
+    dplyr::select(otu, tax_genus = genus)
+
+  most_common_species <- cafi_df %>%
+    inner_join(species_genus_lookup, by = "otu") %>%
+    count(tax_genus, otu) %>%
+    group_by(tax_genus) %>%
+    slice_max(n, n = 1, with_ties = FALSE) %>%
+    ungroup() %>%
+    dplyr::select(tax_genus, target_otu = otu)
+
+  genus_bin_otus <- otu_taxonomy %>%
+    filter(resolution == "genus", genus %in% overlap_genera) %>%
+    dplyr::select(otu, tax_genus = genus)
+
+  remap <- genus_bin_otus %>%
+    left_join(most_common_species, by = "tax_genus") %>%
+    filter(!is.na(target_otu)) %>%
+    dplyr::select(otu, target_otu)
+
+  cafi_df %>%
+    left_join(remap, by = "otu") %>%
+    mutate(otu = ifelse(!is.na(target_otu), target_otu, otu)) %>%
+    dplyr::select(-target_otu)
+}
+
+apply_lump_down <- function(cafi_df) {
+  otu_genus <- otu_taxonomy %>% dplyr::select(otu, tax_genus = genus)
+  cafi_df %>%
+    left_join(otu_genus, by = "otu") %>%
+    mutate(otu = ifelse(!is.na(tax_genus), tax_genus, otu)) %>%
+    dplyr::select(-tax_genus)
+}
+
+apply_rare_excluded <- function(cafi_df) {
+  otu_prevalence <- cafi_df %>%
+    distinct(coral_id, otu) %>%
+    count(otu, name = "n_corals")
+  common_otus <- otu_prevalence %>% filter(n_corals >= 3) %>% pull(otu)
+  cafi_df %>% filter(otu %in% common_otus)
+}
+
+# --- Helper: build community matrix from modified CAFI data ---
+build_scenario_community_matrix <- function(cafi_df, coral_ids) {
+  comm <- cafi_df %>%
+    group_by(coral_id, otu) %>%
+    summarise(count = n(), .groups = "drop") %>%
+    pivot_wider(names_from = otu, values_from = count, values_fill = 0) %>%
+    column_to_rownames("coral_id") %>%
+    as.matrix()
+  missing <- setdiff(coral_ids, rownames(comm))
+  if (length(missing) > 0) {
+    zero_rows <- matrix(0, nrow = length(missing), ncol = ncol(comm),
+                        dimnames = list(missing, colnames(comm)))
+    comm <- rbind(comm, zero_rows)
+  }
+  comm[coral_ids[coral_ids %in% rownames(comm)], , drop = FALSE]
+}
+
+# --- Pre-build scenario datasets ---
+taxonomy_scenarios <- list(
+  Baseline        = apply_baseline,
+  `Species-only`  = apply_species_only,
+  `Merge-up`      = apply_merge_up,
+  `Lump-down`     = apply_lump_down,
+  `Rare-excluded` = apply_rare_excluded
+)
+
+coral_ids_for_scenarios <- coral_master$coral_id
+
+taxonomy_scenario_data <- lapply(names(taxonomy_scenarios), function(scenario_name) {
+  cafi_modified <- taxonomy_scenarios[[scenario_name]](cafi_clean)
+  comm_mat <- build_scenario_community_matrix(cafi_modified, coral_ids_for_scenarios)
+
+  # Compute coral-level metrics
+  total_cafi <- rowSums(comm_mat)
+  otu_richness <- rowSums(comm_mat > 0)
+  shannon <- apply(comm_mat, 1, function(x) {
+    x <- x[x > 0]; if (length(x) == 0) return(0)
+    p <- x / sum(x); -sum(p * log(p))
+  })
+
+  metrics <- tibble(
+    coral_id = rownames(comm_mat),
+    total_cafi = as.numeric(total_cafi),
+    otu_richness = as.numeric(otu_richness),
+    shannon = as.numeric(shannon)
+  ) %>%
+    left_join(coral_master %>% dplyr::select(coral_id, site, volume, log_volume),
+              by = "coral_id") %>%
+    filter(!is.na(volume), volume > 0)
+
+  list(
+    scenario = scenario_name,
+    cafi_modified = cafi_modified,
+    community_matrix = comm_mat,
+    metrics = metrics,
+    n_records = nrow(cafi_modified),
+    n_otus = n_distinct(cafi_modified$otu)
+  )
+})
+names(taxonomy_scenario_data) <- names(taxonomy_scenarios)
+
+cat("   Built", length(taxonomy_scenario_data), "taxonomy scenarios:\n")
+for (s in names(taxonomy_scenario_data)) {
+  d <- taxonomy_scenario_data[[s]]
+  cat("     ", s, ":", d$n_records, "records,", d$n_otus, "OTUs,",
+      nrow(d$community_matrix), "x", ncol(d$community_matrix), "matrix\n")
+}
+cat("\n")
+
+save_object(otu_taxonomy, "otu_taxonomy")
+save_object(overlap_genera, "overlap_genera")
+save_object(taxonomy_scenario_data, "taxonomy_scenario_data")
 
 # ============================================================================
 # 6b. CREATE PCA-BASED CAFI COMMUNITY SCORE (PC1_CAFI)
@@ -484,6 +688,15 @@ if (nrow(community_matrix) >= 10 && ncol(community_matrix) >= 3) {
 }
 
 cat("\n")
+
+# --- Data integrity assertions ---
+stopifnot("coral_clean should have no NA volumes" = all(!is.na(coral_clean$volume)))
+stopifnot("coral_clean should have no zero volumes" = all(coral_clean$volume > 0))
+stopifnot("No duplicate coral_ids in coral_master" = !any(duplicated(coral_master$coral_id)))
+stopifnot("community_matrix rows should match coral_master" =
+            all(coral_master$coral_id %in% rownames(community_matrix)))
+stopifnot("condition_scores should have no duplicate coral_ids" =
+            !any(duplicated(condition_scores$coral_id)))
 
 # ============================================================================
 # 7. SAVE ALL OBJECTS
@@ -564,13 +777,8 @@ tryCatch({
       left_join(site_counts, by = "site")
 
     # ------------------------------------------------------------------
-    # Color palette (Okabe-Ito, colorblind-safe)
+    # Color palette: use global SITE_COLORS (purple/slate/sage)
     # ------------------------------------------------------------------
-    SITE_COLORS_FIG1 <- c(
-      "HAU" = "#E69F00",
-      "MAT" = "#0072B2",
-      "MRB" = "#009E73"
-    )
 
     DATA_FILL       <- "#4A90A4"
     DATA_FILL_ALPHA  <- "#7EB3C4"
@@ -590,9 +798,9 @@ tryCatch({
           axis.ticks = element_line(color = "gray40", linewidth = 0.3),
           axis.text  = element_text(color = "gray20", size = base_size - 1),
           axis.title = element_text(color = "gray10", size = base_size, face = "plain"),
-          plot.title = element_text(face = "bold", size = 15, color = "black",
+          plot.title = element_text(face = "bold", size = 16, color = "black",
                                     hjust = 0, margin = margin(b = 2)),
-          plot.subtitle = element_text(size = base_size - 0.5, color = "gray40",
+          plot.subtitle = element_text(size = base_size - 0.5, color = "gray30",
                                        hjust = 0, margin = margin(b = 8)),
           plot.margin = margin(10, 12, 8, 10)
         )
@@ -639,7 +847,7 @@ tryCatch({
                    fill = alpha("gray15", 0.85), linewidth = 0.3,
                    label.r = unit(0.15, "lines"),
                    label.padding = unit(0.22, "lines"), lineheight = 0.85) +
-        scale_fill_manual(values = SITE_COLORS_FIG1, guide = "none") +
+        scale_fill_manual(values = SITE_COLORS, guide = "none") +
         coord_sf(xlim = c(-149.97, -149.71), ylim = c(-17.65, -17.40), expand = FALSE) +
         annotate("segment", x = -149.949, xend = -149.859, y = -17.621, yend = -17.621,
                  color = "black", linewidth = 2.0, alpha = 0.4) +
@@ -663,7 +871,7 @@ tryCatch({
         labs(title = "A") +
         theme_void() +
         theme(
-          plot.title = element_text(face = "bold", size = 15, hjust = 0,
+          plot.title = element_text(face = "bold", size = 16, hjust = 0,
                                     margin = margin(b = 5, l = 5)),
           plot.background = element_rect(fill = "white", color = NA),
           plot.margin = margin(8, 5, 5, 5)
@@ -697,7 +905,7 @@ tryCatch({
                   aes(x = long + x_off, y = lat + y_off_n,
                       label = paste0("(n=", n_corals, ")")),
                   size = 2.5, color = "gray35") +
-        scale_fill_manual(values = SITE_COLORS_FIG1, guide = "none") +
+        scale_fill_manual(values = SITE_COLORS, guide = "none") +
         coord_sf(xlim = c(-149.97, -149.72), ylim = c(-17.64, -17.41), expand = FALSE) +
         annotate("segment", x = -149.95, xend = -149.86, y = -17.62, yend = -17.62,
                  color = "gray30", linewidth = 0.8) +
@@ -706,7 +914,7 @@ tryCatch({
         labs(title = "A") +
         theme_void() +
         theme(
-          plot.title = element_text(face = "bold", size = 15, hjust = 0,
+          plot.title = element_text(face = "bold", size = 16, hjust = 0,
                                     margin = margin(b = 5, l = 5)),
           plot.background = element_rect(fill = "white", color = NA),
           plot.margin = margin(8, 5, 5, 5)
@@ -753,7 +961,7 @@ tryCatch({
       annotate("text", x = sqrt(vol_stats$min_vol * vol_stats$max_vol),
                y = dens_max_b * 1.15,
                label = ">3 orders\nof magnitude",
-               size = 2.8, color = "gray35", fontface = "italic", lineheight = 0.9) +
+               size = 3.2, color = "gray30", fontface = "italic", lineheight = 0.9) +
       labs(
         title = "B",
         subtitle = paste0("n=", vol_stats$n, "  |  CV=", round(vol_stats$cv), "%"),
@@ -796,7 +1004,7 @@ tryCatch({
     marker_df <- data.frame(
       x = c(5, 17, 76),
       label = c("D", "E", "F"),
-      color = c(SITE_COLORS_FIG1["HAU"], SITE_COLORS_FIG1["MRB"], SITE_COLORS_FIG1["MRB"])
+      color = c(SITE_COLORS["HAU"], SITE_COLORS["MRB"], SITE_COLORS["MRB"])
     )
     marker_df$y <- sapply(marker_df$x, get_density_at_x, dens = dens_obj)
 
@@ -884,7 +1092,7 @@ tryCatch({
         labs(tag = panel_label) +
         coord_fixed(xlim = c(-1.2, 1.2), ylim = c(-1.45, 1.55)) +
         theme_void() +
-        theme(plot.tag = element_text(face = "bold", size = 14),
+        theme(plot.tag = element_text(face = "bold", size = 16),
               plot.margin = margin(5, 8, 5, 8),
               plot.background = element_rect(fill = "white", color = NA))
     }
@@ -896,21 +1104,21 @@ tryCatch({
     panel_d <- create_neighborhood_plot(
       focal_vol = 26741, mean_neigh_vol = 1336, n_neighbors = 5,
       mean_neigh_dist_cm = 167, site_name = "Hauru",
-      focal_color = SITE_COLORS_FIG1["HAU"], panel_label = "D",
+      focal_color = SITE_COLORS["HAU"], panel_label = "D",
       density_label = "Low density", focal_size_override = FOCAL_SIZE)
 
     # E: MRB-POC10 (Maharepa) - 17 neighbors
     panel_e <- create_neighborhood_plot(
       focal_vol = 5472, mean_neigh_vol = 686, n_neighbors = 17,
       mean_neigh_dist_cm = 154, site_name = "Maharepa",
-      focal_color = SITE_COLORS_FIG1["MRB"], panel_label = "E",
+      focal_color = SITE_COLORS["MRB"], panel_label = "E",
       density_label = "Median density", focal_size_override = FOCAL_SIZE)
 
     # F: MRB-POC18 (Maharepa) - 76 neighbors, close neighbors
     panel_f <- create_neighborhood_plot(
       focal_vol = 3064, mean_neigh_vol = 395, n_neighbors = 76,
       mean_neigh_dist_cm = 113, site_name = "Maharepa",
-      focal_color = SITE_COLORS_FIG1["MRB"], panel_label = "F",
+      focal_color = SITE_COLORS["MRB"], panel_label = "F",
       density_label = "High density", focal_size_override = FOCAL_SIZE)
 
     # ==================================================================
@@ -936,7 +1144,7 @@ tryCatch({
           "circle sizes reflect colony volumes, positions reflect measured distances."),
         theme = theme(
           plot.background = element_rect(fill = "white", color = NA),
-          plot.caption = element_text(size = 7.5, hjust = 0, color = "gray45",
+          plot.caption = element_text(size = 9, hjust = 0, color = "gray35",
                                      lineheight = 1.3, margin = margin(t = 15)),
           plot.margin = margin(12, 15, 15, 15)
         )
@@ -967,7 +1175,7 @@ Figure 1. Study design and sampling overview. (A) Satellite imagery of Mo\'orea,
 French Polynesia (17\u00b030\'S, 149\u00b050\'W), showing the three reef sites: Hauru
 (fringing reef, north shore; n = ', site_data$n_corals[site_data$site == "HAU"], ' corals), Maatea (lagoon/back reef, east
 shore; n = ', site_data$n_corals[site_data$site == "MAT"], '), and Maharepa (barrier reef, north shore; n = ', site_data$n_corals[site_data$site == "MRB"], '). Site markers
-colored by reef site (orange = Hauru, blue = Maatea, green = Maharepa).
+colored by reef site (purple = Hauru, slate = Maatea, sage green = Maharepa).
 (B) Distribution of Pocillopora colony volumes on a log10 scale, spanning >3
 orders of magnitude (', round(vol_stats$min_vol), '\u2013', format(round(vol_stats$max_vol), big.mark = ","), ' cm3; CV = ', round(vol_stats$cv), '%; n = ', vol_stats$n, ' colonies with volume
 data). Black curve shows kernel density estimate. (C) Distribution of
@@ -1092,9 +1300,9 @@ Focal species: Pocillopora spp.
 COLOR SCHEME
 ------------
 Site palette (Panel A markers, D\u2013F focal corals):
-  HAU (Hauru):    #E69F00 (Okabe-Ito orange)
-  MAT (Maatea):   #0072B2 (Okabe-Ito blue)
-  MRB (Maharepa): #009E73 (Okabe-Ito green)
+  HAU (Hauru):    #9B7EB8 (muted purple)
+  MAT (Maatea):   #7B9BAE (cool slate)
+  MRB (Maharepa): #7AAC6D (sage green)
 
 Data distributions (Panels B\u2013C):
   Histogram fill: #4A90A4 (steel blue)
@@ -1117,7 +1325,7 @@ Source script: scripts/01_load_data.R
     cat("  - Dimensions: 12 x 10 inches\n")
     cat("  - Resolution: 300 dpi (PNG)\n")
     cat("  - Panels: A (satellite map), B (volume), C (neighbors), D-F (neighborhood schematics)\n")
-    cat("  - Site colors: HAU=#E69F00, MAT=#0072B2, MRB=#009E73\n")
+    cat("  - Site colors: HAU=#9B7EB8, MAT=#7B9BAE, MRB=#7AAC6D\n")
     cat("  - Total corals:", nrow(coral_master), "\n")
     cat("  - Corals with neighborhood data:", neighbor_stats$n, "\n")
   }

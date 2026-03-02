@@ -96,8 +96,8 @@ morphology_features <- coral_master %>%
   transmute(
     coral_id = coral_id,
 
-    # log-transformed coral volume
-    log_volume = log10(volume + 1),
+    # Natural log, consistent with core pipeline (scripts 01-09)
+    log_volume = log(volume),
 
     # Raw volume for some uses
     volume = volume,
@@ -198,9 +198,10 @@ derived_features <- coral_master %>%
                      include.lowest = TRUE) %>% factor(),
 
     # Site-specific volume effect (interaction proxy)
-    site_volume_HAU = ifelse(site == "HAU", log10(volume + 1), 0),
-    site_volume_MAT = ifelse(site == "MAT", log10(volume + 1), 0),
-    site_volume_MRB = ifelse(site == "MRB", log10(volume + 1), 0)
+    # Natural log, consistent with core pipeline (scripts 01-09)
+    site_volume_HAU = ifelse(site == "HAU", log(volume), 0),
+    site_volume_MAT = ifelse(site == "MAT", log(volume), 0),
+    site_volume_MRB = ifelse(site == "MRB", log(volume), 0)
   )
 
 cat("   Size class distribution:\n")
@@ -535,7 +536,7 @@ vif_data <- feature_matrix %>%
 
 if (nrow(vif_data) > 20) {
   # Fit model for VIF
-  vif_model <- glm.nb(total_cafi ~ log_volume + n_neighbors +
+  vif_model <- MASS::glm.nb(total_cafi ~ log_volume + n_neighbors +
                        log(total_neighbor_volume + 1) + mean_neighbor_dist + site,
                       data = vif_data)
 
@@ -688,7 +689,7 @@ feature_summary <- tibble(
                "Neighborhood", "Condition",
                "Trait", "Trait", "Trait"),
   description = c(
-    "Log10-transformed coral volume (cm3)",
+    "Natural log-transformed coral volume (cm3)",
     "Count of Pocillopora neighbors within 5m radius",
     "Mean distance to neighboring corals (cm)",
     "Sum of neighbor volumes within 5m (cm3)",
