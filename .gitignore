@@ -27,6 +27,12 @@ venv/
 *.swp
 *.swo
 
+# Claude Code local settings
+.claude/
+
+# Firebase debug
+firebase-debug.log
+
 # Output files (can be regenerated from scripts)
 output/
 

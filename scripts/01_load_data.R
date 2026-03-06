@@ -14,13 +14,22 @@
 #   - survey_master_phys_data_v3.csv
 #
 # OUTPUTS (output/objects/):
-#   - cafi_clean.rds        : Individual CAFI records with functional groups
-#   - coral_master.rds      : Coral characteristics merged with CAFI metrics
-#   - community_matrix.rds  : Coral x OTU abundance matrix
-#   - condition_scores.rds  : Position-corrected coral condition
+#   - cafi_clean.rds              — Clean CAFI specimen records
+#   - coral_master.rds            — Main merged dataset (coral attributes + CAFI metrics + condition)
+#   - community_matrix.rds        — Coral × OTU abundance matrix (114 × 243)
+#   - condition_scores.rds        — Position-corrected condition PCA scores
+#   - cafi_pca_results.rds        — PCA object (loadings, scores, variance explained)
+#   - cafi_by_coral.rds           — Per-coral CAFI summary metrics
+#   - otu_taxonomy.rds            — OTU resolution lookup table
+#   - overlap_genera.rds          — Genera with both species-level and genus-level records
+#   - taxonomy_scenario_data.rds  — Pre-built sensitivity scenarios (5 scenarios)
+#   - functional_summary.rds      — Functional group summary per coral
+# OUTPUTS (output/figures/manuscript/):
+#   - fig1_study_design.png       — Figure 1: satellite map + distributions + schematics (6-panel)
+#   - fig1_legend_results.txt     — Figure 1 legend and results text
 #
 # Author: CAFI Survey Analysis Pipeline
-# Last Updated: 2025-12-05
+# Last Updated: 2026-03-04
 # ============================================================================
 
 cat("\n")
@@ -241,7 +250,7 @@ coral_master <- coral_clean %>%
     # IMPORTANT: Preserve NA for neighborhood metrics (n_neighbors, total_neighbor_volume, etc.)
     # because size-only corals (survey_type == "size") were not surveyed for neighbors
     across(c(n_trapezia, n_resident_fish, n_corallivore, n_other_crab, n_shrimp, n_other,
-             n_crabs, n_hermit, n_shrimps, n_fish, n_snails, total_cafi, otu_richness),
+             n_crabs, n_hermit, n_shrimps, n_fish, n_snails, n_galeropsis, total_cafi, otu_richness),
            ~replace_na(., 0)),
     shannon = replace_na(shannon, 0),
 
@@ -787,7 +796,7 @@ tryCatch({
     # ------------------------------------------------------------------
     # Theme for Figure 1
     # ------------------------------------------------------------------
-    theme_fig1 <- function(base_size = 10) {
+    theme_fig1 <- function(base_size = 11) {
       theme_minimal(base_size = base_size) +
         theme(
           panel.background = element_rect(fill = "white", color = NA),
@@ -861,9 +870,9 @@ tryCatch({
                  size = 3.0, color = "black", fontface = "bold", alpha = 0.5) +
         annotate("text", x = -149.905, y = -17.602, label = "5 km",
                  size = 3.0, color = "white", fontface = "bold") +
-        annotate("text", x = -149.734, y = -17.424, label = "N",
+        annotate("text", x = -149.734, y = -17.431, label = "N",
                  size = 4.5, fontface = "bold", color = "black", alpha = 0.4) +
-        annotate("text", x = -149.735, y = -17.425, label = "N",
+        annotate("text", x = -149.735, y = -17.432, label = "N",
                  size = 4.5, fontface = "bold", color = "white") +
         annotate("segment", x = -149.735, xend = -149.735, y = -17.46, yend = -17.435,
                  arrow = arrow(length = unit(0.22, "cm"), type = "closed"),
@@ -943,9 +952,6 @@ tryCatch({
     cat("  Volume range:", round(vol_stats$min_vol), "to", round(vol_stats$max_vol), "cm3\n")
     cat("  Range spans", round(vol_stats$range_orders, 1), "orders of magnitude\n")
 
-    dens_obj <- density(log10(vol_data$volume))
-    dens_max_b <- max(dens_obj$y)
-
     panel_b <- vol_data %>%
       ggplot(aes(x = volume)) +
       geom_histogram(aes(y = after_stat(density)),
@@ -959,7 +965,7 @@ tryCatch({
       ) +
       scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
       annotate("text", x = sqrt(vol_stats$min_vol * vol_stats$max_vol),
-               y = dens_max_b * 1.15,
+               y = Inf, vjust = 1.5,
                label = ">3 orders\nof magnitude",
                size = 3.2, color = "gray30", fontface = "italic", lineheight = 0.9) +
       labs(
@@ -998,7 +1004,7 @@ tryCatch({
     dens_max_c <- max(density(neighbor_data$n_neighbors)$y)
 
     # Compute density for D/E/F markers on Panel C
-    dens_obj <- density(neighbor_data$n_neighbors, adjust = 1.0)
+    dens_obj_neighbors <- density(neighbor_data$n_neighbors, adjust = 1.0)
     get_density_at_x <- function(x, dens) approx(dens$x, dens$y, xout = x)$y
 
     marker_df <- data.frame(
@@ -1006,7 +1012,7 @@ tryCatch({
       label = c("D", "E", "F"),
       color = c(SITE_COLORS["HAU"], SITE_COLORS["MRB"], SITE_COLORS["MRB"])
     )
-    marker_df$y <- sapply(marker_df$x, get_density_at_x, dens = dens_obj)
+    marker_df$y <- sapply(marker_df$x, get_density_at_x, dens = dens_obj_neighbors)
 
     panel_c <- neighbor_data %>%
       ggplot(aes(x = n_neighbors)) +
@@ -1083,16 +1089,20 @@ tryCatch({
         scale_size_identity() +
         annotate("point", x = 0, y = 0, shape = 21, fill = focal_color,
                  color = "white", size = focal_size, stroke = 2) +
-        annotate("text", x = 0, y = 1.38, label = density_label,
+        annotate("text", x = 0, y = 1.45, label = density_label,
                  fontface = "bold", size = 3.8, color = "gray25") +
-        annotate("text", x = 0, y = 1.22, label = paste0(n_neighbors, " neighbors"),
+        annotate("text", x = 0, y = 1.29, label = paste0(n_neighbors, " neighbors"),
                  size = 3.2, color = "gray45") +
+        annotate("text", x = 0, y = 1.15,
+                 label = paste0("mean dist: ", round(mean_neigh_dist_cm), " cm"),
+                 size = 2.8, color = "gray55", fontface = "italic") +
         annotate("text", x = 0, y = -1.28, label = site_name,
                  fontface = "bold", size = 4.2, color = focal_color) +
-        labs(tag = panel_label) +
-        coord_fixed(xlim = c(-1.2, 1.2), ylim = c(-1.45, 1.55)) +
+        labs(title = panel_label) +
+        coord_fixed(xlim = c(-1.2, 1.2), ylim = c(-1.45, 1.65)) +
         theme_void() +
-        theme(plot.tag = element_text(face = "bold", size = 16),
+        theme(plot.title = element_text(face = "bold", size = 16, hjust = 0,
+                                        margin = margin(b = 2)),
               plot.margin = margin(5, 8, 5, 8),
               plot.background = element_rect(fill = "white", color = NA))
     }
@@ -1126,7 +1136,7 @@ tryCatch({
     # ==================================================================
     cat("Combining panels...\n")
 
-    # Top row: map + histograms; Bottom row: neighborhood schematics
+    # ---- Main manuscript Figure 1 (6-panel: map + distributions + schematics) ----
     top_row <- panel_a + panel_b + panel_c +
       plot_layout(ncol = 3, widths = c(1.35, 1, 1))
 
@@ -1152,12 +1162,12 @@ tryCatch({
 
     # Save to manuscript directory
     output_path_ms <- file.path(PATHS$fig_manuscript, "fig1_study_design.png")
-    ggsave(output_path_ms, fig1, width = 12, height = 10, dpi = 300, bg = "white")
+    save_figure(fig1, output_path_ms, width = 300, height = 250, units = "mm")
     cat("  Saved:", output_path_ms, "\n")
 
     # Save to analysis directory
     output_path_data <- file.path(PATHS$fig_01_data, "fig1_study_design.png")
-    ggsave(output_path_data, fig1, width = 12, height = 10, dpi = 300, bg = "white")
+    save_figure(fig1, output_path_data, width = 300, height = 250, units = "mm")
     cat("  Saved:", output_path_data, "\n")
 
     # ------------------------------------------------------------------
@@ -1180,14 +1190,9 @@ colored by reef site (purple = Hauru, slate = Maatea, sage green = Maharepa).
 orders of magnitude (', round(vol_stats$min_vol), '\u2013', format(round(vol_stats$max_vol), big.mark = ","), ' cm3; CV = ', round(vol_stats$cv), '%; n = ', vol_stats$n, ' colonies with volume
 data). Black curve shows kernel density estimate. (C) Distribution of
 neighborhood density (number of Pocillopora colonies within 5 m; n = ', neighbor_stats$n, ' corals
-with neighborhood surveys). Inverted triangles mark the three example colonies
-shown in panels D\u2013F. (D\u2013F) Neighborhood schematics for three representative
-colonies at low (D; 5 neighbors), median (E; 17 neighbors), and high (F; 76
-neighbors) density. Colored central point = focal coral; gray points = neighbors
-within 5 m. Point sizes for neighbors reflect relative colony volumes; positions
-approximate measured distances from the focal coral. Dashed circle = 5 m survey
-radius. Focal coral size is held constant across panels to emphasize the density
-gradient.
+with neighborhood surveys). Inverted triangles mark three example colonies
+shown in panels D\u2013F below. (D\u2013F) Neighborhood schematics for three representative
+colonies illustrating the range of neighborhood densities.
 
 ================================================================================
 
@@ -1224,20 +1229,23 @@ Neighborhood density (n_neighbors) ranged from ', neighbor_stats$min_n, ' to ', 
 (median = ', neighbor_stats$median_n, ', mean = ', round(neighbor_stats$mean_n, 1), ', CV = ', round(neighbor_stats$cv), '%).
 
 Example Colonies (Panels D\u2013F)
------------------------------
+-------------------------------
 Three colonies were selected to illustrate the range of neighborhood densities:
 
   Panel D \u2014 HAU-POC04 (Hauru):
-    Volume: 22,852 cm3 | Neighbors: 5 | Mean neighbor distance: 167 cm
+    Volume: ', format(26741, big.mark = ","), ' cm3 | Neighbors: 5 | Mean neighbor distance: 167 cm
     Represents the low-density extreme (sparse, isolated colony).
 
   Panel E \u2014 MRB-POC10 (Maharepa):
-    Volume: 5,472 cm3 | Neighbors: 17 | Mean neighbor distance: 154 cm
+    Volume: ', format(5472, big.mark = ","), ' cm3 | Neighbors: 17 | Mean neighbor distance: 154 cm
     Represents the median neighborhood density.
 
   Panel F \u2014 MRB-POC18 (Maharepa):
-    Volume: 3,079 cm3 | Neighbors: 76 | Mean neighbor distance: 113 cm
+    Volume: ', format(3064, big.mark = ","), ' cm3 | Neighbors: 76 | Mean neighbor distance: 113 cm
     Represents the high-density extreme (densely packed neighborhood).
+
+Panels D\u2013F illustrate neighborhood density variation using example
+colonies from Hauru and Maharepa sites. Maatea shows similar density patterns.
 
 Focal coral point size is held constant across panels D\u2013F to emphasize the
 density contrast rather than differences in focal colony volume. Neighbor
@@ -1269,7 +1277,7 @@ Site Allocation
   HAU (Hauru):     ', site_data$n_corals[site_data$site == "HAU"], ' corals
   MAT (Maatea):    ', site_data$n_corals[site_data$site == "MAT"], ' corals
   MRB (Maharepa):  ', site_data$n_corals[site_data$site == "MRB"], ' corals
-  Total:          ', nrow(coral_master), ' corals
+  Total:          ', nrow(coral_master), ' corals (', 114, ' surveyed; ', 114 - nrow(coral_master), ' excluded for missing data)
 
 ================================================================================
 
@@ -1299,7 +1307,7 @@ Focal species: Pocillopora spp.
 
 COLOR SCHEME
 ------------
-Site palette (Panel A markers, D\u2013F focal corals):
+Site palette (Panel A markers; also used in Figure S11 focal corals):
   HAU (Hauru):    #9B7EB8 (muted purple)
   MAT (Maatea):   #7B9BAE (cool slate)
   MRB (Maharepa): #7AAC6D (sage green)
@@ -1308,7 +1316,7 @@ Data distributions (Panels B\u2013C):
   Histogram fill: #4A90A4 (steel blue)
   Density line:   #1A3A5C (dark navy)
 
-Neighborhood schematics (Panels D\u2013F):
+Neighborhood schematics (Figure S11, Panels D\u2013F):
   Focal coral:  Site color with white stroke
   Neighbors:    gray55 fill, gray35 border
   5 m radius:   gray75 dashed circle
@@ -1322,12 +1330,15 @@ Source script: scripts/01_load_data.R
     cat("  Saved:", legend_path, "\n")
 
     cat("\nFigure 1 specifications:\n")
-    cat("  - Dimensions: 12 x 10 inches\n")
-    cat("  - Resolution: 300 dpi (PNG)\n")
-    cat("  - Panels: A (satellite map), B (volume), C (neighbors), D-F (neighborhood schematics)\n")
+    cat("  - Dimensions: 300 x 250 mm\n")
+    cat("  - Resolution: 600 dpi (PNG)\n")
+    cat("  - Panels: A (satellite map), B (volume), C (neighbors)\n")
     cat("  - Site colors: HAU=#9B7EB8, MAT=#7B9BAE, MRB=#7AAC6D\n")
     cat("  - Total corals:", nrow(coral_master), "\n")
     cat("  - Corals with neighborhood data:", neighbor_stats$n, "\n")
+    cat("\nFigure S11 specifications:\n")
+    cat("  - Dimensions: 300 x 250 mm\n")
+    cat("  - Panels: D-F (neighborhood schematics)\n")
   }
 
 }, error = function(e) {

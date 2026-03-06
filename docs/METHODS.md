@@ -21,7 +21,7 @@ This document provides detailed statistical methods suitable for inclusion in su
   - Neighborhood surveys (n = 61): Full 5 m radius surveys of all neighboring Pocillopora
   - Size-only surveys (n = 53): Coral measurements without neighborhood data
 - **CAFI collection**: All coral-associated fauna extracted via coral fragmentation
-- **Total CAFI**: 3,989 individuals across 87 morphological OTUs
+- **Total CAFI**: 3,989 individuals across 243 OTUs (154 species-level, 89 genus/family/higher)
 
 ---
 
@@ -94,6 +94,8 @@ p = 2 × pnorm(-|z|)
 
 **Multiple testing correction**: FDR (Benjamini-Hochberg) applied within category (species-level and group-level scaling tests separately).
 
+**Species occurrence logistic GLMs**: For each of the 24 most prevalent species, a binomial GLM tests whether occurrence probability increases with coral size: `P(present) ~ log(volume) + site`. FDR correction (Benjamini-Hochberg) is applied across all species. Results visualized in Fig S14.
+
 **Interpretation**:
 | Outcome | Interpretation |
 |---------|----------------|
@@ -132,6 +134,7 @@ model <- lm(shannon ~ log(volume) + n_neighbors +
 
 - **Site**: Fixed effect (k = 3 insufficient for random intercepts; Bolker et al. 2009)
 - **NB convergence**: Poisson fallback with logging when NB fails to converge
+- **AIC-based backward elimination**: Systematic AIC model selection is used to identify the most parsimonious landscape model. Post-selection inference caveat acknowledged (standard errors conditional on the selected model).
 
 **Effect size calculation**:
 
@@ -144,17 +147,20 @@ Standardized coefficients computed by centering and scaling continuous predictor
 Tests for multivariate differences in community composition among groups.
 
 ```r
-model <- vegan::adonis2(community_matrix ~ site * size_class,
+model <- vegan::adonis2(comm_hell_aligned ~ log(volume) + site,
                         data = metadata,
                         method = "bray",
                         permutations = 999,
                         by = "margin")  # Type III (marginal) sums of squares
 ```
 
-- **Distance metric**: Bray-Curtis dissimilarity
+- **Predictors**: log(volume) (continuous coral size) and site (fixed effect); additive model with no interaction
+- **Distance metric**: Bray-Curtis dissimilarity on Hellinger-transformed community matrix
 - **Permutations**: 999
 - **Effect size**: R² (proportion of variance explained)
 - **Type**: Marginal (Type III) to avoid order-dependence of predictors
+
+**Multi-metric PERMANOVA sensitivity**: PERMANOVA is repeated across 5 distance metrics (Bray-Curtis, Jaccard, Morisita-Horn, Euclidean, Canberra) to test robustness of the site and volume effects to metric choice. Results reported in Fig S2.
 
 **Composition divergence**:
 
@@ -182,6 +188,24 @@ nmds <- vegan::metaMDS(community_matrix,
 - **Convergence criterion**: stress < 0.20
 - **Transformations**: Hellinger (pre-applied)
 
+**db-RDA (Constrained Ordination)**:
+
+Distance-based redundancy analysis tests whether community composition shifts continuously along the coral size gradient, after partialing out site effects.
+
+```r
+dbrda_vol <- vegan::dbrda(community ~ log(volume) + Condition(site),
+                          data = metadata, distance = "bray")
+anova(dbrda_vol, permutations = 999)
+```
+
+- **Constrained predictor**: log(volume) — continuous coral size
+- **Conditioned factor**: site (partialed out)
+- **Significance**: 999 permutations via `anova.cca()`
+- **Species scores**: Weighted averages of sample scores on dbRDA1 (manual computation; `dbrda()` does not produce species scores directly)
+- **Variance partitioning**: `vegan::varpart()` decomposes community variation into volume alone, site alone, shared, and residual fractions (adjusted R²)
+- **Rarefaction control**: Same db-RDA on iterated-rarefied distances (100 draws, averaged) to verify size gradient is not an abundance artifact
+- **Reference**: Legendre & Anderson (1999) Ecological Monographs 69:1-24
+
 ### 3.4 CAFI-Condition Feedbacks (Script: 09_cafi_condition_feedbacks.R)
 
 **Condition metric**: PC1 from PCA on position-corrected physiology traits (protein, carbohydrates, zooxanthellae density, AFDW).
@@ -199,47 +223,40 @@ model <- lm(condition_PC1 ~ predictor + log(volume) + site, data = data)
 - **Heteroscedasticity**: HC3 sandwich robust standard errors for count predictors
 - **Diagnostics**: Shapiro-Wilk (normality), Breusch-Pagan (homoscedasticity), VIF (collinearity)
 
+**Mediation analysis**: `mediation::mediate()` with 1,000 bootstrap iterations tests whether CAFI abundance or composition mediates the relationship between coral size and condition (size -> CAFI -> condition pathway). This replaces the earlier SEM approach.
+
 **Rarefied richness artifact test**:
 
 Raw species richness shows nominal signal (p = 0.018), but richness correlates strongly with abundance (r = 0.84). Rarefied richness at n = 20 (controlling for sampling intensity) shows NO relationship with condition (p = 0.45, r with abundance = −0.05). The raw richness signal is an abundance artifact.
 
-### 3.5 Network Analysis (Script: 06_network_analysis.R)
+### 3.5 Co-occurrence Analysis (Script: 06_cooccurrence_analysis.R)
 
-**Co-occurrence network construction**:
+Three hypotheses about species co-occurrence patterns are tested using null models that account for the coral size confound (following Stier et al. 2012).
 
-1. Convert to presence-absence matrix
-2. Residualize presence on log(volume) to remove size confound
-3. Filter species with ≥ 5% occurrence
-4. Calculate Spearman correlations between species pairs (pairwise cor.test with FDR correction)
-5. Retain edges with r > 0.3 (positive associations only; threshold confirmed by sensitivity analysis)
+**H1: Pairwise co-occurrence**
 
-**Network metrics**:
+For each species pair, a volume-weighted Bernoulli null model generates expected co-occurrence:
 
-| Metric | Description | Formula |
-|--------|-------------|---------|
-| Modularity (Q) | Strength of community structure | Q = (1/2m) × sum[(A_ij - k_i×k_j/2m) × δ(c_i, c_j)] |
-| Transitivity | Clustering coefficient | C = 3 × (triangles) / (connected triplets) |
-| Degree | Number of connections | k_i = sum(A_ij) |
-| Betweenness | Bridge importance | B_i = sum(σ_st(i) / σ_st) |
+1. Fit logistic GLM per species: `P(present) ~ log(volume) + site`, yielding per-coral predicted probability
+2. For each of 10,000 null iterations, draw presence/absence from Bernoulli(predicted_prob) independently per species
+3. Count co-occurrences in null, compute SES = (observed - mean_null) / sd_null
+4. FDR-correct across all pairwise tests
 
-**Community detection**:
+Species with ≥ 10 occurrences are included. Only one pair was significant after FDR correction (mostly null pairwise co-occurrence).
 
-```r
-communities <- igraph::cluster_louvain(graph, weights = E(graph)$weight)
-```
+**H2: Intraspecific density patterns**
 
-- **Algorithm**: Louvain (handles weighted networks, scalable, widely used in ecology)
-- **Edge weights**: Correlation coefficients
+Tests whether conspecific individuals aggregate on fewer corals than expected (consistent with mating-pair formation; Stier et al. 2012):
 
-**Null model comparison**:
+1. Multinomial allocation null: distribute N individuals across corals proportional to coral volume
+2. Compare observed aggregation (variance-to-mean ratio) against 10,000 null iterations
+3. Species with SES > 1.96: significant aggregation
 
-```r
-# 1000 configuration-model (degree-preserving) random networks
-# Unweighted modularity used for null comparison (configuration model preserves degree, not weights)
-z = (observed_modularity - mean(null)) / sd(null)
-```
+Result: 6/15 species show significant mating-pair excess (*A. lottini* SES = 10.2, *S. charon* SES = 10.5).
 
-Hub species identified by combined degree + eigenvector centrality.
+**H3: Size-dependent co-occurrence**
+
+The H1 null model is run separately for 3 coral size classes (small/medium/large) to test whether co-occurrence strength changes with coral size.
 
 ### 3.6 Spatial Autocorrelation (Script: 07_spatial_autocorrelation.R)
 
@@ -292,7 +309,7 @@ Tests robustness of all key findings across 5 OTU resolution scenarios:
 
 | Scenario | Description |
 |----------|-------------|
-| Baseline | Original 87 OTUs (species-level where possible) |
+| Baseline | Original 243 OTUs (154 species-level, 89 genus/family/higher) |
 | Family-level | Aggregated to family |
 | Genus-level | Aggregated to genus |
 | No singletons | Remove OTUs occurring on only 1 coral |
@@ -329,7 +346,7 @@ Pre-built scenario data created in `01_load_data.R` (stored as `taxonomy_scenari
 | Context | Method | Script |
 |---------|--------|--------|
 | CAFI-condition predictors | FDR (Benjamini-Hochberg) within predictor families | `09` |
-| Key species effects | FDR across 6 species tests | `09` |
+| Key species effects | Hochberg (FWER) correction across 10 key species tests (matching the experimental companion study: *T. punctimanus*, *T. rufopunctata*, *S. nigricans*, *A. lottini*, *S. charon*, *H. depressa*, *Periclimenes* spp., *Calcinus* spp., *Abudefduf* spp., *G. monodonta*) | `09` |
 | Scaling (species/group) | FDR within category | `05` |
 | Network edge significance | Pairwise cor.test p-values + FDR | `06` |
 | Condition → CAFI direction | FDR across predictor families | `09` |

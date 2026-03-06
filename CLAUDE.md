@@ -8,7 +8,7 @@ This file provides essential context for AI assistants working with this codebas
 
 - **Survey scope**: 114 *Pocillopora* coral colonies across 3 reef sites
 - **CAFI catalogued**: ~4,000 individual specimens spanning 243 OTUs (154 species-level, 89 genus/family/higher)
-- **Research focus**: Landscape effects on community assembly; CAFI feedbacks on coral condition
+- **Research focus**: How coral size structures CAFI abundance, richness, and composition (scaling + community assembly)
 
 ## Relationship to Experimental Study
 
@@ -19,14 +19,20 @@ This **observational survey** complements a parallel **experimental study** that
 | **Experiment** | Coral density (manipulated) | Causal inference, colonization dynamics |
 | **Survey** | Coral size + neighborhood (natural variation) | Ecological realism, established communities |
 
-## Four Core Research Questions (Q1-Q4)
+## Three Core Research Questions (Q1-Q3)
 
 | Question | Script | Key Result |
 |----------|--------|------------|
-| **Q1: SCALING** | `05_species_scaling_analysis.R` | Abundance β=0.52 (sublinear, Redirection); Richness z=0.35 (sublinear); density dilution |
-| **Q2: COMPOSITION** | `02_community_analysis.R` + `06_network_analysis.R` | Site pools structure composition; co-occurrence reveals non-random modular assembly |
+| **Q1: SCALING** | `05_species_scaling_analysis.R` | Abundance β=0.52 (sublinear, Redirection); Richness z=0.34 (sublinear); density dilution |
+| **Q2: COMPOSITION** | `02_community_analysis.R` | Site pools + size gradient structure composition; db-RDA confirms size effect survives rarefaction |
 | **Q3: FEEDBACKS** | `09_cafi_condition_feedbacks.R` | **No CAFI metric predicts condition**; raw richness signal is abundance artifact (rarefied p=0.45) |
-| **Q4: NEIGHBORHOOD** | `04_landscape_effects.R` | n_neighbors NOT significant for CAFI or condition |
+
+### Supporting Analyses (Supplement)
+
+| Analysis | Script | Key Result |
+|----------|--------|------------|
+| **Co-occurrence** | `06_cooccurrence_analysis.R` | Volume-weighted null model; pairwise associations mostly explained by volume + site (Fig S) |
+| **Neighborhood** | `04_landscape_effects.R` | n_neighbors NOT significant (underpowered, n=63); supplement only |
 
 ---
 
@@ -46,6 +52,8 @@ This **observational survey** complements a parallel **experimental study** that
 **Key findings:**
 - Total CAFI abundance: β = 0.52 [0.44, 0.61] — **sublinear (Propagule Redirection)**
 - Species richness (SAR): z = 0.34 [0.28, 0.41] — **sublinear (Redirection)**
+- Rarefied richness (n=20): slope=0.14, p=0.64 — **not significant (passive sampling)**; raw SAR is abundance artifact
+- Species occurrence curves: 14/24 prevalent species have significant size-dependent occurrence (FDR<0.05)
 - Density dilution: per-capita CAFI density decreases with size (slope = -0.48)
 - 7/10 top species: Redirection (β < 1); 3/10: Field of Dreams (CI spans 1); 0/10: super-linear
 - Obligate symbionts (Trapezia, Alpheus): consistently sublinear scaling
@@ -58,22 +66,26 @@ This **observational survey** complements a parallel **experimental study** that
 **Hypotheses tested:**
 - **Site effects**: Reef-scale differences in species pools
 - **Size-dependent divergence**: Larger corals accumulate unique species (not just more individuals)
-- **Non-random co-occurrence**: Species co-occur in modular networks with identifiable hub species
+- **Non-random co-occurrence**: Pairwise null-model co-occurrence (Stier et al. 2012 framework)
 
 **Methods:**
-- PERMANOVA: community ~ site × size × neighborhood
+- PERMANOVA: community ~ log(volume) + site (marginal/Type III)
 - Composition divergence: betadisper (distance to centroid) by size class
 - Rarefaction control: re-test divergence on abundance-equalized data
 - NMDS ordination with size-class trajectories
-- Co-occurrence network (r > 0.3, Louvain modularity, Erdos-Renyi null model)
-- Hub species identification (degree + eigenvector centrality)
+- db-RDA constrained ordination: `dbrda(community ~ log(volume) + Condition(site))`, variance partitioning, species scores via weighted averaging, rarefied control
+- Pairwise co-occurrence null model: volume-weighted Bernoulli draws (10,000 iterations, SES + FDR correction)
+- Intraspecific density patterns: multinomial allocation null (volume-proportional, 10,000 iterations)
+- Size-dependent co-occurrence: null model run separately for 3 size classes
 
 **Key findings:**
 - Strong site effects on composition (PERMANOVA R² ~ 0.04-0.06, p < 0.01)
-- Size-divergence NOT significant after rarefaction (p=0.61; Fig. S5) — abundance artifact
-- Co-occurrence network: modular structure significantly exceeds null expectation (z >> 2)
-- Hub species connect modules and may serve as keystone structuring agents
-- Conclusion: site pools and non-random co-occurrence shape composition, not coral size
+- db-RDA: volume explains 7.8% of composition (F=9.74, p=0.001); survives rarefaction (2.6%, p=0.001); *T. punctimanus* loads most strongly toward larger corals
+- Size-divergence (categorical) NOT significant after rarefaction (p=0.61; Fig. S5) — abundance artifact
+- Nestedness (NODF): 18.37, z=−1.09, p=0.277 — **not nested**; small-coral faunas are not subsets of large-coral faunas
+- Pairwise co-occurrence reveals significant positive and negative associations after controlling for coral volume
+- Intraspecific density patterns tested for mating-pair hypothesis (Stier et al. 2012)
+- Conclusion: site pools and continuous size gradient shape composition; co-occurrence is largely explained by volume + site
 
 ### Q3: Feedbacks — Does CAFI identity predict coral condition?
 
@@ -87,7 +99,7 @@ This **observational survey** complements a parallel **experimental study** that
 - **Position correction**: Physiological traits regressed on stump_length + nubbin_length before PCA (removes tissue gradient sampling artifact: smaller corals required sampling more of branch, including low-density tips)
 - Linear models with fixed-effect site: condition ~ CAFI predictors + log_volume + site
 - FDR correction (Benjamini-Hochberg) across predictor families
-- Key species models: condition ~ species presence + log(volume) + site (FDR-corrected)
+- Key species models: condition ~ species abundance + log(volume) + site (FDR-corrected, 10 species from experimental paper)
 - **Rarefied richness test**: Expected species richness at n=20 individuals (removes abundance confound)
 - Standardized β (effect in SD units); VIF diagnostics
 - Note: 3 sites insufficient for random intercepts (Bolker et al. 2009)
@@ -99,7 +111,7 @@ This **observational survey** complements a parallel **experimental study** that
   - Correlation with abundance: raw r = 0.84, rarefied r = −0.05
   - Conclusion: apparent diversity effect disappears when abundance confound is removed
 - Total abundance, PC1_CAFI, and individual CAFI metrics do NOT predict condition (all p > 0.10)
-- Key species: *Trapezia* shows positive trend but NS; *Galeropsis* positive (not negative as expected)
+- Key species (10 tested, matching experimental paper): directions mostly match experiment but none survive FDR
 - Functional group effect directions match expectations (Trapezia +, Fish +) but none are significant
 - No predictor from condition→CAFI direction survives FDR correction
 - **Landscape factors (size, neighborhood, site) also do NOT predict condition** (all p > 0.30)
@@ -146,6 +158,7 @@ Located in `scripts/` folder. Run in order via `run_full_pipeline.R`.
 | `00_setup.R` | Packages, paths, ggplot theme, helper functions |
 | `00b_data_quality_audit.R` | Data quality assessment, trait integration |
 | `01_load_data.R` | Data loading, cleaning, creates core objects + taxonomy scenario data |
+| `run_full_pipeline.R` | Pipeline orchestrator with logging |
 
 ### Script-to-Question Mapping
 
@@ -154,37 +167,36 @@ Located in `scripts/` folder. Run in order via `run_full_pipeline.R`.
 |--------|----------|--------|
 | `05_species_scaling_analysis.R` | NB GLM scaling with bootstrap CI | Field of Dreams vs Redirection |
 
-#### Q2: COMPOSITION (Figs 3 & 5: NMDS + Network + Modularity + Hubs)
+#### Q2: COMPOSITION (Fig 3: NMDS + Composition)
 | Script | Analysis | Output |
 |--------|----------|--------|
-| `02_community_analysis.R` | PERMANOVA, NMDS, betadisper, rarefaction | Fig 3 + site/size effects |
-| `06_network_analysis.R` | Co-occurrence networks, modularity, hub species | Fig 5 panels B-D |
+| `02_community_analysis.R` | PERMANOVA, NMDS, betadisper, rarefaction, db-RDA | Fig 3 + site/size effects |
 | `03_landscape_characterization.R` | Neighborhood metrics, spatial patterns | Landscape predictor variables |
 | `07_spatial_autocorrelation.R` | Moran's I, LISA, Mantel tests | Spatial structure diagnostics |
-| `08_functional_groups.R` | Taxonomic group scaling (loads from script 05), composition | Fig 4 + group patterns |
+| `08_functional_groups.R` | Taxonomic group scaling (loads from script 05), composition | Fig S9 + group patterns |
 
-#### Q3: FEEDBACKS
+#### Q3: FEEDBACKS (Fig 4)
 | Script | Analysis | Output |
 |--------|----------|--------|
-| `09_cafi_condition_feedbacks.R` | PCA, fixed-effect LMs, FDR correction | CAFI-condition relationships |
+| `09_cafi_condition_feedbacks.R` | PCA, fixed-effect LMs, FDR correction | Fig 4 (CAFI-condition null results) |
 
-#### Q4: NEIGHBORHOOD
+#### SUPPORTING (Supplement only)
 | Script | Analysis | Output |
 |--------|----------|--------|
-| `04_landscape_effects.R` | GLMs: size + neighbors → abundance/diversity | Neighborhood effect sizes |
-| `09_cafi_condition_feedbacks.R` (Part G) | Neighborhood density → CAFI & condition | Density-independent result |
+| `06_cooccurrence_analysis.R` | Null-model pairwise co-occurrence, intraspecific density | Fig S (co-occurrence) |
+| `04_landscape_effects.R` | GLMs: size + neighbors → abundance/diversity | Fig S7 (neighborhood null) |
 
 #### SENSITIVITY (cross-cuts Q1-Q4)
 | Script | Analysis | Output |
 |--------|----------|--------|
 | `13_taxonomy_sensitivity.R` | 5 taxonomy scenarios × 7 metrics; uses pre-built data from 01_load_data.R | Fig S8 + sensitivity tables |
 
-### Exploratory ML (not in default pipeline)
+### Exploratory ML (not in default pipeline; in `scripts/exploration/`)
 | Script | Purpose |
 |--------|---------|
-| `10_feature_engineering.R` | Feature creation, VIF selection |
-| `11_machine_learning.R` | Random Forest, XGBoost models |
-| `12_model_evaluation.R` | Cross-validation, diagnostics |
+| `exploration/10_feature_engineering.R` | Feature creation, VIF selection |
+| `exploration/11_machine_learning.R` | Random Forest, XGBoost models |
+| `exploration/12_model_evaluation.R` | Cross-validation, diagnostics |
 
 ### Publication Figures (embedded in analysis scripts — no separate figure script)
 
@@ -192,12 +204,10 @@ Each manuscript figure is created by its source analysis script with **dual save
 
 | Figure | Script | Description |
 |--------|--------|-------------|
-| **Fig 1** | `01_load_data.R` | Study design: satellite map + volume/neighborhood histograms |
-| **Fig 2** | `05_species_scaling_analysis.R` | Scaling: abundance + richness GLMs + species forest plot |
+| **Fig 1** | `01_load_data.R` | Study design: satellite map + volume/neighborhood distributions + schematics (6-panel) |
+| **Fig 2** | `05_species_scaling_analysis.R` | Scaling: abundance + richness GLMs + density dilution + species forest plot |
 | **Fig 3** | `02_community_analysis.R` | Composition: NMDS ordination + taxonomic barchart by site |
-| **Fig 4** | `08_functional_groups.R` | Taxonomic group scaling and composition |
-| **Fig 5** | `06_network_analysis.R` | Network: circular hero layout + 4 guild sub-networks |
-| **Fig 6** | `09_cafi_condition_feedbacks.R` | CAFI-condition feedback models |
+| **Fig 4** | `09_cafi_condition_feedbacks.R` | CAFI-condition feedbacks (forest plot + key null results) |
 | **S1** | `02_community_analysis.R` | Species accumulation curves |
 | **S2** | `02_community_analysis.R` | PERMANOVA metric sensitivity |
 | **S3** | `02_community_analysis.R` | NMDS ordination by site/size |
@@ -206,22 +216,28 @@ Each manuscript figure is created by its source analysis script with **dual save
 | **S6** | `05_species_scaling_analysis.R` | Species-level scaling forest plot |
 | **S7** | `04_landscape_effects.R` | Neighborhood null results |
 | **S8** | `13_taxonomy_sensitivity.R` | Taxonomy sensitivity forest plot |
+| **S9** | `08_functional_groups.R` | Taxonomic group scaling and composition |
+| **S10** | `09_cafi_condition_feedbacks.R` | Rarefaction depth sensitivity for richness → condition |
+| **S-cooccurrence** | `06_cooccurrence_analysis.R` | Co-occurrence: pairwise SES heatmap + intraspecific density (demoted from main text) |
+| **S11** | `06_cooccurrence_analysis.R` | Legacy co-occurrence network (circular layout) |
+| **S12** | `09_cafi_condition_feedbacks.R` | Additional CAFI-condition panels |
+| **S13** | `13_taxonomy_sensitivity.R` | Network sensitivity to taxonomic resolution |
+| **S14** | `05_species_scaling_analysis.R` | Species occurrence probability vs. coral size (logistic GLM, 24 species) |
 
-| Script | Purpose |
-|--------|---------|
-| `run_full_pipeline.R` | Pipeline orchestrator with logging |
-
-**Note**: Deprecated scripts were removed in March 2026 cleanup (previously in `scripts/archive/`; recoverable from git history).
+**Note**: Deprecated scripts in `scripts/archive/`; ML exploration scripts in `scripts/exploration/`.
 
 ## Key Commands
 
 ### Run Pipeline
 ```r
 source("scripts/run_full_pipeline.R")
-run_pipeline()           # Core + extended (default; figures created by each script)
+run_pipeline()           # Full pipeline ~12 min (core + extended)
 run_full_pipeline()      # Everything including ML exploration
-run_ml_exploration()     # ML scripts only (exploratory)
-run_core_pipeline()      # Core hypothesis-testing scripts only
+
+# Fast iteration (use these when editing figures/code):
+run_one("09")            # Single script ~5 sec (auto-loads setup + data)
+run_from("06")           # Scripts 06-13 ~25 sec
+run_quick()              # Skip slow scripts 02+05, ~42 sec (needs prior full run)
 ```
 
 ### Run From Command Line
@@ -243,27 +259,35 @@ The following quality measures are implemented:
 | Issue | Fix | Script |
 |-------|-----|--------|
 | Multiple testing (feedbacks) | FDR correction (Benjamini-Hochberg) | `09_cafi_condition_feedbacks.R` |
-| Multiple testing (key species) | FDR correction across 6 species tests | `09_cafi_condition_feedbacks.R` |
 | Multiple testing (scaling) | FDR correction within category (species/group) | `05_species_scaling_analysis.R` |
-| Multiple testing (network edges) | Pairwise cor.test p-values + FDR correction | `06_network_analysis.R` |
+| Multiple testing (co-occurrence) | FDR correction across all pairwise SES tests | `06_cooccurrence_analysis.R` |
 | Abundance confound (composition) | Iterated rarefaction (100 draws, averaged) | `02_community_analysis.R` |
-| Volume confound (co-occurrence) | Residualized presence on log(volume) | `06_network_analysis.R` |
+| db-RDA rarefaction control | Rarefied db-RDA confirms size gradient is not abundance artifact | `02_community_analysis.R` |
+| Volume confound (co-occurrence) | Volume-weighted Bernoulli null model (logistic GLM predicted probs) | `06_cooccurrence_analysis.R` |
 | Random effects (k=3 sites) | Fixed-effect site throughout | `04`, `09` |
 | Bootstrap ignoring site | Site-stratified bootstrap (`strata` argument) | `05_species_scaling_analysis.R` |
-| Log-log intercept bias | Mean of log-differences | `04_landscape_effects.R` |
-| Null model (network) | Configuration model (degree-preserving), unweighted for comparison | `06_network_analysis.R` |
+| Null model (co-occurrence) | Volume-weighted Bernoulli draws (10,000 iter); multinomial density null | `06_cooccurrence_analysis.R` |
 | NB convergence failure | Poisson fallback with logging | `04_landscape_effects.R` |
 | Effect size ambiguity | Adjusted R², partial standardized β (z-scored), VIF | `04`, `05`, `09` |
 | Model diagnostics (GLM) | DHARMa simulated residuals, proper Cook's D, VIF | `04`, `05` |
-| Model diagnostics (LM) | Shapiro-Wilk, Breusch-Pagan via HC3 robust SEs | `09` |
+| Model diagnostics (LM) | Shapiro-Wilk normality test; HC3 robust SEs applied unconditionally | `09_cafi_condition_feedbacks.R` |
 | Poisson overdispersion | Pearson X²/df check; auto-switch to quasipoisson | `02`, `04` |
 | Heteroscedasticity (count predictors) | HC3 sandwich robust standard errors | `09_cafi_condition_feedbacks.R` |
-| SEM saturation | Explicit df=0 check; fit indices suppressed when uninformative | `09_cafi_condition_feedbacks.R` |
+| Mediation bootstrap | 1000 bootstrap iterations via mediation::mediate() | `09_cafi_condition_feedbacks.R` |
 | Community matrix (zero-CAFI corals) | Added zero-abundance rows for all corals | `01_load_data.R` |
 | Log volume bias | Removed +1 offset (volume > 0 guaranteed) | `01_load_data.R` |
 | Tissue sampling artifact (condition) | Regress physio traits on stump_length + nubbin_length | `01_load_data.R` |
 | PERMANOVA Type I confound | Marginal (Type III) PERMANOVA | `02_community_analysis.R` |
 | Colorblind inaccessibility | Okabe-Ito palette; Fig 2 site colors shifted to avoid scaling-class overlap | All figure scripts |
+| Count predictor skew | sqrt() applied to count-based CAFI predictors in condition models | `09_cafi_condition_feedbacks.R` |
+| Key species FWER correction | Hochberg (FWER) for species-level tests (matches experiment) | `09_cafi_condition_feedbacks.R` |
+| Community transform sensitivity | 3 transforms + filtered PCA tested for PC1→condition | `09_cafi_condition_feedbacks.R` |
+| PERMANOVA site-size robustness | Balanced site subsampling (500 iter, min_n per site) | `02_community_analysis.R` |
+| Power analysis (feedbacks) | Prospective power for Q3 (n=84); medium effects detectable | `09_cafi_condition_feedbacks.R` |
+| Power analysis (neighborhood) | Prospective power for Q4 (n=63); underpowered for small effects | `04_landscape_effects.R` |
+| FDR family vs global | Both family-wise and global FDR reported; global as sensitivity | `09_cafi_condition_feedbacks.R` |
+| Position correction sensitivity | Raw vs corrected condition scores compared | `09_cafi_condition_feedbacks.R` |
+| Bootstrap fallback logging | BCa→percentile CI fallback logged with warning | `05_species_scaling_analysis.R` |
 
 ## Output Structure
 
@@ -272,31 +296,31 @@ All outputs are gitignored and regenerated by the pipeline.
 ```
 output/
 ├── figures/
-│   ├── manuscript/          # 6 main text figures + 6 legend files
+│   ├── manuscript/          # 4 main text figures + legend files
 │   │   ├── fig1_study_design.png       (from 01_load_data.R)
 │   │   ├── fig1_legend_results.txt     (from 01_load_data.R)
-│   │   ├── fig2_scaling.png            (from 05_species_scaling_analysis.R)
+│   │   ├── fig2_scaling.png            (from 05_species_scaling_analysis.R; 4-panel with density dilution)
 │   │   ├── fig2_legend_results.txt     (from 05_species_scaling_analysis.R)
 │   │   ├── fig3_composition.png        (from 02_community_analysis.R)
 │   │   ├── fig3_legend_results.txt     (from 02_community_analysis.R)
-│   │   ├── fig4_functional_groups.png  (from 08_functional_groups.R)
-│   │   ├── fig4_legend_results.txt     (from 08_functional_groups.R)
-│   │   ├── fig5_network.png            (from 06_network_analysis.R)
-│   │   ├── fig5_legend_results.txt     (from 06_network_analysis.R)
-│   │   ├── fig6_feedbacks.png          (from 09_cafi_condition_feedbacks.R)
-│   │   └── fig6_legend_results.txt     (from 09_cafi_condition_feedbacks.R)
-│   ├── supplement/          # 8 supplementary figures (figS1-S8)
+│   │   ├── fig4_feedbacks.png          (from 09_cafi_condition_feedbacks.R)
+│   │   └── fig4_legend_results.txt     (from 09_cafi_condition_feedbacks.R)
+│   ├── supplement/          # Supplementary figures (figS1-S14 + co-occurrence)
 │   ├── 01_data/             # Study design (1 figure)
 │   ├── 02_community/        # Community analysis (11 figures)
 │   ├── 03_landscape/        # Landscape characterization (3 figures)
 │   ├── 04_effects/          # Landscape effects (14 figures + 2 HTML tables)
 │   ├── 05_scaling/          # Species-area scaling (7 figures)
-│   ├── 06_network/          # Network analysis (1 figure: network_panels.png)
+│   ├── 06_network/          # Co-occurrence analysis (fig4_cooccurrence.png)
 │   ├── feedbacks/           # CAFI-condition feedbacks (8 figures)
 │   └── functional_groups/   # Taxonomic group analysis (7 figures)
-├── tables/                  # ~46 CSV statistical results
+├── tables/                  # ~54 CSV statistical results
 │   ├── scaling_results_all.csv         # All scaling coefficients
 │   ├── cafi_condition_models.csv       # Feedback model results
+│   ├── key_species_effects.csv         # Key species condition effects (10 species)
+│   ├── species_trait_correlations.csv  # Species × trait Pearson r (cf. expt Table S3)
+│   ├── individual_physiology_cafi_responses.csv # Individual traits ~ CAFI predictors
+│   ├── cross_study_species_comparison.csv # Survey vs experimental paper comparison
 │   ├── landscape_full_model_results.csv # Q4 landscape GLMs
 │   ├── network_metrics.csv             # Network structure
 │   ├── hub_species.csv                 # Hub species centrality
@@ -304,7 +328,7 @@ output/
 │   ├── pipeline_timing.csv             # Script execution times
 │   ├── taxonomy_sensitivity.csv        # Sensitivity results (5 scenarios)
 │   ├── taxonomy_sensitivity_species_scaling.csv  # Species-level sensitivity
-│   └── ...                             # ~39 more analysis tables
+│   └── ...                             # ~36 more analysis tables
 ├── objects/                 # 20 RDS files
 │   ├── coral_master.rds                # Main merged dataset
 │   ├── cafi_clean.rds                  # Clean CAFI records

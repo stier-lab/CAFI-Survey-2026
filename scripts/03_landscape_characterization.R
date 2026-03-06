@@ -75,7 +75,11 @@ landscape_data <- coral_master %>%
     log_volume = log(volume),
     has_neighbors = n_neighbors > 0,
 
-    # Recalculate derived indices
+    # Derived landscape indices (unitless ratios):
+    # isolation_index: distance to neighbors relative to focal coral's linear dimension
+    # crowding_index:  neighbor biomass discounted by distance (higher = more crowded)
+    # relative_size:   focal coral volume relative to mean neighbor volume
+    # +1 denominators prevent division by zero for solitary corals
     isolation_index = mean_neighbor_dist / (volume^(1/3) + 1),
     crowding_index = total_neighbor_volume / (mean_neighbor_dist + 1),
     relative_size = volume / (mean_neighbor_volume + 1),

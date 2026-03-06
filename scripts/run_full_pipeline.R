@@ -39,7 +39,7 @@
 #     05_species_scaling_analysis.R - Species-area scaling
 #
 #   Extended Analyses:
-#     06_network_analysis.R         - Co-occurrence networks
+#     06_cooccurrence_analysis.R    - Null-model co-occurrence
 #     07_spatial_autocorrelation.R  - Spatial patterns
 #     08_functional_groups.R        - Functional group analysis (if exists)
 #     09_cafi_condition_feedbacks.R - CAFI-condition feedbacks (if exists)
@@ -50,7 +50,7 @@
 #     12_model_evaluation.R
 #
 #   Note: Manuscript figures are created by their respective analysis scripts
-#     (01 → Fig 1, 05 → Fig 2, 02 → Fig 3, 08 → Fig 4, 06 → Fig 5, 09 → Fig 6)
+#     (01 → Fig 1, 05 → Fig 2, 02 → Fig 3, 09 → Fig 4, 06 → S-cooccurrence, 08 → S9)
 #
 # OUTPUTS:
 #   - output/pipeline.log          - Detailed execution log
@@ -80,7 +80,7 @@ PIPELINE_SCRIPTS <- list(
 
   # Extended Analyses
   extended = list(
-    list(name = "06_network_analysis.R", desc = "Co-occurrence network analysis", required = FALSE),
+    list(name = "06_cooccurrence_analysis.R", desc = "Co-occurrence null model analysis", required = FALSE),
     list(name = "07_spatial_autocorrelation.R", desc = "Spatial autocorrelation", required = FALSE),
     list(name = "08_functional_groups.R", desc = "Functional group analysis", required = FALSE),
     list(name = "09_cafi_condition_feedbacks.R", desc = "CAFI-condition feedbacks", required = FALSE),
@@ -89,9 +89,9 @@ PIPELINE_SCRIPTS <- list(
 
   # Machine Learning (exploratory - not in default pipeline)
   ml = list(
-    list(name = "10_feature_engineering.R", desc = "Feature engineering", required = FALSE),
-    list(name = "11_machine_learning.R", desc = "Machine learning models", required = FALSE),
-    list(name = "12_model_evaluation.R", desc = "Model evaluation", required = FALSE)
+    list(name = "exploration/10_feature_engineering.R", desc = "Feature engineering", required = FALSE),
+    list(name = "exploration/11_machine_learning.R", desc = "Machine learning models", required = FALSE),
+    list(name = "exploration/12_model_evaluation.R", desc = "Model evaluation", required = FALSE)
   )
 )
 
@@ -104,11 +104,18 @@ EXPECTED_OUTPUTS <- list(
     "output/objects/community_matrix.rds",
     "output/objects/condition_scores.rds",
     "output/objects/cafi_pca_results.rds",
-    "output/objects/cafi_by_coral.rds"
+    "output/objects/cafi_by_coral.rds",
+    "output/objects/otu_taxonomy.rds",
+    "output/objects/taxonomy_scenario_data.rds",
+    "output/objects/functional_summary.rds",
+    "output/figures/manuscript/fig1_study_design.png"
   ),
   "02_community_analysis.R" = c(
     "output/objects/community_analysis_results.rds",
-    "output/figures/02_community/community_summary.png"
+    "output/figures/02_community/community_summary.png",
+    "output/figures/manuscript/fig3_composition.png",
+    "output/figures/supplement/figS1_species_accumulation.png",
+    "output/tables/permanova_subsampling_summary.csv"
   ),
   "03_landscape_characterization.R" = c(
     "output/objects/landscape_selected_predictors.rds",
@@ -119,28 +126,43 @@ EXPECTED_OUTPUTS <- list(
   ),
   "05_species_scaling_analysis.R" = c(
     "output/objects/scaling_analysis_results.rds",
-    "output/tables/scaling_results_all.csv"
+    "output/tables/scaling_results_all.csv",
+    "output/tables/occurrence_scaling_results.csv",
+    "output/figures/supplement/figS14_occurrence_curves.png",
+    "output/figures/manuscript/figS14_legend_results.txt"
   ),
-  "06_network_analysis.R" = c(
+  "06_cooccurrence_analysis.R" = c(
+    "output/objects/cooccurrence_results.rds",
     "output/objects/cafi_network.rds",
-    "output/tables/network_metrics.csv"
+    "output/tables/pairwise_cooccurrence.csv",
+    "output/tables/intraspecific_density.csv",
+    "output/tables/size_dependent_cooccurrence.csv",
+    "output/tables/network_metrics.csv",
+    "output/figures/supplement/figS_cooccurrence.png",
+    "output/figures/supplement/figS11_network.png"
   ),
   "07_spatial_autocorrelation.R" = c(
     "output/tables/morans_i_results.csv"
   ),
   "08_functional_groups.R" = c(
-    "output/figures/manuscript/fig4_functional_groups.png",
+    "output/figures/supplement/figS9_functional_groups.png",
     "output/tables/taxonomic_group_scaling.csv",
     "output/objects/functional_analysis_results.rds"
   ),
   "09_cafi_condition_feedbacks.R" = c(
-    "output/figures/manuscript/fig6_feedbacks.png",
+    "output/figures/manuscript/fig4_feedbacks.png",
+    "output/figures/supplement/figS10_rarefaction_sensitivity.png",
+    "output/figures/supplement/figS12_condition_details.png",
     "output/tables/cafi_condition_models.csv"
   ),
   "13_taxonomy_sensitivity.R" = c(
     "output/tables/taxonomy_sensitivity.csv",
     "output/tables/taxonomy_sensitivity_species_scaling.csv",
-    "output/figures/supplement/figS8_taxonomy_sensitivity.png"
+    "output/tables/network_topology_sensitivity.csv",
+    "output/tables/network_edge_overlap.csv",
+    "output/tables/network_hub_stability.csv",
+    "output/figures/supplement/figS8_taxonomy_sensitivity.png",
+    "output/figures/supplement/figS13_network_sensitivity.png"
   )
 )
 
@@ -219,7 +241,7 @@ verify_dependencies <- function(script_name) {
     "03_landscape_characterization.R" = list(objects = c("coral_master")),
     "04_landscape_effects.R" = list(objects = c("coral_master")),
     "05_species_scaling_analysis.R" = list(objects = c("coral_master", "cafi_clean")),
-    "06_network_analysis.R" = list(objects = c("coral_master", "community_matrix", "cafi_clean")),
+    "06_cooccurrence_analysis.R" = list(objects = c("coral_master", "community_matrix", "cafi_clean")),
     "07_spatial_autocorrelation.R" = list(objects = c("coral_master", "community_matrix")),
     "08_functional_groups.R" = list(objects = c("coral_master", "cafi_clean")),
     "09_cafi_condition_feedbacks.R" = list(objects = c("coral_master", "cafi_clean", "community_matrix", "condition_scores")),
@@ -537,6 +559,153 @@ run_ml_exploration <- function(...) {
 #' Run everything including ML exploration
 run_full_pipeline <- function(...) {
   run_pipeline(sections = "all", ...)
+}
+
+# ============================================================================
+# FAST ITERATION FUNCTIONS
+# ============================================================================
+
+# All pipeline script names in order (core + extended)
+ALL_PIPELINE_SCRIPTS <- c(
+  sapply(PIPELINE_SCRIPTS$core, function(x) x$name),
+  sapply(PIPELINE_SCRIPTS$extended, function(x) x$name)
+)
+
+#' Resolve a shorthand script reference to the full script name
+#'
+#' @param x Script reference: number ("09"), partial name ("09_cafi"), or full name
+#' @return Full script filename (e.g. "09_cafi_condition_feedbacks.R")
+resolve_script <- function(x) {
+  # Already a full name?
+  if (x %in% ALL_PIPELINE_SCRIPTS) return(x)
+
+  # Match by number prefix (e.g. "09" -> "09_cafi_condition_feedbacks.R")
+  matches <- ALL_PIPELINE_SCRIPTS[startsWith(ALL_PIPELINE_SCRIPTS, paste0(x, "_"))]
+  if (length(matches) == 1) return(matches)
+
+  # Match by partial name (e.g. "09_cafi" -> "09_cafi_condition_feedbacks.R")
+  matches <- ALL_PIPELINE_SCRIPTS[startsWith(ALL_PIPELINE_SCRIPTS, x)]
+  if (length(matches) == 1) return(matches)
+
+  # Substring match
+  matches <- ALL_PIPELINE_SCRIPTS[grepl(x, ALL_PIPELINE_SCRIPTS, fixed = TRUE)]
+  if (length(matches) == 1) return(matches)
+
+  if (length(matches) == 0) stop("No script matching '", x, "' found in pipeline.")
+  stop("Ambiguous: '", x, "' matches multiple scripts: ", paste(matches, collapse = ", "))
+}
+
+#' Ensure setup and data are loaded (loads only what's missing)
+ensure_setup_and_data <- function(script_name) {
+  if (requireNamespace("here", quietly = TRUE)) setwd(here::here())
+
+  # Always need setup
+
+  if (!exists("PATHS", envir = .GlobalEnv)) {
+    cat("Loading setup...\n")
+    source("scripts/00_setup.R", local = FALSE)
+  }
+
+  # Check what this script needs
+  dep_check <- verify_dependencies(script_name)
+  if (!dep_check$success) {
+    cat("Loading data (missing:", paste(dep_check$missing, collapse = ", "), ")...\n")
+    source("scripts/01_load_data.R", local = FALSE)
+  }
+}
+
+#' Run a single script with auto-loading of dependencies
+#'
+#' @param script Script reference: number ("09"), partial name ("09_cafi"), or full name
+#' @examples
+#'   run_one("09")    # CAFI-condition feedbacks (Fig 5)
+#'   run_one("06")    # Co-occurrence analysis (Fig 4)
+#'   run_one("13")    # Taxonomy sensitivity (Fig S8, S13)
+run_one <- function(script) {
+  script_name <- resolve_script(script)
+  cat("\n=== Running:", script_name, "===\n\n")
+
+  ensure_setup_and_data(script_name)
+
+  start <- Sys.time()
+  source(file.path("scripts", script_name), local = FALSE)
+  elapsed <- as.numeric(difftime(Sys.time(), start, units = "secs"))
+
+  cat(sprintf("\n=== %s completed in %s ===\n", script_name, format_time(elapsed)))
+  invisible(elapsed)
+}
+
+#' Run from a specific script through the end of the pipeline
+#'
+#' @param script Script reference: number ("06"), partial name, or full name
+#' @examples
+#'   run_from("06")   # Runs scripts 06, 07, 08, 09, 13 (~30 sec)
+run_from <- function(script) {
+  script_name <- resolve_script(script)
+  idx <- match(script_name, ALL_PIPELINE_SCRIPTS)
+  if (is.na(idx)) stop("Script '", script_name, "' not found in pipeline order.")
+
+  scripts_to_run <- ALL_PIPELINE_SCRIPTS[idx:length(ALL_PIPELINE_SCRIPTS)]
+  cat("\n=== Running", length(scripts_to_run), "scripts from", script_name, "===\n")
+  cat("    Scripts:", paste(scripts_to_run, collapse = " -> "), "\n\n")
+
+  ensure_setup_and_data(scripts_to_run[1])
+
+  total_start <- Sys.time()
+  for (s in scripts_to_run) {
+    cat("--- Running:", s, "---\n")
+    start <- Sys.time()
+    source(file.path("scripts", s), local = FALSE)
+    elapsed <- as.numeric(difftime(Sys.time(), start, units = "secs"))
+    cat(sprintf("    %s: %s\n\n", s, format_time(elapsed)))
+  }
+
+  total_elapsed <- as.numeric(difftime(Sys.time(), total_start, units = "secs"))
+  cat(sprintf("=== All %d scripts completed in %s ===\n",
+              length(scripts_to_run), format_time(total_elapsed)))
+  invisible(total_elapsed)
+}
+
+#' Run pipeline skipping slow scripts (02_community ~9 min, 05_scaling ~2.5 min)
+#'
+#' Requires that output objects from scripts 02 and 05 already exist from a
+#' prior full pipeline run. Perfect for rapid figure iteration.
+#'
+#' @examples
+#'   run_quick()  # ~1 min instead of ~12 min
+run_quick <- function() {
+  if (requireNamespace("here", quietly = TRUE)) setwd(here::here())
+
+  slow_scripts <- c("02_community_analysis.R", "05_species_scaling_analysis.R")
+  required_rds <- c(
+    "output/objects/community_analysis_results.rds",
+    "output/objects/scaling_analysis_results.rds"
+  )
+
+  missing_rds <- required_rds[!file.exists(required_rds)]
+  if (length(missing_rds) > 0) {
+    stop("run_quick() requires prior output from slow scripts.\n",
+         "  Missing: ", paste(missing_rds, collapse = ", "), "\n",
+         "  Run run_pipeline() once first to generate these files.")
+  }
+
+  fast_scripts <- setdiff(ALL_PIPELINE_SCRIPTS, slow_scripts)
+  cat("\n=== QUICK PIPELINE (skipping 02 + 05) ===\n")
+  cat("    Scripts:", paste(fast_scripts, collapse = " -> "), "\n\n")
+
+  total_start <- Sys.time()
+  for (s in fast_scripts) {
+    cat("--- Running:", s, "---\n")
+    start <- Sys.time()
+    source(file.path("scripts", s), local = FALSE)
+    elapsed <- as.numeric(difftime(Sys.time(), start, units = "secs"))
+    cat(sprintf("    %s: %s\n\n", s, format_time(elapsed)))
+  }
+
+  total_elapsed <- as.numeric(difftime(Sys.time(), total_start, units = "secs"))
+  cat(sprintf("=== Quick pipeline: %d scripts in %s (skipped 02, 05) ===\n",
+              length(fast_scripts), format_time(total_elapsed)))
+  invisible(total_elapsed)
 }
 
 #' Check pipeline status without running

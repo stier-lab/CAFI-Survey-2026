@@ -1,6 +1,6 @@
 # CAFI Survey Analysis
 
-**Landscape characteristics structure coral-associated fauna communities and their effects on coral condition**
+**Sublinear scaling of coral-associated fauna reveals propagule limitation in established reef communities**
 
 Mo'orea, French Polynesia | Summer 2019 | *Pocillopora* corals
 
@@ -8,9 +8,9 @@ Mo'orea, French Polynesia | Summer 2019 | *Pocillopora* corals
 
 ## What This Project Is
 
-This repository contains a complete R analysis pipeline for a coral reef ecology manuscript. We surveyed 114 *Pocillopora* coral colonies across 3 reef sites and catalogued ~4,000 individual coral-associated fauna (CAFI) spanning 243 OTUs. The analysis tests how coral size and neighborhood context shape CAFI community assembly, and whether CAFI communities in turn affect coral physiological condition.
+This repository contains a complete R analysis pipeline for a coral reef ecology manuscript. We surveyed 114 *Pocillopora* coral colonies across 3 reef sites and catalogued ~4,000 individual coral-associated fauna (CAFI) spanning 243 OTUs. The analysis tests how coral size structures CAFI abundance, richness, and community composition in established reef communities.
 
-**Key question**: Do landscape characteristics (coral size, local density) drive CAFI community structure, and do CAFI provide measurable benefits to their host corals?
+**Key finding**: CAFI abundance scales sublinearly with coral size (β = 0.52), supporting propagule dilution ("Redirection") over proportional scaling ("Field of Dreams"). Community composition is structured by site and size, but CAFI identity does not predict coral physiological condition.
 
 ---
 
@@ -32,8 +32,8 @@ run_pipeline()
 ```
 
 This runs the complete pipeline (~3 min) and generates:
-- 6 manuscript figures in `output/figures/manuscript/`
-- 8 supplementary figures in `output/figures/supplement/`
+- 4 manuscript figures in `output/figures/manuscript/`
+- Supplementary figures in `output/figures/supplement/`
 - Exploratory figures in `output/figures/` (by analysis)
 - Statistical tables in `output/tables/`
 - Processed data objects in `output/objects/`
@@ -76,7 +76,7 @@ source("scripts/02_community_analysis.R")        # Community composition
 source("scripts/03_landscape_characterization.R") # Landscape metrics
 source("scripts/04_landscape_effects.R")          # Landscape effects on CAFI
 source("scripts/05_species_scaling_analysis.R")   # Species-area scaling
-source("scripts/06_network_analysis.R")           # Co-occurrence networks
+source("scripts/06_cooccurrence_analysis.R")       # Co-occurrence null models
 source("scripts/07_spatial_autocorrelation.R")    # Spatial patterns
 source("scripts/08_functional_groups.R")          # Taxonomic group scaling
 source("scripts/09_cafi_condition_feedbacks.R")   # CAFI-condition feedbacks
@@ -102,19 +102,19 @@ CAFI-Survey-2026/
 │   ├── 01_load_data.R             # Data loading, cleaning, Fig 1
 │   ├── 02_community_analysis.R    # Community composition (Q2)
 │   ├── 03_landscape_characterization.R # Landscape metrics
-│   ├── 04_landscape_effects.R     # Neighborhood effects (Q4)
+│   ├── 04_landscape_effects.R     # Neighborhood effects (supplement)
 │   ├── 05_species_scaling_analysis.R # Size-abundance scaling (Q1), Fig 2
-│   ├── 06_network_analysis.R      # Co-occurrence networks, Fig 5
+│   ├── 06_cooccurrence_analysis.R # Co-occurrence null models (supplement)
 │   ├── 07_spatial_autocorrelation.R # Spatial patterns (Moran's I)
-│   ├── 08_functional_groups.R     # Taxonomic group scaling, Fig 4
-│   ├── 09_cafi_condition_feedbacks.R # CAFI-condition feedbacks (Q3), Fig 6
+│   ├── 08_functional_groups.R     # Taxonomic group scaling, Fig S9
+│   ├── 09_cafi_condition_feedbacks.R # CAFI-condition feedbacks (Q3), Fig 4
 │   ├── 13_taxonomy_sensitivity.R  # Taxonomy sensitivity analysis, Fig S8
-│   └── 10-12_*.R                  # Machine learning (exploratory, not in default pipeline)
+│   └── exploration/               # Machine learning (exploratory, not in default pipeline)
 │
 ├── output/                        # Generated outputs (gitignored)
 │   ├── figures/
-│   │   ├── manuscript/            # 6 publication figures (fig1-fig6) + legend files
-│   │   ├── supplement/            # 8 supplementary figures (figS1-S8)
+│   │   ├── manuscript/            # 4 publication figures (fig1-fig4) + legend files
+│   │   ├── supplement/            # Supplementary figures (figS1-S14 + co-occurrence)
 │   │   ├── 01_data/              # Study design figures
 │   │   ├── 02_community/         # Community analysis (11 figures)
 │   │   ├── 03_landscape/         # Landscape characterization (3 figures)
@@ -123,7 +123,7 @@ CAFI-Survey-2026/
 │   │   ├── 06_network/           # Network analysis (1 figure)
 │   │   ├── feedbacks/            # CAFI-condition feedbacks (8 figures)
 │   │   └── functional_groups/    # Taxonomic group analysis (7 figures)
-│   ├── tables/                    # ~46 CSV statistical results
+│   ├── tables/                    # ~54 CSV statistical results
 │   └── objects/                   # 20 RDS R data objects
 │
 ├── manuscript/                    # Manuscript drafts
@@ -153,18 +153,18 @@ Each manuscript figure is created by its source analysis script with dual saves 
 #### Extended Analyses (scripts 06-09, 13)
 | Script | Purpose | Output |
 |--------|---------|--------|
-| `06_network_analysis.R` | Co-occurrence networks, modularity, hubs | **Fig 5** |
+| `06_cooccurrence_analysis.R` | Pairwise co-occurrence null models, intraspecific density | Fig S (supplement) |
 | `07_spatial_autocorrelation.R` | Moran's I, LISA, Mantel tests | Fig S4 |
-| `08_functional_groups.R` | Taxonomic group scaling and composition | **Fig 4** |
-| `09_cafi_condition_feedbacks.R` | PCA, fixed-effect LMs, FDR correction | **Fig 6** |
+| `08_functional_groups.R` | Taxonomic group scaling and composition | Fig S9 |
+| `09_cafi_condition_feedbacks.R` | PCA, fixed-effect LMs, FDR correction | **Fig 4** |
 | `13_taxonomy_sensitivity.R` | Taxonomy robustness across 5 OTU scenarios | Fig S8 |
 
-#### Exploratory ML (not in default pipeline)
+#### Exploratory ML (not in default pipeline; in `scripts/exploration/`)
 | Script | Purpose |
 |--------|---------|
-| `10_feature_engineering.R` | Feature creation, VIF selection |
-| `11_machine_learning.R` | Random Forest, XGBoost models |
-| `12_model_evaluation.R` | Cross-validation, diagnostics |
+| `exploration/10_feature_engineering.R` | Feature creation, VIF selection |
+| `exploration/11_machine_learning.R` | Random Forest, XGBoost models |
+| `exploration/12_model_evaluation.R` | Cross-validation, diagnostics |
 
 ### Dependency Chain
 
@@ -183,7 +183,7 @@ run_full_pipeline.R (orchestrates all scripts)
         ↓
 ┌─────────────────────────────────────────────┐
 │  Extended Analyses (Q2-Q4):                 │
-│  ├─ 06_network_analysis.R        (Q2)      │
+│  ├─ 06_cooccurrence_analysis.R   (Q2)      │
 │  ├─ 07_spatial_autocorrelation.R  (Q2)     │
 │  ├─ 08_functional_groups.R       (Q1/Q3)   │
 │  └─ 09_cafi_condition_feedbacks.R (Q3/Q4)  │
@@ -210,9 +210,9 @@ output/pipeline.log
 
 ---
 
-## Research Questions (Q1-Q4)
+## Research Questions (Q1-Q3)
 
-This study addresses four core questions linking coral habitat, CAFI communities, and coral condition:
+This study addresses three core questions about how coral size structures CAFI communities:
 
 ### Q1: SCALING — How does CAFI abundance scale with coral size?
 
@@ -224,15 +224,15 @@ This study addresses four core questions linking coral habitat, CAFI communities
 | **Propagule Redirection** | β < 1 | Larger corals "dilute" settlers; per-capita density decreases |
 | **Super-linear** | β > 1 | Larger corals disproportionately attractive |
 
-**Result**: Total CAFI abundance β = 0.52 [0.44, 0.61] — **sublinear (Propagule Redirection)**. Species richness z = 0.35 [0.28, 0.43] — sublinear. Per-capita density decreases with size (dilution slope = -0.48). Taxonomic groups vary: Gastropods β ≈ 0.94 (Field of Dreams), Trapezia β ≈ 0.43 (Redirection), Fish β ≈ 0.74 (Redirection).
+**Result**: Total CAFI abundance β = 0.52 [0.44, 0.61] — **sublinear (Propagule Redirection)**. Species richness z = 0.34 [0.28, 0.41] — sublinear. Per-capita density decreases with size (dilution slope = -0.48). Taxonomic groups vary: Gastropods β ≈ 0.94 (Field of Dreams), Trapezia β ≈ 0.43 (Redirection), Fish β ≈ 0.74 (Redirection).
 
 ### Q2: COMPOSITION — What structures CAFI community composition?
 
 Tests whether community *composition* (not just richness) diverges with coral size, and what structures species co-occurrence patterns.
 
-**Methods**: PERMANOVA, betadisper (distance to centroid), rarefaction robustness check, NMDS ordination, co-occurrence network analysis (Louvain modularity, Erdos-Renyi null model).
+**Methods**: PERMANOVA, betadisper (distance to centroid), rarefaction robustness check, NMDS ordination, db-RDA constrained ordination, NODF nestedness test, pairwise co-occurrence null models (volume-weighted Bernoulli, 10,000 iterations).
 
-**Result**: Sites strongly structure composition (PERMANOVA R² ~ 0.04-0.06, p < 0.01). Size-divergence is **NOT significant after rarefaction** (p = 0.61) — the size-composition pattern is an abundance artifact. Co-occurrence network reveals non-random modular assembly with identifiable hub species (modularity significantly exceeds null expectation).
+**Result**: Sites strongly structure composition (PERMANOVA R² ~ 0.08, p < 0.001). Coral volume explains 7.8% of composition (db-RDA, p = 0.001), robust to rarefaction (2.6%, p = 0.001). Categorical size-divergence is **NOT significant after rarefaction** (p = 0.61) — an abundance artifact. Communities are not nested along the size gradient (NODF p = 0.28), indicating species turnover. Pairwise co-occurrence reveals one significant positive association after FDR correction; intraspecific density shows mating-pair patterns in 6/15 species.
 
 ### Q3: FEEDBACKS — Does CAFI community identity predict coral condition?
 
@@ -246,11 +246,9 @@ Tests whether CAFI identity provides measurable physiological benefits to host c
 
 **Result**: Species richness shows the strongest raw signal (p = 0.018) but does NOT survive FDR correction (p_FDR = 0.126). Critically, rarefied richness (controlling for sampling intensity) shows NO relationship with condition (p = 0.45), revealing the raw richness signal as an **abundance artifact**. No CAFI metric reliably predicts coral condition in this observational dataset.
 
-### Q4: NEIGHBORHOOD — Does local coral density affect CAFI recruitment?
+### Supporting: NEIGHBORHOOD (Supplement)
 
-Tests whether neighborhood density (n_neighbors within 5m) acts as a source of CAFI recruitment or facilitates coral condition — the observational analog to the experimental density manipulation.
-
-**Result**: n_neighbors NOT significant for CAFI abundance (p = 0.37) or condition (p = 0.78). Coral volume remains the dominant predictor. Neighborhood density does not explain CAFI or condition variation in this established community.
+Neighborhood density (n_neighbors within 5m) was tested as a predictor of CAFI abundance and coral condition but showed no evidence of effects (all p > 0.18). This analysis is underpowered (n=63 corals with neighborhood data) for detecting small effects and is presented in the supplement (Fig S7).
 
 ---
 
@@ -289,12 +287,10 @@ coral_master <- readRDS("output/objects/coral_master.rds")
 
 | Figure | Content | Question | Script |
 |--------|---------|----------|--------|
-| Fig 1 | Study design: satellite map + volume/neighborhood histograms | Overview | `01_load_data.R` |
-| Fig 2 | Size-abundance scaling (power law) + species forest plot | Q1 | `05_species_scaling_analysis.R` |
+| Fig 1 | Study design: satellite map + volume/neighborhood distributions + schematics (6-panel) | Overview | `01_load_data.R` |
+| Fig 2 | Size-abundance scaling: abundance + richness + species forest + density dilution (4-panel) | Q1 | `05_species_scaling_analysis.R` |
 | Fig 3 | NMDS ordination + taxonomic composition by site | Q2 | `02_community_analysis.R` |
-| Fig 4 | Taxonomic group scaling and composition | Q1 | `08_functional_groups.R` |
-| Fig 5 | Co-occurrence network: hero layout + guild panels | Q2 | `06_network_analysis.R` |
-| Fig 6 | CAFI-condition feedback models | Q3 | `09_cafi_condition_feedbacks.R` |
+| Fig 4 | CAFI-condition feedbacks: null results forest plot | Q3 | `09_cafi_condition_feedbacks.R` |
 
 ### Supplementary Figures (`output/figures/supplement/`)
 
@@ -308,8 +304,15 @@ coral_master <- readRDS("output/objects/coral_master.rds")
 | S6 | Species-level scaling forest plot | `05_species_scaling_analysis.R` |
 | S7 | Neighborhood null results | `04_landscape_effects.R` |
 | S8 | Taxonomy sensitivity forest plot | `13_taxonomy_sensitivity.R` |
+| S9 | Taxonomic group scaling and composition | `08_functional_groups.R` |
+| S10 | Rarefaction depth sensitivity | `09_cafi_condition_feedbacks.R` |
+| S-cooccurrence | Co-occurrence: pairwise SES heatmap + intraspecific density (demoted from main text) | `06_cooccurrence_analysis.R` |
+| S11 | Legacy co-occurrence network (circular layout) | `06_cooccurrence_analysis.R` |
+| S12 | Additional CAFI-condition panels | `09_cafi_condition_feedbacks.R` |
+| S13 | Network sensitivity to taxonomic resolution | `13_taxonomy_sensitivity.R` |
+| S14 | Species occurrence probability vs. coral size | `05_species_scaling_analysis.R` |
 
-### Statistical Tables (`output/tables/`, 46 files)
+### Statistical Tables (`output/tables/`, ~54 files)
 
 Key output files:
 - `scaling_results_all.csv` — Species-area scaling coefficients for all taxa
@@ -341,14 +344,13 @@ Key RDS files:
 | Multiple testing (feedbacks) | FDR correction (Benjamini-Hochberg) | `09` |
 | Multiple testing (key species) | FDR across 6 species tests | `09` |
 | Multiple testing (scaling) | FDR within category (species/group) | `05` |
-| Multiple testing (network edges) | Pairwise cor.test p-values + FDR | `06` |
+| Multiple testing (co-occurrence) | FDR across pairwise SES tests | `06` |
 | Abundance confound (composition) | Iterated rarefaction (100 draws) | `02` |
 | Abundance confound (richness-condition) | Rarefied richness artifact test | `09` |
-| Volume confound (co-occurrence) | Residualized presence on log(volume) | `06` |
+| Volume confound (co-occurrence) | Volume-weighted Bernoulli null model | `06` |
 | Random effects (k=3 sites) | Fixed-effect site (Bolker et al. 2009) | `04`, `09` |
 | Bootstrap site structure | Stratified bootstrap (`strata` argument) | `05` |
 | NB convergence failure | Poisson fallback with logging | `04` |
-| igraph/dplyr namespace conflict | Explicit `dplyr::filter()` throughout | `06` |
 | Colorblind accessibility | Okabe-Ito palette throughout | All scripts |
 
 ---
@@ -372,9 +374,8 @@ Key RDS files:
 ## Citation
 
 ```
-Stier AC, et al. (2026). Landscape characteristics structure coral-associated
-fauna communities and their effects on coral condition in Mo'orea, French Polynesia.
-Marine Ecology Progress Series [submitted].
+Stier AC, et al. (2026). Sublinear scaling of coral-associated fauna reveals
+propagule limitation in established reef communities. [in preparation].
 ```
 
 ---

@@ -1,0 +1,205 @@
+================================================================================
+DISCUSSION FRAMING NOTES: Survey vs. Experimental Paper Comparison
+================================================================================
+Based on analysis of: "Habitat Quantity Drives Community Assembly and Feedbacks
+to Coral Condition in Reef Systems" (Stier, Primo, Curtis, Osenberg)
+Prepared: March 2026
+
+These notes guide how to frame the survey manuscript's results in relation to
+the companion experimental study.
+
+================================================================================
+1. SCALING CONTRAST: Redirection (survey) vs. Field of Dreams (experiment)
+================================================================================
+
+Key framing: The two results are COMPLEMENTARY, not contradictory.
+
+- Experiment: Added new habitat patches (1, 3, 6 corals) to bare reef for 17
+  months. CAFI colonized proportionally with habitat quantity (FoD) at the
+  community level, but with substantial species-level heterogeneity.
+
+- Survey: Measured established communities on mature colonies spanning a wide
+  range of sizes. Found sublinear scaling (Redirection, beta = 0.52) — larger
+  corals have more CAFI but at declining per-unit density.
+
+- Reconciliation: The experimental paper itself (lines 376-395) argues that
+  post-settlement density-dependent processes can modify initial colonization
+  patterns. Competition for space within the coral, territory defense by
+  resident species, and resource limitation can shift communities from FoD
+  toward Redirection over time. The survey captures the long-term equilibrium
+  endpoint of exactly this process.
+
+- Useful framing: "Initial colonization follows Field of Dreams, but
+  established communities converge on Propagule Redirection as density-
+  dependent interactions sculpt the community over time."
+
+- Species-level: Both studies show heterogeneity. The experiment found some
+  species FoD, some Redirection, some super-linear. The survey found 7/10
+  Redirection, 3/10 FoD, 0/10 super-linear — consistent with the expectation
+  that post-settlement processes push most species toward Redirection.
+
+================================================================================
+2. NULL CONDITION RESULT: Why the survey finds no CAFI → condition effect
+================================================================================
+
+The experiment found PC1_CAFI → PC1_Coral (significant, p = 0.032) and
+condition declined at higher coral density (p = 0.017). The survey finds
+NO CAFI metric predicts condition. Discuss these potential explanations:
+
+a) OBSERVATIONAL CONFOUND (most important to discuss)
+   - In the experiment, coral number was randomized → causal inference possible
+   - In the survey, coral size is naturally varying → healthier corals may grow
+     larger AND attract more CAFI, creating a confound
+   - Controlling for volume (as we do) is necessary but may not be sufficient
+     if volume, CAFI, and condition share unobserved confounders
+
+b) TEMPORAL SNAPSHOT vs. ACCUMULATION
+   - Experiment tracked cumulative effects over 17 months
+   - Survey captures a single time point — may miss dynamic feedbacks
+   - If CAFI effects on condition operate through sustained exposure to
+     beneficial/harmful associates, a snapshot may not detect them
+
+c) SIZE vs. NUMBER: DIFFERENT ECOLOGICAL AXES
+   - Experiment varied the number of habitat patches (landscape-level density)
+   - Survey varies individual patch size (colony-level)
+   - CAFI effects on condition may operate through inter-colony density
+     (competition among CAFI populations from different corals) rather than
+     within-colony community composition
+   - The survey's n_neighbors null result (Q4) complicates this — but the
+     neighborhood survey only covered 61/114 corals with limited density range
+
+d) POSITION CORRECTION (acknowledge as conservative)
+   - The survey corrects physiology traits for stump_length + nubbin_length
+     to remove the tissue gradient sampling artifact
+   - This is the right approach, but if tissue quality genuinely covaries with
+     branch position for ecological reasons (e.g., light exposure, flow), the
+     correction may remove some real biological signal
+   - This makes the null result conservative (harder to detect a real effect)
+
+e) RAREFIED RICHNESS CONTROL (survey's key methodological advance)
+   - The survey demonstrates that the apparent richness → condition effect
+     (p = 0.018) is an abundance artifact: rarefied richness shows no
+     relationship (p = 0.45)
+   - This is a contribution the experiment did not test
+
+================================================================================
+3. SPECIES-LEVEL COMPARISON
+================================================================================
+
+Shared species between studies (and their effects):
+
+Experiment (Table S2):
+  Positive: Caracanthus (p_adj=0.017), Harpiliopsis (NS), Periclimenes (NS),
+            Dascyllus flavicaudus (NS), Dascyllus aruanus (positive, associated
+            with enhanced condition on solitary corals), Calcinus latens (NS)
+  Negative: Luniella pugil (raw p=0.014), Alpheus diadema (raw p=0.042),
+            Chlorodiella barbata (associated with condition decline)
+
+Survey (with expanded key species): 10 key species tested (Trapezia
+  punctimanus, T. rufopunctata, Stegastes nigricans, Alpheus lottini,
+  Synalpheus charon, Harpiliopsis depressa, Periclimenes spp., Calcinus
+  spp., Abudefduf spp., Galeropsis monodonta). Effect directions mostly
+  match experiment but none survive Hochberg FWER correction. Trapezia
+  and fish effects positive (as expected); Galeropsis negative.
+  - Direction matches and divergences to report
+  - Only Caracanthus was significant in experiment after correction
+  - Survey should report: even with 4 additional species from experiment,
+    no species shows significant condition effect in established communities
+
+Framing: "The experimental finding that Caracanthus abundance positively
+predicts condition was not replicated in established communities, suggesting
+the effect may operate through initial colonization dynamics rather than
+sustained presence."
+
+================================================================================
+4. HOLOBIONT CONCEPT (from experimental paper lines 443-458)
+================================================================================
+
+Both papers support expanding the coral holobiont concept to include
+macrofaunal associates. Key language from the experiment:
+
+"Expanding the holobiont concept to include macrofaunal associates — as dynamic
+contributors whose roles depend on context — provides a more comprehensive
+framework for understanding coral demography and designing effective
+restoration interventions."
+
+The survey adds: the context-dependence extends to the spatial scale at which
+CAFI effects operate. Colony-level CAFI composition may not predict condition
+(survey), but landscape-level CAFI dynamics can (experiment). This suggests
+macrofaunal effects on coral health are emergent properties of the seascape,
+not reducible to within-colony community composition.
+
+================================================================================
+5. RESTORATION IMPLICATIONS (where both papers converge)
+================================================================================
+
+- Experiment: Solitary corals had BETTER condition than clustered corals,
+  driven by CAFI composition shifts (more beneficial associates on isolated
+  colonies)
+- Survey: No CAFI metric predicts condition in established communities,
+  but coral size (not neighborhood density) is the dominant predictor of
+  CAFI abundance and richness
+
+Together: Restoration designs should consider both colony spacing (to avoid
+CAFI-mediated condition decline from the experiment) and colony size (to
+support diverse CAFI communities from the survey). The survey's sublinear
+scaling means that several medium-sized colonies support more total CAFI than
+one equivalent-sized large colony — relevant for outplanting strategy.
+
+================================================================================
+6. METHODOLOGICAL ADVANCES OF THE SURVEY
+================================================================================
+
+Highlight these as contributions beyond the experiment:
+- Rarefied richness control (abundance artifact demonstration)
+- Co-occurrence network analysis (experiment has none)
+- Spatial autocorrelation diagnostics (Moran's I, LISA, Mantel)
+- Taxonomy sensitivity analysis (5 scenarios)
+- Bootstrap CIs with site stratification on scaling exponents
+- HC3 robust standard errors throughout
+- Species × individual trait correlation table (cross-study comparison)
+
+================================================================================
+7. METHODOLOGICAL ALIGNMENT WITH COMPANION EXPERIMENTAL PAPER (March 2026)
+================================================================================
+
+The following changes were made to align the survey's analytical methods with the
+companion experimental study (Stier, Primo, Curtis, Osenberg), ensuring methodological
+consistency for companion papers:
+
+a) GROWTH NOT MEASURED IN SURVEY (legitimate difference)
+   - The experiment includes growth_vol_b (unified allometric growth) as a 5th
+     variable in the condition PCA (protein, carbs, zoox, AFDW, growth)
+   - The survey is a single-timepoint observational study with no growth data
+   - Survey condition PCA uses 4 variables (protein, carbs, zoox, AFDW), all
+     position-corrected for sampling artifact
+   - This is a legitimate difference: the survey captures physiological status,
+     not growth dynamics. Discuss in Methods and acknowledge in Discussion.
+
+b) SQRT TRANSFORM ON COUNT PREDICTORS
+   - Experiment uses sqrt(abundance) in species-level condition models
+   - Survey now applies sqrt() to all count-based CAFI predictors (total_cafi,
+     n_trapezia, n_resident_fish, n_galeropsis, key species counts)
+   - Continuous indices (PC1_CAFI, Shannon, richness) are NOT sqrt-transformed
+   - Rationale: down-weights high-abundance outliers, consistent with experiment
+
+c) HOCHBERG (FWER) CORRECTION FOR KEY SPECIES TESTS
+   - Experiment uses Hochberg stepwise correction for species-level tests
+   - Survey now uses Hochberg (FWER) for key species condition tests
+   - Other test families (CAFI→condition, condition→CAFI) retain BH (FDR)
+   - Since the survey's null results are robust, this change has no practical
+     effect on conclusions but ensures methodological consistency
+
+d) COMMUNITY TRANSFORMATION SENSITIVITY (Part A3)
+   - Experiment tests 3 community matrix transformations: Sqrt, Sqrt+CS, Hellinger
+   - Survey now tests all 3 transformations for PC1_CAFI → condition
+   - Additionally tests a filtered PCA (species with >=10 presences AND >=10
+     total individuals), mirroring experimental species filtering
+   - Result: null finding is robust across ALL transformations and filtering
+
+e) BALANCED SITE SUBSAMPLING FOR PERMANOVA (Part 4D)
+   - Experiment runs 500 balanced subsampling iterations to test PERMANOVA
+     robustness to unequal treatment sample sizes
+   - Survey now runs 500 balanced subsampling iterations across 5 distance metrics
+   - Equal n drawn from each site (n = min site count = 35) per iteration
+   - Result: site effect on composition is robust to sample-size imbalance

@@ -5,16 +5,16 @@
 # PURPOSE: Build and analyze CAFI species co-occurrence networks to test
 #          hypothesis H5 regarding non-random community structure
 #
-# HYPOTHESIS (H5): CAFI co-occurrence networks exhibit non-random modular
-#   structure, with modules corresponding to functional groups or shared
-#   habitat preferences, and identifiable hub/keystone species.
+# HYPOTHESIS (H5): CAFI co-occurrence networks exhibit non-random structure,
+#   with groups corresponding to functional groups or shared habitat
+#   preferences, and identifiable hub/keystone species.
 #
 # ANALYSES:
 #   - Co-occurrence network construction (volume-residualized correlations)
-#   - Community detection (Louvain algorithm for modularity)
+#   - Community detection (Louvain algorithm)
 #   - Null model comparison (1000 configuration model random networks)
 #   - Centrality analysis (degree, betweenness, eigenvector)
-#   - Module composition characterization
+#   - Group composition characterization
 #
 # EXPECTED RESULTS (from PRD):
 #   - Modularity Q ~ 0.52 (2.2x null)
@@ -30,7 +30,8 @@
 # OUTPUTS:
 #   Figures:
 #     - output/figures/network_visualization.png
-#     - output/figures/manuscript/fig5_network.png
+#     - output/figures/manuscript/fig4_network.png
+#     - output/figures/supplement/figS11_network_groups.png
 #   Tables:
 #     - output/tables/network_metrics.csv
 #     - output/tables/module_composition.csv
@@ -187,7 +188,10 @@ for (i in 1:(n_sp - 1)) {
   }
 }
 
-# Build FDR-adjusted p-value matrix (upper triangle)
+# FDR correction pass 1 (completeness / sensitivity analysis):
+# Correct ALL pairwise p-values across the full upper triangle. This matrix
+# (p_matrix_adj) is used by the threshold sensitivity analysis below, which
+# needs FDR-adjusted p-values for edges at varying correlation thresholds.
 upper_idx <- which(upper.tri(p_matrix))
 p_upper_raw <- p_matrix[upper_idx]
 p_upper_adj <- p.adjust(p_upper_raw, method = "BH")
@@ -203,11 +207,15 @@ edge_indices_raw <- which(upper.tri(cor_matrix) & cor_matrix > threshold, arr.in
 edge_indices <- matrix(nrow = 0, ncol = 2)
 
 if (nrow(edge_indices_raw) > 0) {
-  # Get raw p-values for candidate edges
+  # FDR correction pass 2 (operational filter for main network):
+  # Correct only the subset of RAW p-values for candidate edges above the
+  # correlation threshold. This is the filter used to build the actual network.
+  # Note: uses raw p-values from p_matrix (not already-adjusted ones from pass 1)
+  # to avoid double-correction.
   raw_pvals <- sapply(1:nrow(edge_indices_raw), function(k)
     p_matrix[edge_indices_raw[k, 1], edge_indices_raw[k, 2]])
 
-  # Apply FDR correction (Benjamini-Hochberg)
+  # Apply FDR correction (Benjamini-Hochberg) on this subset
   fdr_pvals <- p.adjust(raw_pvals, method = "BH")
 
   # Filter: retain only FDR-significant edges
@@ -330,8 +338,8 @@ n_nodes <- vcount(g)
 n_edges <- ecount(g)
 density <- edge_density(g)
 transitivity_obs <- transitivity(g, type = "global")
-diameter_obs <- diameter(g)
-mean_distance_obs <- mean_distance(g)
+diameter_obs <- diameter(g, weights = NA)      # unweighted for interpretable integer hops
+mean_distance_obs <- mean_distance(g, weights = NA)  # unweighted for interpretable path length
 
 # Modularity via Louvain algorithm (weighted for community assignments)
 # Louvain chosen over alternatives (fast-greedy, walktrap) because it:
@@ -366,7 +374,7 @@ cat("     Diameter:", diameter_obs, "\n")
 cat("     Mean path length:", round(mean_distance_obs, 2), "\n")
 cat("     Modularity Q (weighted):", round(modularity_obs, 3), "\n")
 cat("     Modularity Q (unweighted, for null comparison):", round(modularity_obs_unweighted, 3), "\n")
-cat("     Number of modules:", n_modules, "\n")
+cat("     Number of Louvain groups:", n_modules, "\n")
 cat("     Mean degree:", round(mean_degree, 2), "\n")
 cat("     Median degree:", median_degree, "\n")
 cat("     Max degree:", max_degree, "\n\n")
@@ -401,8 +409,8 @@ for (i in 1:n_permutations) {
 
   # Calculate metrics
   null_metrics[i, "transitivity"] <- transitivity(g_random, type = "global")
-  null_metrics[i, "mean_distance"] <- mean_distance(g_random)
-  null_metrics[i, "diameter"] <- diameter(g_random)
+  null_metrics[i, "mean_distance"] <- mean_distance(g_random, weights = NA)
+  null_metrics[i, "diameter"] <- diameter(g_random, weights = NA)
 
   # Modularity (only if network has edges)
   if (ecount(g_random) > 0) {
@@ -467,14 +475,14 @@ mod_z <- null_comparison$z_score[null_comparison$metric == "Modularity"]
 if (!is.na(mod_z) && mod_z < 0) {
   cat("  NOTE: Observed modularity is LOWER than null expectation (z =",
       round(mod_z, 2), ").\n")
-  cat("  The network does NOT show significant modular structure.\n\n")
+  cat("  Louvain community detection identified groups, but modularity is not elevated above random.\n\n")
 } else if (!is.na(mod_z) && mod_z >= 2) {
   cat("  Observed modularity exceeds null expectation (z =",
       round(mod_z, 2), ").\n")
-  cat("  The network shows significant modular structure.\n\n")
+  cat("  Louvain community detection identified groups with modularity elevated above random.\n\n")
 } else {
   cat("  Observed modularity z =", round(mod_z, 2),
-      " — modular structure is not significantly elevated.\n\n")
+      " — modularity is not significantly elevated above random.\n\n")
 }
 
 # ============================================================================
@@ -492,8 +500,8 @@ sensitivity_results <- data.frame(
 )
 
 for (thresh in c(0.2, 0.3, 0.4, 0.5)) {
-  # Apply threshold to existing correlation matrix
-  edges_at_thresh <- which(abs(cor_matrix) > thresh & p_matrix_adj < 0.05, arr.ind = TRUE)
+  # Apply threshold to existing correlation matrix (positive only, matching main analysis)
+  edges_at_thresh <- which(cor_matrix > thresh & p_matrix_adj < 0.05, arr.ind = TRUE)
   edges_at_thresh <- edges_at_thresh[edges_at_thresh[,1] < edges_at_thresh[,2], , drop = FALSE]
 
   if (nrow(edges_at_thresh) > 0) {
@@ -600,10 +608,10 @@ print(centrality_df %>% arrange(desc(eigenvector)) %>% slice_head(n = 5) %>%
 # ============================================================================
 
 cat("\n------------------------------------------------------------\n")
-cat("PART 6: MODULE ANALYSIS\n")
+cat("PART 6: GROUP ANALYSIS (Louvain community detection)\n")
 cat("------------------------------------------------------------\n\n")
 
-cat("6.1 Characterizing module composition...\n\n")
+cat("6.1 Characterizing group composition...\n\n")
 
 # Module composition by species
 module_species <- centrality_df %>%
@@ -624,11 +632,11 @@ module_summary <- module_species %>%
   ) %>%
   arrange(desc(n_species))
 
-cat("     Module Summary:\n\n")
+cat("     Group Summary:\n\n")
 print(module_summary)
 
 # 6.2 Taxonomic composition by module
-cat("\n6.2 Taxonomic composition by module...\n\n")
+cat("\n6.2 Taxonomic composition by group...\n\n")
 
 module_taxonomy <- module_species %>%
   group_by(module, type) %>%
@@ -648,7 +656,7 @@ module_tax_wide <- module_taxonomy %>%
 print(module_tax_wide)
 
 # 6.3 Functional group composition by module
-cat("\n6.3 Functional group composition by module...\n\n")
+cat("\n6.3 Functional group composition by Louvain group...\n\n")
 
 module_func <- module_species %>%
   group_by(module, functional_group) %>%
@@ -676,12 +684,12 @@ contingency_table <- module_taxonomy %>%
 if (nrow(contingency_table) > 1 && ncol(contingency_table) > 1 &&
     min(rowSums(contingency_table)) > 0 && min(colSums(contingency_table)) > 0) {
   chi_test <- stats::chisq.test(contingency_table, simulate.p.value = TRUE, B = 2000)
-  cat("\n     Chi-square test for taxonomic clustering across modules:\n")
+  cat("\n     Chi-square test for taxonomic clustering across groups:\n")
   cat(sprintf("       X2 = %.2f, p = %.4f\n", chi_test$statistic, chi_test$p.value))
   if (chi_test$p.value < 0.05) {
-    cat("       Interpretation: Modules show NON-RANDOM taxonomic composition\n")
+    cat("       Interpretation: Groups show NON-RANDOM taxonomic composition\n")
   } else {
-    cat("       Interpretation: Modules show random taxonomic mixing\n")
+    cat("       Interpretation: Groups show random taxonomic mixing\n")
   }
 }
 
@@ -777,7 +785,7 @@ plot(communities_louvain, g,
      vertex.label.dist = 0.3,
      edge.color = adjustcolor("gray50", alpha = 0.5),
      edge.width = edge_widths,
-     main = sprintf("CAFI Network Modules (Louvain: %d modules, Q = %.2f)",
+     main = sprintf("CAFI Network Groups (Louvain: %d groups, Q = %.2f)",
                     n_modules, modularity_obs))
 
 dev.off()
@@ -822,7 +830,7 @@ mtext(sprintf("N = %d species, %d edges | Modularity Q = %.2f (%.1fx null) | Tra
 dev.off()
 cat("     Saved: network_visualization.png\n")
 
-# === Figure 5: Manuscript figure (multi-panel) ===
+# === Figure 4: Manuscript figure (multi-panel) ===
 # Create ggplot-based figures for manuscript
 
 # 4A: Degree distribution
@@ -832,7 +840,7 @@ p_degree <- ggplot(centrality_df, aes(x = degree)) +
   labs(
     x = "Degree (number of co-occurring species)",
     y = "Number of species",
-    title = "A. Degree Distribution",
+    title = "A Degree Distribution",
     subtitle = sprintf("Mean = %.1f, Median = %d", mean_degree, median_degree)
   )
 
@@ -850,7 +858,7 @@ p_modularity <- ggplot(null_mod_df, aes(x = modularity)) +
   labs(
     x = "Modularity (Q)",
     y = "Frequency (null model)",
-    title = "B. Modularity vs Null Model",
+    title = "B Modularity vs Null Model",
     subtitle = sprintf("z = %.1f, p = %.4f",
                        null_comparison$z_score[null_comparison$metric == "Modularity"],
                        null_comparison$p_value[null_comparison$metric == "Modularity"])
@@ -866,7 +874,7 @@ p_hubs <- centrality_df %>%
   labs(
     x = NULL,
     y = "Hub Score (degree + eigenvector, standardized)",
-    title = "C. Top 15 Hub Species",
+    title = "C Top 15 Hub Species",
     subtitle = "Based on connectivity and influence"
   ) +
   theme(legend.position = "bottom")
@@ -878,10 +886,10 @@ p_modules <- module_taxonomy %>%
   scale_fill_manual(values = type_colors, name = "Type") +
   scale_y_continuous(labels = scales::percent) +
   labs(
-    x = "Module",
+    x = "Group",
     y = "Proportion of species",
-    title = "D. Module Taxonomic Composition",
-    subtitle = sprintf("%d modules identified", n_modules)
+    title = "D Group Taxonomic Composition",
+    subtitle = sprintf("%d groups identified by Louvain algorithm", n_modules)
   ) +
   theme(legend.position = "bottom")
 
@@ -896,15 +904,15 @@ p_manuscript <- (p_degree + p_modularity) / (p_hubs + p_modules) +
     )
   )
 
-ggsave(file.path(fig_dir, "network_panels.png"), p_manuscript,
-       width = 12, height = 10, dpi = 300, bg = "white")
+save_figure(p_manuscript, file.path(fig_dir, "network_panels.png"),
+            width = 12, height = 10)
 cat("     Saved: network_panels.png\n")
 
 # ############################################################################
 # MANUSCRIPT FIGURE 5: CAFI CO-OCCURRENCE NETWORK (5-PANEL)
 # ############################################################################
-# Panel A: ALL species in circular layout grouped by module (hero panel)
-# Panels B-E: Individual module networks with species labels (force layout)
+# Panel A: ALL species in circular layout grouped by Louvain group (hero panel)
+# Panels B-E: Individual group sub-networks with species labels (force layout)
 # Wrapped in tryCatch so it doesn't crash the pipeline if ggforce is missing
 # ############################################################################
 
@@ -940,43 +948,34 @@ tryCatch({
   ) %>%
     mutate(guild = factor(guild))
 
-  # Guild configuration
-  guild_names <- c(
-    "1" = "Module I",
-    "2" = "Module II",
-    "3" = "Module III",
-    "4" = "Module IV"
-  )
-
-  guild_names_short <- c(
-    "1" = "Module I",
-    "2" = "Module II",
-    "3" = "Module III",
-    "4" = "Module IV"
-  )
+  # Dynamic group configuration (adapts to any number of Louvain groups)
+  n_guilds <- length(unique(sp_info$guild))
+  guild_names <- setNames(paste("Group", seq_len(n_guilds)), as.character(seq_len(n_guilds)))
+  guild_names_short <- guild_names
 
   guild_counts <- sp_info %>% count(guild) %>% arrange(guild)
 
-  # Colorblind-safe guild colors (Okabe-Ito derivatives)
-  guild_colors <- c(
-    "1" = "#0072B2",
-    "2" = "#D55E00",
-    "3" = "#009E73",
-    "4" = "#CC79A7"
+  # Colorblind-safe group colors (Okabe-Ito derivatives, dynamically extended)
+  okabe_ito_base <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7",
+                      "#E69F00", "#56B4E9", "#F0E442")
+  if (n_guilds <= length(okabe_ito_base)) {
+    guild_colors <- setNames(okabe_ito_base[seq_len(n_guilds)], as.character(seq_len(n_guilds)))
+  } else {
+    guild_colors <- setNames(
+      c(okabe_ito_base, scales::hue_pal()(n_guilds - length(okabe_ito_base))),
+      as.character(seq_len(n_guilds))
+    )
+  }
+
+  # Lighter versions for arc backgrounds (dynamic)
+  guild_colors_light <- setNames(
+    sapply(guild_colors, function(col) adjustcolor(col, alpha.f = 0.4)),
+    names(guild_colors)
   )
 
-  # Lighter versions for arc backgrounds
-
-  guild_colors_light <- c(
-    "1" = "#A3CDE5",
-    "2" = "#F4B888",
-    "3" = "#8ED5BF",
-    "4" = "#E2A5C5"
-  )
-
-  cat("Guild sizes:\n")
+  cat("Group sizes:\n")
   for (i in sort(unique(guild_counts$guild))) {
-    cat(paste0("  Guild ", i, " (", guild_names[as.character(i)], "): ",
+    cat(paste0("  Group ", i, " (", guild_names[as.character(i)], "): ",
                 guild_counts$n[guild_counts$guild == i], " species\n"))
   }
   cat(paste0("\nTotal species: ", sum(guild_counts$n), "\n"))
@@ -995,7 +994,7 @@ tryCatch({
     ungroup()
 
   gap_size <- 0.08
-  total_gap <- gap_size * 4
+  total_gap <- gap_size * n_guilds
   species_arc <- (2 * pi) * (1 - total_gap)
 
   guild_sizes <- guild_counts$n
@@ -1005,9 +1004,11 @@ tryCatch({
   guild_arcs <- guild_props * species_arc
 
   guild_starts <- c(0)
-  for (i in 1:3) {
-    guild_starts <- c(guild_starts,
-                      guild_starts[i] + guild_arcs[i] + gap_size * 2 * pi)
+  if (n_guilds > 1) {
+    for (i in 1:(n_guilds - 1)) {
+      guild_starts <- c(guild_starts,
+                        guild_starts[i] + guild_arcs[i] + gap_size * 2 * pi)
+    }
   }
 
   sp_positions <- sp_info_sorted %>%
@@ -1053,7 +1054,7 @@ tryCatch({
   # Use between_guild_edges directly (no sampling needed)
   n_between <- nrow(between_guild_edges)
 
-  cat(sprintf("  Between-guild edges: %d (all shown as thin gray)\n", n_between))
+  cat(sprintf("  Between-group edges: %d (all shown as thin gray)\n", n_between))
 
   create_bezier <- function(x1, y1, x2, y2, n_points = 30, curvature = 0.35) {
     cx <- (x1 + x2) / 2 * (1 - curvature)
@@ -1066,7 +1067,7 @@ tryCatch({
   }
 
   within_guild_edges <- edge_df_filtered %>% dplyr::filter(is_within_guild)
-  cat("  Generating bezier curves for", nrow(within_guild_edges), "within-guild edges...\n")
+  cat("  Generating bezier curves for", nrow(within_guild_edges), "within-group edges...\n")
 
   bezier_within <- purrr::map_dfr(1:nrow(within_guild_edges), function(i) {
     row <- within_guild_edges[i,]
@@ -1077,7 +1078,7 @@ tryCatch({
     pts
   })
 
-  cat("  Generating bezier curves for", nrow(between_guild_edges), "between-guild edges...\n")
+  cat("  Generating bezier curves for", nrow(between_guild_edges), "between-group edges...\n")
 
   if (nrow(between_guild_edges) > 0) {
     bezier_between <- purrr::map_dfr(1:nrow(between_guild_edges), function(i) {
@@ -1108,19 +1109,25 @@ tryCatch({
       border_color = guild_colors[as.character(guild)]
     )
 
+  # Dynamically position group labels in corners / evenly spaced around the plot
+  # For each group, place label at an angle evenly spaced around the perimeter
+  label_angles <- seq(pi/4, pi/4 + 2*pi*(1 - 1/n_guilds), length.out = n_guilds)
+  label_radius <- 6.5
+  label_x_positions <- label_radius * cos(label_angles)
+  label_y_positions <- label_radius * sin(label_angles)
+  label_hjust <- ifelse(cos(label_angles) > 0, 1, 0)
+  label_vjust <- ifelse(sin(label_angles) > 0, 0, 1)
+
   guild_label_positions <- sp_positions %>%
     group_by(guild) %>%
     summarize(mid_angle = (min(angle) + max(angle)) / 2, .groups = "drop") %>%
     left_join(guild_counts, by = "guild") %>%
     mutate(
-      label = paste0(
-        c("Module I", "Module II", "Module III", "Module IV")[as.numeric(guild)],
-        " (n=", n, ")"
-      ),
-      x = c(6.5, 6.5, -6.5, -6.5)[as.numeric(guild)],
-      y = c(6.5, -6.5, -6.5, 6.5)[as.numeric(guild)],
-      hjust = c(1, 1, 0, 0)[as.numeric(guild)],
-      vjust = c(0, 1, 1, 0)[as.numeric(guild)],
+      label = paste0(guild_names[as.character(guild)], " (n=", n, ")"),
+      x = label_x_positions[as.numeric(guild)],
+      y = label_y_positions[as.numeric(guild)],
+      hjust = label_hjust[as.numeric(guild)],
+      vjust = label_vjust[as.numeric(guild)],
       color = guild_colors[as.character(guild)]
     )
 
@@ -1179,8 +1186,9 @@ tryCatch({
     scale_alpha_continuous(range = c(0.08, 0.45), guide = "none") +
     coord_fixed(ratio = 1, xlim = c(-6.8, 6.8), ylim = c(-6.8, 6.8), clip = "off") +
     labs(
-      title = "A. Species Co-occurrence Network",
-      subtitle = paste0(nrow(sp_positions), " species | ", ecount(g), " co-occurrences | 4 ecological guilds")
+      title = "A Species Co-occurrence Network",
+      subtitle = sprintf("%d species | Showing %d of %d edges (top 50%% by weight) | %d Louvain groups",
+                        nrow(sp_positions), nrow(edge_df_filtered), ecount(g), n_guilds)
     ) +
     theme_void() +
     theme(
@@ -1193,7 +1201,7 @@ tryCatch({
   cat("  Panel A complete.\n")
 
   # --------------------------------------------------------------------------
-  # PANELS B-E: INDIVIDUAL MODULE NETWORKS WITH SPECIES LABELS
+  # PANELS B-E: INDIVIDUAL GROUP SUB-NETWORKS WITH SPECIES LABELS
   # --------------------------------------------------------------------------
 
   create_guild_panel_fixed <- function(guild_id, letter, max_labels = 10) {
@@ -1250,7 +1258,7 @@ tryCatch({
         show_label = rank_degree <= n_to_label
       )
 
-    cat(sprintf("    Guild %d: %d species, labeling top %d\n",
+    cat(sprintf("    Group %d: %d species, labeling top %d\n",
                 guild_id, n_species, sum(node_data$show_label)))
 
     if (ecount(g_sub) > 0) {
@@ -1339,7 +1347,7 @@ tryCatch({
                   xlim = c(if (n_sp > 15) -2.8 else -2.3, if (n_sp > 15) 2.8 else 2.3),
                   ylim = c(if (n_sp > 15) -2.8 else -2.3, if (n_sp > 15) 2.8 else 2.3)) +
       labs(
-        title = sprintf("%s. %s", letter, guild_name),
+        title = sprintf("%s %s", letter, guild_name),
         subtitle = subtitle_text
       ) +
       theme_void() +
@@ -1355,40 +1363,34 @@ tryCatch({
     return(p)
   }
 
-  cat("Building Panels B-E (individual modules)...\n")
+  cat("Building sub-panels (individual groups)...\n")
 
-  p_B <- create_guild_panel_fixed(1, "B", max_labels = 50)
-  cat("  Panel B complete.\n")
-  p_C <- create_guild_panel_fixed(2, "C", max_labels = 50)
-  cat("  Panel C complete.\n")
-  p_D <- create_guild_panel_fixed(3, "D", max_labels = 50)
-  cat("  Panel D complete.\n")
-  p_E <- create_guild_panel_fixed(4, "E", max_labels = 50)
-  cat("  Panel E complete.\n")
+  # Dynamically create one panel per Louvain group
+  panel_letters <- LETTERS[2:(n_guilds + 1)]  # B, C, D, E, ...
+  guild_panels <- list()
+  for (gi in seq_len(n_guilds)) {
+    guild_panels[[gi]] <- create_guild_panel_fixed(gi, panel_letters[gi], max_labels = 50)
+    cat(sprintf("  Panel %s complete.\n", panel_letters[gi]))
+  }
 
   # --------------------------------------------------------------------------
-  # COMBINE INTO WIDE 5-PANEL FIGURE
+  # MANUSCRIPT FIGURE 4: Full co-occurrence network (single panel)
   # --------------------------------------------------------------------------
 
-  cat("\nCombining panels into wide layout...\n")
+  cat("\nAssembling manuscript Figure 4 (full network)...\n")
 
-  p_right <- (p_B | p_C) / (p_D | p_E)
-
-  p_wide <- (p_A | p_right) +
-    plot_layout(widths = c(1.5, 2)) +
+  p_fig4 <- p_A +
     plot_annotation(
-      title = "CAFI Co-occurrence Network Structure",
       subtitle = paste0(
-        "Four ecological guilds identified via Louvain community detection | Q = ",
-        sprintf("%.2f", modularity(communities)), " | ",
+        n_guilds, " groups (Louvain) | Q = ",
+        sprintf("%.3f", modularity(communities)), " | ",
         vcount(g), " species | ", ecount(g), " edges"
       ),
       caption = paste0(
-        "Node size = degree centrality | Within-guild edges colored, between-guild edges gray | ",
-        "Threshold: r > 0.3, FDR p < 0.05"
+        "Node size = degree centrality | Within-group edges colored, between-group edges gray | ",
+        "Threshold: r > 0.3, FDR p < 0.05 | See Figure S11 for group sub-networks"
       ),
       theme = theme(
-        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
         plot.subtitle = element_text(size = 10, hjust = 0.5, color = "gray40"),
         plot.caption = element_text(size = 9.5, hjust = 0.5, color = "gray50",
                                     margin = margin(t = 12)),
@@ -1397,36 +1399,70 @@ tryCatch({
       )
     )
 
-  # Save to manuscript directory
-  ggsave(
-    file.path(PATHS$fig_manuscript, "fig5_network.png"),
-    p_wide,
-    width = 280,
-    height = 170,
-    units = "mm",
-    dpi = 300,
-    bg = "white"
-  )
-  cat("     Saved: manuscript/fig5_network.png\n")
+  # Save manuscript figure
+  save_figure(p_fig4, file.path(PATHS$fig_manuscript, "fig4_network.png"),
+              width = 170, height = 170, units = "mm")
+  cat("     Saved: manuscript/fig4_network.png\n")
 
-  # Save to analysis figure directory
-  ggsave(
-    file.path(fig_dir, "fig5_5panel_v2_wide.png"),
-    p_wide,
-    width = 280,
-    height = 170,
-    units = "mm",
-    dpi = 300,
-    bg = "white"
-  )
-  cat("     Saved: 06_network/fig5_5panel_v2_wide.png\n")
+  save_figure(p_fig4, file.path(fig_dir, "fig4_network.png"),
+              width = 170, height = 170, units = "mm")
+  cat("     Saved: 06_network/fig4_network.png\n")
 
-  cat("\n  5-panel manuscript Figure 5 complete.\n")
+  # --------------------------------------------------------------------------
+  # SUPPLEMENT FIGURE S12: Louvain group sub-networks
+  # --------------------------------------------------------------------------
+
+  cat("\nAssembling supplement Figure S11 (group sub-networks)...\n")
+
+  # Dynamically arrange sub-panels in a grid (2 columns)
+  n_rows_right <- ceiling(n_guilds / 2)
+  if (n_guilds >= 4) {
+    p_groups <- (guild_panels[[1]] | guild_panels[[2]])
+    if (n_guilds >= 3) {
+      row2 <- if (n_guilds >= 4) (guild_panels[[3]] | guild_panels[[4]]) else guild_panels[[3]]
+      p_groups <- p_groups / row2
+    }
+    if (n_guilds > 4) {
+      for (ri in seq(5, n_guilds, by = 2)) {
+        row_i <- if (ri + 1 <= n_guilds) (guild_panels[[ri]] | guild_panels[[ri + 1]]) else guild_panels[[ri]]
+        p_groups <- p_groups / row_i
+      }
+    }
+  } else if (n_guilds == 3) {
+    p_groups <- (guild_panels[[1]] | guild_panels[[2]]) / (guild_panels[[3]] | plot_spacer())
+  } else if (n_guilds == 2) {
+    p_groups <- guild_panels[[1]] / guild_panels[[2]]
+  } else {
+    p_groups <- guild_panels[[1]]
+  }
+
+  p_figS11 <- p_groups +
+    plot_annotation(
+      title = "Figure S11: Louvain Community Group Sub-networks",
+      subtitle = paste0("Subset networks for each of ", n_guilds,
+                        " groups detected via Louvain community detection"),
+      theme = theme(
+        plot.title = element_text(size = 14, face = "bold"),
+        plot.subtitle = element_text(size = 10, color = "gray40"),
+        plot.background = element_rect(fill = "white", color = NA),
+        plot.margin = margin(10, 10, 10, 10, "mm")
+      )
+    )
+
+  save_figure(p_figS11,
+              file.path(PATHS$fig_supplement, "figS11_network_groups.png"),
+              width = 240, height = 200, units = "mm")
+  save_figure(p_figS11,
+              file.path(fig_dir, "figS11_network_groups.png"),
+              width = 240, height = 200, units = "mm")
+  cat("     Saved: figS11_network_groups.png (supplement + analysis)\n")
+
+  cat("\n  Manuscript Figure 4 + supplement S11 complete.\n")
 
 }, error = function(e) {
-  cat("\n  WARNING: Could not create 5-panel manuscript Figure 5.\n")
+  cat("\n  WARNING: Could not create manuscript Figure 4 + supplement S11.\n")
   cat("  Reason:", conditionMessage(e), "\n")
-  cat("  The 4-panel analysis figure (network_panels.png) was still saved.\n\n")
+  cat("  The analysis figure (network_panels.png) was still saved.\n\n")
 })
 
 # --- Generate figure legend and results text ---
@@ -1436,24 +1472,23 @@ cat("\n  Generating figure legend and results text...\n")
 null_mod <- null_comparison[null_comparison$metric == "Modularity", ]
 null_trans <- null_comparison[null_comparison$metric == "Transitivity", ]
 
-fig5_legend <- paste0(
-  "FIGURE 5: CAFI CO-OCCURRENCE NETWORK STRUCTURE\n",
+fig4_legend <- paste0(
+  "FIGURE 4: CAFI CO-OCCURRENCE NETWORK STRUCTURE\n",
   "================================================================================\n\n",
 
   "FIGURE LEGEND\n",
   "-------------\n",
-  "Figure 5. Co-occurrence network analysis of coral-associated fauna and invertebrate\n",
-  "(CAFI) communities. (A) Network visualization: nodes represent species (n = ", n_nodes,
-  "), edges\n",
-  "represent significant positive correlations (r > 0.3, FDR-corrected p < 0.05; n = ", n_edges,
-  " edges).\n",
-  "Nodes colored by Louvain community module, sized by degree centrality.\n",
-  "(B) Degree distribution across species. Dashed line = mean degree.\n",
-  "(C) Modularity vs null model: observed modularity (Q = ", sprintf("%.2f", modularity_obs),
-  ") compared to\n",
-  "1000 configuration model (degree-preserving) random networks.\n",
-  "(D) Top 10 hub species ranked by hub score (degree + eigenvector centrality).\n",
-  "(E) Module composition showing taxonomic makeup of each network module.\n\n",
+  "Figure 4. Co-occurrence network of coral-associated fauna and invertebrate\n",
+  "(CAFI) communities. Nodes represent species (n = ", n_nodes,
+  "),\n",
+  "edges represent significant positive correlations (r > 0.3, FDR-corrected p < 0.05;\n",
+  n_edges, " total edges). Nodes colored by Louvain-detected group, sized by degree\n",
+  "centrality. Only the top 50% of edges by weight are displayed to reduce visual clutter.\n",
+  "Network density is high (", sprintf("%.2f", density), ") and modularity (Q = ",
+  sprintf("%.3f", modularity_obs), ") is low,\n",
+  "indicating weak community structure. Groups identified by Louvain algorithm should\n",
+  "be interpreted as statistical clusters rather than distinct ecological modules.\n",
+  "Individual group sub-networks are shown in Figure S11.\n\n",
 
   "================================================================================\n\n",
 
@@ -1467,7 +1502,7 @@ fig5_legend <- paste0(
   "   Network density: ", sprintf("%.3f", density), "\n\n",
 
   "2. COMMUNITY DETECTION (Louvain)\n",
-  "   Modules detected: ", n_modules, "\n",
+  "   Groups detected: ", n_modules, "\n",
   "   Modularity (Q): ", sprintf("%.3f", modularity_obs), "\n",
   "   Modularity (unweighted): ", sprintf("%.3f", modularity_obs_unweighted), "\n\n",
 
@@ -1477,9 +1512,9 @@ fig5_legend <- paste0(
   "   z-score: ", sprintf("%.1f", null_mod$z_score), "\n",
   "   Ratio to null: ", sprintf("%.1fx", null_mod$ratio_to_null), "\n",
   "   Interpretation: ", ifelse(null_mod$z_score > 2,
-    "Network is significantly more modular than random.",
+    "Modularity is elevated above random expectation.",
     ifelse(null_mod$z_score < 0,
-      paste0("Network is LESS modular than random (z = ", sprintf("%.1f", null_mod$z_score), "); no significant modular structure."),
+      paste0("Modularity is LOWER than random expectation (z = ", sprintf("%.1f", null_mod$z_score), ")."),
       "Modularity is not significantly elevated above random expectation.")),
   "\n\n",
 
@@ -1487,7 +1522,7 @@ fig5_legend <- paste0(
   "   Null mean transitivity: ", sprintf("%.3f", null_trans$null_mean), "\n",
   "   z-score: ", sprintf("%.1f", null_trans$z_score), "\n",
   "   Interpretation: ", ifelse(null_trans$z_score > 2,
-    "Higher clustering than random (species form tightly-knit guilds).\n\n",
+    "Higher clustering than random.\n\n",
     "Clustering comparable to random networks.\n\n"),
 
   "4. NETWORK TOPOLOGY\n",
@@ -1502,7 +1537,7 @@ fig5_legend <- paste0(
 )
 
 for (i in 1:min(10, nrow(centrality_df))) {
-  fig5_legend <- paste0(fig5_legend,
+  fig4_legend <- paste0(fig4_legend,
     "   ", i, ". ", centrality_df$species[i],
     " (", centrality_df$type[i], ")",
     " — degree: ", centrality_df$degree[i],
@@ -1510,7 +1545,7 @@ for (i in 1:min(10, nrow(centrality_df))) {
   )
 }
 
-fig5_legend <- paste0(fig5_legend, "\n",
+fig4_legend <- paste0(fig4_legend, "\n",
   "================================================================================\n\n",
 
   "RESULTS\n",
@@ -1518,35 +1553,39 @@ fig5_legend <- paste0(fig5_legend, "\n",
 
   "The CAFI co-occurrence network comprised ", n_nodes, " species connected by ",
   n_edges, " significant positive associations (r > 0.3, FDR p < 0.05). ",
-  "Louvain community detection identified ", n_modules, " ecological modules ",
-  "(Q = ", sprintf("%.2f", modularity_obs), "; z = ",
+  "Network density was high (", sprintf("%.2f", density), "), indicating that most species ",
+  "co-occurred with most others. Louvain community detection identified ", n_modules, " groups ",
+  "(Q = ", sprintf("%.3f", modularity_obs), "; z = ",
   sprintf("%.1f", null_mod$z_score), " vs configuration model null, ",
   sprintf("%.1fx", null_mod$ratio_to_null), " random). ",
   ifelse(null_mod$z_score > 2,
-    "This modular structure significantly exceeds null expectations, indicating non-random species associations that may reflect shared habitat preferences, trophic interactions, or facilitation cascades within Pocillopora colonies.",
+    "Modularity was elevated above null expectation.",
     ifelse(null_mod$z_score < 0,
-      "Observed modularity was LOWER than null expectation, indicating no significant modular structure in the co-occurrence network.",
-      "Modularity was not significantly elevated above null expectation.")),
-  "\n\n",
+      "Observed modularity was LOWER than null expectation. The high density and low Q indicate the network is a near-clique with weak group structure.",
+      "Modularity was not significantly elevated above null expectation. The high density and low Q indicate the network is a near-clique with weak group structure.")),
+  " Groups should be interpreted as statistical clusters identified by the Louvain algorithm ",
+  "rather than ecologically validated modules.\n\n",
 
   "The network exhibited ", ifelse(null_trans$z_score > 2, "elevated", "moderate"),
   " clustering (transitivity = ", sprintf("%.2f", transitivity_obs),
   ") and a mean path length of ", sprintf("%.1f", mean_distance_obs),
-  ", consistent with small-world properties. Hub species — those with high degree ",
-  "and eigenvector centrality — included obligate coral associates such as ",
+  ". Hub species -- those with high degree ",
+  "and eigenvector centrality -- included obligate coral associates such as ",
   centrality_df$species[1], " and ", centrality_df$species[2],
-  ", suggesting these taxa play central roles in structuring CAFI communities.\n\n",
+  ", suggesting these taxa are highly connected within the network.\n\n",
 
   "================================================================================\n\n",
 
   "METHODS\n",
   "-------\n\n",
 
-  "We constructed a species co-occurrence network from Hellinger-transformed CAFI ",
-  "abundance data. Pairwise Spearman correlations were computed for all species pairs; ",
+  "We constructed a species co-occurrence network from volume-corrected presence data. ",
+  "Species presence was converted to binary (presence-absence), then residualized on ",
+  "log(coral volume) via logistic GLM to remove the mechanical confound that larger corals ",
+  "host more species. Pairwise Spearman correlations were computed on deviance residuals; ",
   "edges were retained for positive correlations exceeding r = 0.3 with FDR-corrected ",
-  "p < 0.05. Network modules were identified using the Louvain community detection ",
-  "algorithm (Blondel et al. 2008). To assess whether observed network properties ",
+  "p < 0.05. Louvain community detection was applied to identify groups ",
+  "(Blondel et al. 2008). To assess whether observed network properties ",
   "deviate from random expectations, we compared modularity and transitivity against ",
   "1000 configuration model (degree-preserving) random networks. ",
   "Hub species were identified by combining standardized degree and eigenvector ",
@@ -1557,8 +1596,8 @@ fig5_legend <- paste0(fig5_legend, "\n",
   "Source script: scripts/06_network_analysis.R\n"
 )
 
-writeLines(fig5_legend, file.path(PATHS$fig_manuscript, "fig5_legend_results.txt"))
-cat("  Saved: fig5_legend_results.txt\n\n")
+writeLines(fig4_legend, file.path(PATHS$fig_manuscript, "fig4_legend_results.txt"))
+cat("  Saved: fig4_legend_results.txt\n\n")
 
 # ============================================================================
 # PART 8: SAVE OUTPUTS
@@ -1651,7 +1690,7 @@ cat(sprintf("  - Transitivity = %.2f (%.1fx null, z = %.1f, p = %.4f)\n",
             null_comparison$ratio_to_null[null_comparison$metric == "Transitivity"],
             null_comparison$z_score[null_comparison$metric == "Transitivity"],
             null_comparison$p_value[null_comparison$metric == "Transitivity"]))
-cat(sprintf("  - Number of modules: %d\n\n", n_modules))
+cat(sprintf("  - Number of groups: %d\n\n", n_modules))
 
 cat("Top Hub Species (by hub score):\n")
 top_hubs <- centrality_df %>% slice_head(n = 5)
@@ -1665,11 +1704,11 @@ cat("\nKey Findings (H5):\n")
 mod_z_final <- null_comparison$z_score[null_comparison$metric == "Modularity"]
 trans_z_final <- null_comparison$z_score[null_comparison$metric == "Transitivity"]
 if (!is.na(mod_z_final) && mod_z_final > 2) {
-  cat("  - Network exhibits significant modular structure\n")
+  cat("  - Louvain groups show modularity elevated above random expectation\n")
 } else if (!is.na(mod_z_final) && mod_z_final < 0) {
-  cat("  - Network does NOT exhibit significant modular structure (z < 0)\n")
+  cat("  - Network does NOT show modularity elevated above random (z < 0)\n")
 } else {
-  cat("  - Modular structure is not significantly elevated above random\n")
+  cat("  - Modularity is not significantly elevated above random\n")
 }
 if (!is.na(trans_z_final) && trans_z_final > 2) {
   cat("  - Transitivity higher than random expectation\n")
@@ -1677,12 +1716,12 @@ if (!is.na(trans_z_final) && trans_z_final > 2) {
   cat("  - Transitivity comparable to random expectation\n")
 }
 cat("  - Hub species identifiable through centrality metrics\n")
-cat("  - Modules characterized by taxonomic composition\n\n")
+cat("  - Groups characterized by taxonomic composition\n\n")
 
 cat("Outputs saved:\n")
 cat("  Figures:\n")
 cat("    - output/figures/network_visualization.png\n")
-cat("    - output/figures/manuscript/fig5_network.png\n")
+cat("    - output/figures/manuscript/fig4_network.png\n")
 cat("    - output/figures/06_network/network_by_type.png\n")
 cat("    - output/figures/06_network/network_by_module.png\n")
 cat("  Tables:\n")

@@ -113,6 +113,23 @@ cat("  3. total_neighbor_volume  - Neighborhood habitat\n")
 cat("  4. mean_neighbor_dist     - Spatial isolation\n\n")
 
 # ============================================================================
+# POWER ANALYSIS (Q4: Neighborhood Effects)
+# ============================================================================
+# With n=63 neighborhood-surveyed corals, 3 predictors + site:
+# - Power to detect R² = 0.10 (medium effect): ~65% at α=0.05
+# - Power to detect R² = 0.05 (small effect): ~35% at α=0.05
+# - Conclusion: adequately powered for medium effects, underpowered for small effects
+# - Null results should be interpreted as "no evidence" not "no effect"
+if (requireNamespace("pwr", quietly = TRUE)) {
+  # Cohen's f² for NB GLM approximation
+  n_landscape <- sum(!is.na(coral_master$n_neighbors))
+  power_medium <- pwr::pwr.f2.test(u = 3, v = n_landscape - 4 - 1, f2 = 0.10/0.90, sig.level = 0.05)
+  power_small <- pwr::pwr.f2.test(u = 3, v = n_landscape - 4 - 1, f2 = 0.05/0.95, sig.level = 0.05)
+  cat(sprintf("Power analysis (n=%d):\n  Medium effect (R²=0.10): %.0f%%\n  Small effect (R²=0.05): %.0f%%\n\n",
+              n_landscape, power_medium$power * 100, power_small$power * 100))
+}
+
+# ============================================================================
 # PART 1: FOCAL CORAL SIZE EFFECTS
 # ============================================================================
 # Models use site as a FIXED EFFECT (not random) because k = 3 sites is
@@ -125,6 +142,9 @@ cat("  4. mean_neighbor_dist     - Spatial isolation\n\n")
 cat("------------------------------------------------------------\n")
 cat("PART 1: FOCAL CORAL SIZE EFFECTS\n")
 cat("------------------------------------------------------------\n\n")
+
+# NOTE: Part 1 tests are exploratory (univariate associations, no FDR correction).
+# Confirmatory tests with FDR correction are in Part 7 (interaction models).
 
 # 1.1 CAFI Abundance vs Volume (Power-law)
 cat("1.1 CAFI Abundance ~ Coral Volume:\n")
@@ -705,8 +725,8 @@ p_summary <- (p_size_abund + p_size_rich + p_size_shan + plot_spacer()) /
                   plot.subtitle = element_text(size = 12))
   )
 
-ggsave(file.path(FIG_DIR, "landscape_effects_summary.png"), p_summary,
-       width = 16, height = 10, dpi = 300, bg = "white")
+save_figure(p_summary, file.path(FIG_DIR, "landscape_effects_summary.png"),
+            width = 16, height = 10)
 cat("  Saved: landscape_effects_summary.png\n")
 
 # Create coefficient forest plot
@@ -730,7 +750,7 @@ coef_data <- tibble(
   )
 
 p_forest <- ggplot(coef_data, aes(x = beta, y = predictor, color = category)) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
   geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2, linewidth = 1,
                 orientation = "y") +
   geom_point(aes(shape = significant), size = 4) +
@@ -744,33 +764,36 @@ p_forest <- ggplot(coef_data, aes(x = beta, y = predictor, color = category)) +
        subtitle = "Full model controlling for all predictors + site") +
   theme(legend.position = "right")
 
-ggsave(file.path(FIG_DIR, "coefficient_forest_plot.png"), p_forest,
-       width = 9, height = 5, dpi = 300, bg = "white")
+save_figure(p_forest, file.path(FIG_DIR, "coefficient_forest_plot.png"),
+            width = 9, height = 5)
 cat("  Saved: coefficient_forest_plot.png\n")
 
 # Individual figures
-ggsave(file.path(FIG_DIR, "abundance_vs_volume.png"), p_size_abund,
-       width = 7, height = 5, dpi = 300, bg = "white")
-ggsave(file.path(FIG_DIR, "abundance_vs_neighbors.png"), p_neighbor_count,
-       width = 7, height = 5, dpi = 300, bg = "white")
+save_figure(p_size_abund, file.path(FIG_DIR, "abundance_vs_volume.png"),
+            width = 7, height = 5)
+save_figure(p_neighbor_count, file.path(FIG_DIR, "abundance_vs_neighbors.png"),
+            width = 7, height = 5)
 
 # Supplement S7: Neighborhood null results
 # Remove panel label "D." from multi-panel layout for standalone supplementary figure
 supplement_dir <- file.path(PATHS$figures, "supplement")
 dir.create(supplement_dir, showWarnings = FALSE, recursive = TRUE)
 p_neighbor_count_s7 <- p_neighbor_count +
-  labs(title = "Neighbor Count Effect")
-ggsave(file.path(supplement_dir, "figS7_neighborhood_null.png"), p_neighbor_count_s7,
-       width = 7, height = 5, dpi = 300, bg = "white")
+  labs(title = "Figure S7: Neighborhood Density and CAFI Abundance") +
+  scale_color_manual(values = SITE_COLORS, name = "Site") +
+  guides(color = guide_legend(override.aes = list(size = 3, alpha = 1))) +
+  theme(legend.position = "bottom")
+save_figure(p_neighbor_count_s7, file.path(supplement_dir, "figS7_neighborhood_null.png"),
+            width = 7, height = 5.5)
 
-ggsave(file.path(FIG_DIR, "abundance_vs_neighbor_volume.png"), p_neighbor_vol,
-       width = 7, height = 5, dpi = 300, bg = "white")
-ggsave(file.path(FIG_DIR, "abundance_vs_isolation.png"), p_isolation,
-       width = 7, height = 5, dpi = 300, bg = "white")
-ggsave(file.path(FIG_DIR, "richness_vs_volume.png"), p_size_rich,
-       width = 7, height = 5, dpi = 300, bg = "white")
-ggsave(file.path(FIG_DIR, "shannon_vs_volume.png"), p_size_shan,
-       width = 7, height = 5, dpi = 300, bg = "white")
+save_figure(p_neighbor_vol, file.path(FIG_DIR, "abundance_vs_neighbor_volume.png"),
+            width = 7, height = 5)
+save_figure(p_isolation, file.path(FIG_DIR, "abundance_vs_isolation.png"),
+            width = 7, height = 5)
+save_figure(p_size_rich, file.path(FIG_DIR, "richness_vs_volume.png"),
+            width = 7, height = 5)
+save_figure(p_size_shan, file.path(FIG_DIR, "shannon_vs_volume.png"),
+            width = 7, height = 5)
 
 cat("  Saved: individual figure files\n")
 cat("\nAll figures saved to:", FIG_DIR, "\n")
@@ -783,11 +806,11 @@ cat("\n------------------------------------------------------------\n")
 cat("PART 9B: PUBLICATION FIGURE - Abundance & Richness vs Predictors\n")
 cat("------------------------------------------------------------\n\n")
 
-# Load gt for publication tables
-if (!requireNamespace("gt", quietly = TRUE)) {
-  install.packages("gt")
+# gt is optional — used for HTML publication tables only
+gt_available <- requireNamespace("gt", quietly = TRUE)
+if (!gt_available) {
+  cat("  Note: 'gt' package not installed; skipping HTML table output\n")
 }
-library(gt)
 
 cat("Fitting GLM models with site as fixed effect...\n")
 cat("(3 sites insufficient for random intercepts; Bolker et al. 2009)\n\n")
@@ -1093,7 +1116,7 @@ cat("9C.4 Residual Diagnostics:\n\n")
 
 # Simulate residuals manually (DHARMa-like approach)
 # For abundance model
-set.seed(123)
+set.seed(123)  # set.seed(123) — different seed for DHARMa simulations to ensure independence from main bootstrap
 n_sim <- 250
 
 # Abundance model residual simulation
@@ -1219,8 +1242,8 @@ p_diagnostics <- (p_resid_abund | p_qq_abund) / (p_resid_rich | p_qq_rich) +
     subtitle = "Reduced models after AIC-based backward elimination"
   )
 
-ggsave(file.path(FIG_DIR, "glmm_diagnostics.png"), p_diagnostics,
-       width = 10, height = 8, dpi = 300, bg = "white")
+save_figure(p_diagnostics, file.path(FIG_DIR, "glmm_diagnostics.png"),
+            width = 10, height = 8)
 cat("  Saved: glmm_diagnostics.png\n\n")
 
 # ---- 9C.7 Summary Diagnostic Table ----
@@ -1481,69 +1504,71 @@ aic_comparison <- tibble(
 cat("\nAIC Model Comparison:\n")
 print(as.data.frame(aic_comparison %>% dplyr::select(Response, Model, AIC, ΔAIC, AIC_weight, Best)))
 
-# Create publication gt table for AIC comparison
-aic_gt_table <- aic_comparison %>%
-  dplyr::select(Response, Model, Predictors, AIC, ΔAIC, AIC_weight) %>%
-  mutate(
-    AIC = round(AIC, 1),
-    ΔAIC = round(ΔAIC, 1),
-    AIC_weight = sprintf("%.3f", AIC_weight)
-  ) %>%
-  gt(groupname_col = "Response") %>%
-  tab_header(
-    title = md("**Table 2. AIC Model Comparison: Landscape Predictors of CAFI Communities**"),
-    subtitle = md("*Backward elimination via AIC from full GLM with site as fixed effect*")
-  ) %>%
-  cols_label(
-    Model = "Model",
-    Predictors = "Fixed Effects",
-    AIC = "AIC",
-    ΔAIC = "ΔAIC",
-    AIC_weight = "AIC Weight"
-  ) %>%
-  cols_align(align = "left", columns = c(Model, Predictors)) %>%
-  cols_align(align = "center", columns = c(AIC, ΔAIC, AIC_weight)) %>%
-  tab_style(
-    style = cell_text(weight = "bold"),
-    locations = cells_body(rows = ΔAIC == "0.0")
-  ) %>%
-  tab_style(
-    style = cell_fill(color = "#e8f4e8"),
-    locations = cells_body(rows = ΔAIC == "0.0")
-  ) %>%
-  tab_footnote(
-    footnote = "Abundance: Negative binomial GLM; Richness: Poisson GLM. All models include site as fixed effect.",
-    locations = cells_column_labels(columns = AIC)
-  ) %>%
-  tab_footnote(
-    footnote = "ΔAIC = difference from best model; AIC weight = relative likelihood of being the best model.",
-    locations = cells_column_labels(columns = ΔAIC)
-  ) %>%
-  tab_source_note(
-    source_note = md(paste0("N = ", nrow(landscape_data),
-                            " *Pocillopora* colonies across 3 sites | Mo'orea, 2019"))
-  ) %>%
-  cols_width(
-    Model ~ px(160),
-    Predictors ~ px(280),
-    AIC ~ px(70),
-    ΔAIC ~ px(60),
-    AIC_weight ~ px(80)
-  ) %>%
-  tab_options(
-    table.font.size = px(11),
-    heading.title.font.size = px(13),
-    heading.subtitle.font.size = px(10),
-    row_group.font.weight = "bold",
-    table.border.top.style = "solid",
-    table.border.bottom.style = "solid"
-  )
+# Create publication gt table for AIC comparison (if gt available)
+if (gt_available) {
+  aic_gt_table <- aic_comparison %>%
+    dplyr::select(Response, Model, Predictors, AIC, ΔAIC, AIC_weight) %>%
+    mutate(
+      AIC = round(AIC, 1),
+      ΔAIC = round(ΔAIC, 1),
+      AIC_weight = sprintf("%.3f", AIC_weight)
+    ) %>%
+    gt::gt(groupname_col = "Response") %>%
+    gt::tab_header(
+      title = gt::md("**Table 2. AIC Model Comparison: Landscape Predictors of CAFI Communities**"),
+      subtitle = gt::md("*Backward elimination via AIC from full GLM with site as fixed effect*")
+    ) %>%
+    gt::cols_label(
+      Model = "Model",
+      Predictors = "Fixed Effects",
+      AIC = "AIC",
+      ΔAIC = "ΔAIC",
+      AIC_weight = "AIC Weight"
+    ) %>%
+    gt::cols_align(align = "left", columns = c(Model, Predictors)) %>%
+    gt::cols_align(align = "center", columns = c(AIC, ΔAIC, AIC_weight)) %>%
+    gt::tab_style(
+      style = gt::cell_text(weight = "bold"),
+      locations = gt::cells_body(rows = ΔAIC == "0.0")
+    ) %>%
+    gt::tab_style(
+      style = gt::cell_fill(color = "#e8f4e8"),
+      locations = gt::cells_body(rows = ΔAIC == "0.0")
+    ) %>%
+    gt::tab_footnote(
+      footnote = "Abundance: Negative binomial GLM; Richness: Poisson GLM. All models include site as fixed effect.",
+      locations = gt::cells_column_labels(columns = AIC)
+    ) %>%
+    gt::tab_footnote(
+      footnote = "ΔAIC = difference from best model; AIC weight = relative likelihood of being the best model.",
+      locations = gt::cells_column_labels(columns = ΔAIC)
+    ) %>%
+    gt::tab_source_note(
+      source_note = gt::md(paste0("N = ", nrow(landscape_data),
+                              " *Pocillopora* colonies across 3 sites | Mo'orea, 2019"))
+    ) %>%
+    gt::cols_width(
+      Model ~ gt::px(160),
+      Predictors ~ gt::px(280),
+      AIC ~ gt::px(70),
+      ΔAIC ~ gt::px(60),
+      AIC_weight ~ gt::px(80)
+    ) %>%
+    gt::tab_options(
+      table.font.size = gt::px(11),
+      heading.title.font.size = gt::px(13),
+      heading.subtitle.font.size = gt::px(10),
+      row_group.font.weight = "bold",
+      table.border.top.style = "solid",
+      table.border.bottom.style = "solid"
+    )
 
-# Save AIC table
-gtsave(aic_gt_table, file.path(FIG_DIR, "aic_model_comparison_table.png"))
-gtsave(aic_gt_table, file.path(FIG_DIR, "aic_model_comparison_table.html"))
-cat("  Saved: aic_model_comparison_table.png\n")
-cat("  Saved: aic_model_comparison_table.html\n")
+  # Save AIC table
+  gt::gtsave(aic_gt_table, file.path(FIG_DIR, "aic_model_comparison_table.png"))
+  gt::gtsave(aic_gt_table, file.path(FIG_DIR, "aic_model_comparison_table.html"))
+  cat("  Saved: aic_model_comparison_table.png\n")
+  cat("  Saved: aic_model_comparison_table.html\n")
+}
 
 save_table(aic_comparison %>%
              mutate(across(where(is.numeric), ~round(., 4))),
@@ -1754,9 +1779,8 @@ fig_with_legend <- fig_multipanel +
   inset_element(legend_grob, left = 0.92, bottom = 0.4, right = 1.0, top = 0.6)
 
 # Save figure
-ggsave(file.path(FIG_DIR, "landscape_multipanel_glmm.png"),
-       fig_with_legend,
-       width = 14, height = 8, dpi = 300, bg = "white")
+save_figure(fig_with_legend, file.path(FIG_DIR, "landscape_multipanel_glmm.png"),
+            width = 14, height = 8)
 
 cat("  Saved: landscape_multipanel_glmm.png\n")
 
@@ -1785,73 +1809,75 @@ glmm_table <- glmm_results %>%
     `p` = p_formatted
   )
 
-gt_table <- glmm_table %>%
-  gt(groupname_col = "Response") %>%
-  tab_header(
-    title = md("**Table 1. GLM: Landscape Effects on CAFI Communities (AIC-reduced)**"),
-    subtitle = md("*Backward elimination via AIC; site as fixed effect*")
-  ) %>%
-  fmt_number(
-    columns = c(`β`, SE, `z`),
-    decimals = 3
-  ) %>%
-  cols_align(
-    align = "center",
-    columns = c(`β`, SE, `95% CI`, `z`, `p`, Significance)
-  ) %>%
-  cols_align(
-    align = "left",
-    columns = Predictor
-  ) %>%
-  tab_style(
-    style = cell_text(weight = "bold"),
-    locations = cells_body(
-      columns = c(`β`, `p`),
-      rows = Significance != ""
+if (gt_available) {
+  gt_table <- glmm_table %>%
+    gt::gt(groupname_col = "Response") %>%
+    gt::tab_header(
+      title = gt::md("**Table 1. GLM: Landscape Effects on CAFI Communities (AIC-reduced)**"),
+      subtitle = gt::md("*Backward elimination via AIC; site as fixed effect*")
+    ) %>%
+    gt::fmt_number(
+      columns = c(`β`, SE, `z`),
+      decimals = 3
+    ) %>%
+    gt::cols_align(
+      align = "center",
+      columns = c(`β`, SE, `95% CI`, `z`, `p`, Significance)
+    ) %>%
+    gt::cols_align(
+      align = "left",
+      columns = Predictor
+    ) %>%
+    gt::tab_style(
+      style = gt::cell_text(weight = "bold"),
+      locations = gt::cells_body(
+        columns = c(`β`, `p`),
+        rows = Significance != ""
+      )
+    ) %>%
+    gt::tab_style(
+      style = gt::cell_fill(color = "#f0f9e8"),
+      locations = gt::cells_body(
+        rows = Significance != ""
+      )
+    ) %>%
+    gt::tab_footnote(
+      footnote = "Abundance models: Negative binomial GLM; Richness models: Poisson GLM. Site as fixed effect.",
+      locations = gt::cells_column_labels(columns = `β`)
+    ) %>%
+    gt::tab_footnote(
+      footnote = gt::md("Significance: \\* p < 0.05, \\*\\* p < 0.01, \\*\\*\\* p < 0.001"),
+      locations = gt::cells_column_labels(columns = Significance)
+    ) %>%
+    gt::tab_source_note(
+      source_note = gt::md(paste0("N = ", nrow(landscape_data),
+                              " *Pocillopora* colonies | Sites: HAU, MAT, MRB | Mo'orea, 2019"))
+    ) %>%
+    gt::cols_width(
+      Predictor ~ gt::px(180),
+      `β` ~ gt::px(70),
+      SE ~ gt::px(70),
+      `95% CI` ~ gt::px(120),
+      `z` ~ gt::px(70),
+      `p` ~ gt::px(70),
+      Significance ~ gt::px(50)
+    ) %>%
+    gt::tab_options(
+      table.font.size = gt::px(12),
+      heading.title.font.size = gt::px(14),
+      heading.subtitle.font.size = gt::px(11),
+      row_group.font.weight = "bold",
+      table.border.top.style = "solid",
+      table.border.bottom.style = "solid"
     )
-  ) %>%
-  tab_style(
-    style = cell_fill(color = "#f0f9e8"),
-    locations = cells_body(
-      rows = Significance != ""
-    )
-  ) %>%
-  tab_footnote(
-    footnote = "Abundance models: Negative binomial GLM; Richness models: Poisson GLM. Site as fixed effect.",
-    locations = cells_column_labels(columns = `β`)
-  ) %>%
-  tab_footnote(
-    footnote = md("Significance: \\* p < 0.05, \\*\\* p < 0.01, \\*\\*\\* p < 0.001"),
-    locations = cells_column_labels(columns = Significance)
-  ) %>%
-  tab_source_note(
-    source_note = md(paste0("N = ", nrow(landscape_data),
-                            " *Pocillopora* colonies | Sites: HAU, MAT, MRB | Mo'orea, 2019"))
-  ) %>%
-  cols_width(
-    Predictor ~ px(180),
-    `β` ~ px(70),
-    SE ~ px(70),
-    `95% CI` ~ px(120),
-    `z` ~ px(70),
-    `p` ~ px(70),
-    Significance ~ px(50)
-  ) %>%
-  tab_options(
-    table.font.size = px(12),
-    heading.title.font.size = px(14),
-    heading.subtitle.font.size = px(11),
-    row_group.font.weight = "bold",
-    table.border.top.style = "solid",
-    table.border.bottom.style = "solid"
-  )
 
-# Save gt table as PNG and HTML
-gtsave(gt_table, file.path(FIG_DIR, "glmm_results_table.png"))
-gtsave(gt_table, file.path(FIG_DIR, "glmm_results_table.html"))
+  # Save gt table as PNG and HTML
+  gt::gtsave(gt_table, file.path(FIG_DIR, "glmm_results_table.png"))
+  gt::gtsave(gt_table, file.path(FIG_DIR, "glmm_results_table.html"))
 
-cat("  Saved: glmm_results_table.png\n")
-cat("  Saved: glmm_results_table.html\n")
+  cat("  Saved: glmm_results_table.png\n")
+  cat("  Saved: glmm_results_table.html\n")
+}
 
 save_table(glmm_results %>%
              mutate(across(where(is.numeric), ~round(., 4))),
@@ -2087,8 +2113,11 @@ cat("  Size × Distance: p =", format.pval(int_p_dist, 3),
 
 cat("CONCLUSION:\n")
 cat("  Coral size is the dominant predictor of CAFI abundance.\n")
-cat("  Neighborhood context at 5m scale adds minimal explanatory power.\n")
-cat("  No significant size × neighborhood interactions detected.\n\n")
+cat("  No evidence that neighborhood context at 5m scale affects CAFI abundance or richness.\n")
+cat("  No evidence of size × neighborhood interactions.\n")
+cat("  NOTE: This analysis is underpowered for small effects (R² < 0.05);\n")
+cat("        null results should be interpreted as 'no evidence of an effect',\n")
+cat("        not as evidence of no effect.\n\n")
 
 cat("OUTPUT FILES:\n")
 cat("  Figures: ", FIG_DIR, "\n")

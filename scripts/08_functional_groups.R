@@ -11,8 +11,8 @@
 #   D. Taxonomic Diversity - Within-group species diversity patterns
 #   E. Scaling Patterns - Power-law fits by taxonomic group
 #
-# MANUSCRIPT FIGURES:
-#   >>> FIGURE 4: Taxonomic Group Scaling <<<
+# SUPPLEMENT FIGURES:
+#   >>> FIGURE S9: Taxonomic Group Scaling (demoted from main text) <<<
 #   - Panel A: Trapezia scaling with size
 #   - Panel B: Fish scaling patterns
 #   - Panel C: Forest plot of taxonomic group beta estimates
@@ -21,7 +21,7 @@
 #
 # OUTPUTS:
 #   Figures:
-#     - output/figures/manuscript/fig4_functional_groups.png
+#     - output/figures/supplement/figS9_functional_groups.png
 #     - output/figures/functional_groups/*.png (analysis figures)
 #   Tables:
 #     - output/tables/taxonomic_group_scaling.csv
@@ -110,15 +110,17 @@ fit_functional_scaling <- function(data, response_name, min_nonzero = 15) {
     p_val <- coefs["log(volume)", "Pr(>|z|)"]
 
     ci <- confint(model, "log(volume)", level = 0.95)
+    ci_lower <- ci[1]
+    ci_upper <- ci[2]
 
     # Test vs Field of Dreams (beta = 1)
     z_vs_1 <- (beta - 1) / se
     p_vs_1 <- 2 * pnorm(-abs(z_vs_1))
 
-    interpretation <- case_when(
-      p_vs_1 < 0.05 & beta < 1 ~ "Redirection (beta < 1)",
-      p_vs_1 < 0.05 & beta > 1 ~ "Super-linear (beta > 1)",
-      TRUE ~ "Field of Dreams (beta ~ 1)"
+    interpretation <- dplyr::case_when(
+      ci_upper < 1 ~ "Redirection (\u03b2 < 1)",
+      ci_lower > 1 ~ "Super-linear (\u03b2 > 1)",
+      TRUE ~ "Field of Dreams (\u03b2 \u2248 1)"
     )
 
     list(
@@ -129,8 +131,8 @@ fit_functional_scaling <- function(data, response_name, min_nonzero = 15) {
       total_abundance = total_abundance,
       beta = beta,
       se = se,
-      ci_lower = ci[1],
-      ci_upper = ci[2],
+      ci_lower = ci_lower,
+      ci_upper = ci_upper,
       p_value = p_val,
       p_vs_1 = p_vs_1,
       interpretation = interpretation,
@@ -276,14 +278,17 @@ if (nrow(trapezia) > 0) {
     cat("  Interpretation:", trap_scaling_result$interpretation, "\n\n")
   }
 
-  # Create prediction curve from the actual fitted NB model
+  # Create marginal prediction curve by averaging across all sites
+  vol_seq_trap <- seq(min(trap_data$volume), max(trap_data$volume), length.out = 100)
+  trap_pred_list <- lapply(levels(factor(trap_data$site)), function(s) {
+    nd <- data.frame(volume = vol_seq_trap, site = s)
+    nd$pred <- predict(trap_scaling_result$model, newdata = nd, type = "response")
+    nd
+  })
   trap_pred_data <- data.frame(
-    volume = seq(min(trap_data$volume), max(trap_data$volume), length.out = 100),
-    site = levels(factor(trap_data$site))[1]  # Reference site for prediction
+    volume = vol_seq_trap,
+    fit = Reduce("+", lapply(trap_pred_list, function(x) x$pred)) / length(trap_pred_list)
   )
-  trap_pred_data$fit <- predict(trap_scaling_result$model,
-                                newdata = trap_pred_data %>% mutate(volume = volume),
-                                type = "response")
 
   # Create Trapezia scaling figure
   p_trap_scaling <- trap_data %>%
@@ -307,8 +312,8 @@ if (nrow(trapezia) > 0) {
     theme_publication() +
     theme(legend.position = c(0.15, 0.85))
 
-  ggsave(file.path(FIG_DIR, "trapezia_scaling.png"), p_trap_scaling,
-         width = 8, height = 6, dpi = 300, bg = "white")
+  save_figure(p_trap_scaling, file.path(FIG_DIR, "trapezia_scaling.png"),
+              width = 8, height = 6)
   cat("  Saved: trapezia_scaling.png\n\n")
 
   # ----------------------------------------------------------------------------
@@ -395,8 +400,8 @@ if (nrow(trapezia) > 0) {
       theme_publication() +
       theme(legend.position = "right")
 
-    ggsave(file.path(FIG_DIR, "trapezia_composition_by_size.png"), p_trap_composition,
-           width = 10, height = 6, dpi = 300, bg = "white")
+    save_figure(p_trap_composition, file.path(FIG_DIR, "trapezia_composition_by_size.png"),
+                width = 10, height = 6)
     cat("  Saved: trapezia_composition_by_size.png\n\n")
   }
 
@@ -543,14 +548,17 @@ if (nrow(resident_fish) > 0) {
     cat("  Interpretation:", fish_scaling_result$interpretation, "\n\n")
   }
 
-  # Create prediction curve from the actual fitted NB model
+  # Create marginal prediction curve by averaging across all sites
+  vol_seq_fish <- seq(min(fish_data$volume), max(fish_data$volume), length.out = 100)
+  fish_pred_list <- lapply(levels(factor(fish_data$site)), function(s) {
+    nd <- data.frame(volume = vol_seq_fish, site = s)
+    nd$pred <- predict(fish_scaling_result$model, newdata = nd, type = "response")
+    nd
+  })
   fish_pred_data <- data.frame(
-    volume = seq(min(fish_data$volume), max(fish_data$volume), length.out = 100),
-    site = levels(factor(fish_data$site))[1]  # Reference site for prediction
+    volume = vol_seq_fish,
+    fit = Reduce("+", lapply(fish_pred_list, function(x) x$pred)) / length(fish_pred_list)
   )
-  fish_pred_data$fit <- predict(fish_scaling_result$model,
-                                newdata = fish_pred_data %>% mutate(volume = volume),
-                                type = "response")
 
   # Fish scaling plot
   p_fish_scaling <- fish_data %>%
@@ -573,8 +581,8 @@ if (nrow(resident_fish) > 0) {
     theme_publication() +
     theme(legend.position = c(0.15, 0.85))
 
-  ggsave(file.path(FIG_DIR, "resident_fish_scaling.png"), p_fish_scaling,
-         width = 8, height = 6, dpi = 300, bg = "white")
+  save_figure(p_fish_scaling, file.path(FIG_DIR, "resident_fish_scaling.png"),
+              width = 8, height = 6)
   cat("  Saved: resident_fish_scaling.png\n\n")
 
   # ----------------------------------------------------------------------------
@@ -814,14 +822,17 @@ if (nrow(coral_eating_snails) > 0) {
     cat("  Interpretation:", snail_scaling_result$interpretation, "\n\n")
   }
 
-  # Create prediction curve from the actual fitted NB model
+  # Create marginal prediction curve by averaging across all sites
+  vol_seq_snail <- seq(min(coral_data$volume), max(coral_data$volume), length.out = 100)
+  snail_pred_list <- lapply(levels(factor(coral_data$site)), function(s) {
+    nd <- data.frame(volume = vol_seq_snail, site = s)
+    nd$pred <- predict(snail_scaling_result$model, newdata = nd, type = "response")
+    nd
+  })
   snail_pred_data <- data.frame(
-    volume = seq(min(coral_data$volume), max(coral_data$volume), length.out = 100),
-    site = levels(factor(coral_data$site))[1]  # Reference site for prediction
+    volume = vol_seq_snail,
+    fit = Reduce("+", lapply(snail_pred_list, function(x) x$pred)) / length(snail_pred_list)
   )
-  snail_pred_data$fit <- predict(snail_scaling_result$model,
-                                 newdata = snail_pred_data %>% mutate(volume = volume),
-                                 type = "response")
 
   # Gastropod patterns figure
   p_snails <- coral_data %>%
@@ -844,8 +855,8 @@ if (nrow(coral_eating_snails) > 0) {
     theme_publication() +
     theme(legend.position = c(0.15, 0.85))
 
-  ggsave(file.path(FIG_DIR, "gastropod_scaling.png"), p_snails,
-         width = 8, height = 6, dpi = 300, bg = "white")
+  save_figure(p_snails, file.path(FIG_DIR, "gastropod_scaling.png"),
+              width = 8, height = 6)
   cat("  Saved: gastropod_scaling.png\n\n")
 
 } else {
@@ -980,23 +991,13 @@ p_func_comp <- coral_master %>%
   pivot_longer(cols = starts_with("n_"), names_to = "group", values_to = "abundance") %>%
   mutate(group = str_replace(group, "n_", "") %>% str_replace_all("_", " ") %>% str_to_title(),
          group = case_match(group,
-                        "Corallivore" ~ "Gastropods",
-                        "Resident Fish" ~ "Fish",
-                        "Other Crab" ~ "Other crabs",
-                        "Other" ~ "Other invertebrates",
+                        "Corallivore" ~ "Gastropod",
                         .default = group)) %>%
   group_by(size_class, group) %>%
   summarise(mean_abundance = mean(abundance), .groups = "drop") %>%
   ggplot(aes(x = size_class, y = mean_abundance, fill = group)) +
   geom_bar(stat = "identity", position = "stack", alpha = 0.8) +
-  scale_fill_manual(values = c(
-    "Trapezia" = "#D55E00",
-    "Fish" = "#0072B2",
-    "Gastropods" = "#CC79A7",
-    "Other crabs" = "#009E73",
-    "Shrimp" = "#E69F00",
-    "Other invertebrates" = "#999999"
-  ), name = "Taxonomic Group") +
+  scale_fill_manual(values = FUNC_GROUP_COLORS, name = "Taxonomic Group") +
   labs(
     x = "Coral Size Class",
     y = "Mean Abundance per Coral",
@@ -1006,8 +1007,8 @@ p_func_comp <- coral_master %>%
   theme_publication() +
   theme(legend.position = "right")
 
-ggsave(file.path(FIG_DIR, "functional_composition_by_size.png"), p_func_comp,
-       width = 10, height = 6, dpi = 300, bg = "white")
+save_figure(p_func_comp, file.path(FIG_DIR, "functional_composition_by_size.png"),
+            width = 10, height = 6)
 cat("  Saved: functional_composition_by_size.png\n\n")
 
 # ############################################################################
@@ -1067,9 +1068,9 @@ cat("Creating forest plot of taxonomic group scaling exponents...\n")
 
 # Interpretation colors (colorblind-safe)
 interp_colors <- c(
-  "Redirection (\u03b2 < 1)" = "#D55E00",
-  "Field of Dreams (\u03b2 \u2248 1)" = "#009E73",
-  "Super-linear (\u03b2 > 1)" = "#0072B2",
+  "Redirection (\u03b2 < 1)" = "#5A8FAF",
+  "Field of Dreams (\u03b2 \u2248 1)" = "gray55",
+  "Super-linear (\u03b2 > 1)" = "#D55E00",
   "Insufficient data" = "#999999"
 )
 
@@ -1086,7 +1087,7 @@ plot_data <- scaling_table %>%
 
 if (nrow(plot_data) > 0) {
   p_forest <- ggplot(plot_data, aes(x = beta, y = functional_group, color = interpretation)) +
-    geom_vline(xintercept = 1, linetype = "dashed", color = "gray40", linewidth = 0.8) +
+    geom_vline(xintercept = 1, linetype = "dashed", color = "gray45", linewidth = 0.4) +
     geom_vline(xintercept = 0, linetype = "solid", color = "gray80") +
     geom_errorbar(aes(xmin = ci_lower, xmax = ci_upper), width = 0.25, linewidth = 0.8) +
     geom_point(size = 4) +
@@ -1105,8 +1106,8 @@ if (nrow(plot_data) > 0) {
     ) +
     coord_cartesian(xlim = c(-0.5, 3))
 
-  ggsave(file.path(FIG_DIR, "taxonomic_group_forest_plot.png"), p_forest,
-         width = 10, height = 6, dpi = 300, bg = "white")
+  save_figure(p_forest, file.path(FIG_DIR, "taxonomic_group_forest_plot.png"),
+              width = 10, height = 6)
   cat("  Saved: taxonomic_group_forest_plot.png\n\n")
 }
 
@@ -1125,13 +1126,17 @@ vol_labels <- c("100", "1,000", "10,000")
 # Panel A: Trapezia scaling (use predict() from the actual NB model)
 panel_a <- if (exists("trap_data") && !is.null(trap_scaling_result) &&
                isTRUE(trap_scaling_result$converged)) {
-  # Prediction curve from fitted model
+  # Marginal prediction curve (averaged across all sites)
+  vol_seq_trap_ms <- seq(min(trap_data$volume), max(trap_data$volume), length.out = 100)
+  trap_ms_pred_list <- lapply(levels(factor(trap_data$site)), function(s) {
+    nd <- data.frame(volume = vol_seq_trap_ms, site = s)
+    nd$pred <- predict(trap_scaling_result$model, newdata = nd, type = "response")
+    nd
+  })
   trap_ms_pred <- data.frame(
-    volume = seq(min(trap_data$volume), max(trap_data$volume), length.out = 100),
-    site = levels(factor(trap_data$site))[1]
+    volume = vol_seq_trap_ms,
+    fit = Reduce("+", lapply(trap_ms_pred_list, function(x) x$pred)) / length(trap_ms_pred_list)
   )
-  trap_ms_pred$fit <- predict(trap_scaling_result$model,
-                              newdata = trap_ms_pred, type = "response")
 
   trap_data %>%
     ggplot(aes(x = volume, y = n_trapezia, color = site)) +
@@ -1161,13 +1166,17 @@ panel_a <- if (exists("trap_data") && !is.null(trap_scaling_result) &&
 # Panel B: Resident fish scaling (use predict() from the actual NB model)
 panel_b <- if (exists("fish_data") && !is.null(fish_scaling_result) &&
                isTRUE(fish_scaling_result$converged)) {
-  # Prediction curve from fitted model
+  # Marginal prediction curve (averaged across all sites)
+  vol_seq_fish_ms <- seq(min(fish_data$volume), max(fish_data$volume), length.out = 100)
+  fish_ms_pred_list <- lapply(levels(factor(fish_data$site)), function(s) {
+    nd <- data.frame(volume = vol_seq_fish_ms, site = s)
+    nd$pred <- predict(fish_scaling_result$model, newdata = nd, type = "response")
+    nd
+  })
   fish_ms_pred <- data.frame(
-    volume = seq(min(fish_data$volume), max(fish_data$volume), length.out = 100),
-    site = levels(factor(fish_data$site))[1]
+    volume = vol_seq_fish_ms,
+    fit = Reduce("+", lapply(fish_ms_pred_list, function(x) x$pred)) / length(fish_ms_pred_list)
   )
-  fish_ms_pred$fit <- predict(fish_scaling_result$model,
-                              newdata = fish_ms_pred, type = "response")
 
   fish_data %>%
     ggplot(aes(x = volume, y = n_fish, color = site)) +
@@ -1198,7 +1207,7 @@ panel_b <- if (exists("fish_data") && !is.null(fish_scaling_result) &&
 # Panel C: Forest plot
 panel_c <- if (nrow(plot_data) > 0) {
   ggplot(plot_data, aes(x = beta, y = functional_group, color = interpretation)) +
-    geom_vline(xintercept = 1, linetype = "dashed", color = "gray40", linewidth = 0.8) +
+    geom_vline(xintercept = 1, linetype = "dashed", color = "gray45", linewidth = 0.4) +
     geom_errorbar(aes(xmin = ci_lower, xmax = ci_upper), width = 0.2, linewidth = 0.7) +
     geom_point(size = 3) +
     scale_color_manual(values = interp_colors, name = "Pattern") +
@@ -1225,8 +1234,10 @@ panel_c <- if (nrow(plot_data) > 0) {
 fig4 <- (panel_a | panel_b) / panel_c +
   plot_layout(heights = c(1.15, 1), guides = "collect") +
   plot_annotation(
+    title = "Figure S9: Taxonomic Group Scaling with Coral Volume",
     caption = "Negative binomial GLM: abundance ~ log(volume) + site",
     theme = theme(
+      plot.title = element_text(size = 13, face = "bold"),
       plot.caption = element_text(size = 7, color = "gray50")
     )
   ) &
@@ -1238,13 +1249,13 @@ fig4 <- (panel_a | panel_b) / panel_c +
         legend.margin = margin(0, 0, 0, 0),
         legend.spacing.x = unit(2, "mm"))
 
-# Save manuscript figure (to both manuscript and analysis dirs)
-ggsave(file.path(PATHS$fig_manuscript, "fig4_functional_groups.png"), fig4,
-       width = 180, height = 165, units = "mm", dpi = 300, bg = "white")
-ggsave(file.path(FIG_DIR, "fig4_functional_groups.png"), fig4,
-       width = 180, height = 165, units = "mm", dpi = 300, bg = "white")
+# Save to analysis dir + supplement (demoted from main text to S9)
+save_figure(fig4, file.path(FIG_DIR, "figS9_functional_groups.png"),
+            width = 180, height = 165, units = "mm")
+save_figure(fig4, file.path(PATHS$figures, "supplement", "figS9_functional_groups.png"),
+            width = 180, height = 165, units = "mm")
 
-cat("Saved: fig4_functional_groups.png (manuscript + analysis)\n\n")
+cat("Saved: figS9_functional_groups.png (supplement + analysis)\n\n")
 
 # ############################################################################
 #                    SUMMARY AND SAVE RESULTS
@@ -1302,20 +1313,20 @@ cat("   Species in dominant group:", guild_diversity$n_species[1], "\n")
 
 cat("\nOUTPUT FILES:\n")
 cat("  Figures:\n")
-cat("    - output/figures/manuscript/fig4_functional_groups.png\n")
-cat("    - output/figures/trapezia_scaling.png\n")
-cat("    - output/figures/taxonomic_composition_by_size.png\n")
-cat("    - output/figures/gastropod_scaling.png\n")
+cat(paste0("    - ", file.path(PATHS$figures, "supplement", "figS9_functional_groups.png"), "\n"))
+cat(paste0("    - ", file.path(FIG_DIR, "trapezia_scaling.png"), "\n"))
+cat(paste0("    - ", file.path(FIG_DIR, "functional_composition_by_size.png"), "\n"))
+cat(paste0("    - ", file.path(FIG_DIR, "gastropod_scaling.png"), "\n"))
 cat("  Tables:\n")
-cat("    - output/tables/taxonomic_group_scaling.csv\n")
-cat("    - output/tables/trapezia_species.csv\n")
-cat("    - output/tables/gastropod_prevalence.csv\n\n")
+cat(paste0("    - ", file.path(PATHS$tables, "taxonomic_group_scaling.csv"), "\n"))
+cat(paste0("    - ", file.path(PATHS$tables, "trapezia_species.csv"), "\n"))
+cat(paste0("    - ", file.path(PATHS$tables, "gastropod_prevalence.csv"), "\n\n"))
 
 # ============================================================================
-# FIGURE 4 LEGEND & RESULTS TEXT FILE
+# FIGURE S9 LEGEND & RESULTS TEXT FILE
 # ============================================================================
 
-cat("Generating fig4_legend_results.txt...\n")
+cat("Generating figS9_legend_results.txt...\n")
 
 # Build results text from scaling_table
 scaling_lines <- paste(scaling_table$functional_group,
@@ -1324,22 +1335,37 @@ scaling_lines <- paste(scaling_table$functional_group,
   "p =", scaling_table$p_value,
   "-", scaling_table$interpretation)
 
-fig4_legend <- paste0(
-'FIGURE 4: TAXONOMIC GROUP SCALING AND COMPOSITION
+# Extract Trapezia and Fish beta values for legend text
+trap_beta_str <- if (!is.null(trap_scaling_result) && isTRUE(trap_scaling_result$converged) &&
+                     !is.na(trap_scaling_result$beta)) {
+  sprintf("beta = %.2f [%.2f, %.2f]",
+          trap_scaling_result$beta, trap_scaling_result$ci_lower, trap_scaling_result$ci_upper)
+} else {
+  "beta not estimated"
+}
+fish_beta_str <- if (!is.null(fish_scaling_result) && isTRUE(fish_scaling_result$converged) &&
+                     !is.na(fish_scaling_result$beta)) {
+  sprintf("beta = %.2f [%.2f, %.2f]",
+          fish_scaling_result$beta, fish_scaling_result$ci_lower, fish_scaling_result$ci_upper)
+} else {
+  "beta not estimated"
+}
+
+figS9_legend <- paste0(
+'FIGURE S9: TAXONOMIC GROUP SCALING AND COMPOSITION
 ================================================================================
 
 FIGURE LEGEND
 -------------
-Figure 4. Scaling of coral-associated fauna (CAFI) abundance with coral volume
-differs among taxonomic groups. (A) Total CAFI abundance by taxonomic group
-across coral colonies, showing the relative contribution of each group.
-(B) Scaling relationships for each taxonomic group (negative binomial GLM:
-log(abundance) ~ log(volume) + site). Lines show model fits; shaded regions
-show 95% confidence intervals. (C) Forest plot of scaling exponents (beta)
-with 95% CIs. Dashed line at beta = 1 indicates proportional scaling
-(Field of Dreams hypothesis). Colors indicate scaling pattern: Redirection
-(beta < 1, orange), Field of Dreams (beta ~ 1, green), Super-linear
-(beta > 1, blue).
+Figure S9. Scaling of coral-associated fauna (CAFI) abundance with coral volume
+differs among taxonomic groups. (A) Trapezia crab abundance scales sublinearly
+with coral volume (negative binomial GLM fit with 95% CI; ', trap_beta_str, ').
+(B) Resident fish abundance scales sublinearly with coral volume (negative
+binomial GLM fit with 95% CI; ', fish_beta_str, '). (C) Forest plot of scaling
+exponents (beta) for all ', nrow(scaling_table), ' taxonomic groups with 95% CIs;
+dashed line at beta = 1 indicates proportional scaling (Field of Dreams
+hypothesis). Colors indicate scaling pattern: Redirection (beta < 1, muted
+blue), Field of Dreams (beta ~ 1, gray), Super-linear (beta > 1, vermillion).
 
 ================================================================================
 
@@ -1385,10 +1411,10 @@ CI spanning 1 = Field of Dreams; beta > 1 with CI above 1 = Super-linear.
 
 COLOR SCHEME
 ------------
-Scaling interpretation colors (Panel C):
-  Redirection (beta < 1):       #D55E00 (vermillion)
-  Field of Dreams (beta ~ 1):   #009E73 (bluish green)
-  Super-linear (beta > 1):      #0072B2 (blue)
+Scaling interpretation colors (Panel C, aligned with Fig 2):
+  Redirection (beta < 1):       #5A8FAF (muted blue)
+  Field of Dreams (beta ~ 1):   gray55 (neutral)
+  Super-linear (beta > 1):      #D55E00 (vermillion)
   Insufficient data:            #999999 (gray)
 
 ================================================================================
@@ -1396,8 +1422,8 @@ Generated: ', format(Sys.time(), "%Y-%m-%d %H:%M:%S"), '
 Source script: scripts/08_functional_groups.R
 ')
 
-writeLines(fig4_legend, file.path(PATHS$fig_manuscript, "fig4_legend_results.txt"))
-cat("Saved: fig4_legend_results.txt\n\n")
+writeLines(figS9_legend, file.path(PATHS$figures, "supplement", "figS9_legend_results.txt"))
+cat("Saved: figS9_legend_results.txt\n\n")
 
 # Save taxonomic group analysis results object
 functional_analysis_results <- list(

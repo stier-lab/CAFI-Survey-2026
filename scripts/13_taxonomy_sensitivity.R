@@ -28,9 +28,14 @@
 # OUTPUTS:
 #   - output/tables/taxonomy_sensitivity.csv
 #   - output/tables/taxonomy_sensitivity_species_scaling.csv
+#   - output/tables/network_topology_sensitivity.csv
+#   - output/tables/network_edge_overlap.csv
+#   - output/tables/network_hub_stability.csv
 #   - output/figures/supplement/figS8_taxonomy_sensitivity.png
+#   - output/figures/supplement/figS13_network_sensitivity.png
 #
 # Author: CAFI Survey Analysis Pipeline
+# Last Updated: 2026-03-04
 # ============================================================================
 
 cat("\n")
@@ -45,6 +50,15 @@ cat("============================================================\n\n")
 if (!exists("PATHS")) source(here::here("scripts/00_setup.R"))
 
 suppressPackageStartupMessages(library(igraph))
+
+# Resolve igraph namespace conflicts
+if (requireNamespace("conflicted", quietly = TRUE)) {
+  conflicted::conflict_prefer("union", "base")
+  conflicted::conflict_prefer("intersect", "base")
+  conflicted::conflict_prefer("setdiff", "base")
+  conflicted::conflict_prefer("groups", "dplyr")
+  conflicted::conflict_prefer("as_data_frame", "igraph")
+}
 
 # Load pre-computed objects (scenario data built in 01_load_data.R section 6a)
 coral_master     <- load_object("coral_master")
@@ -176,7 +190,13 @@ fit_permanova <- function(comm_mat, coral_master_df) {
 }
 
 # --- E. Network modularity ---
-fit_network <- function(comm_mat, coral_master_df, cafi_df) {
+fit_network <- function(comm_mat, coral_master_df, cafi_df, return_full = FALSE) {
+  empty_full <- list(modularity_Q = NA, n_modules = NA, n_species_network = NA,
+                     n_edges = NA, mean_degree = NA, density = NA, transitivity = NA,
+                     graph = NULL, edge_list = NULL, centrality = NULL,
+                     membership = NULL, species_in_network = character(0))
+  empty_summary <- list(modularity_Q = NA, n_modules = NA, n_species_network = NA,
+                        n_edges = NA, mean_degree = NA)
   tryCatch({
     common_ids <- intersect(rownames(comm_mat), coral_master_df$coral_id)
     comm_sub <- comm_mat[common_ids, , drop = FALSE]
@@ -190,8 +210,7 @@ fit_network <- function(comm_mat, coral_master_df, cafi_df) {
 
     n_species <- ncol(comm_filt)
     if (n_species < 5) {
-      return(list(modularity_Q = NA, n_modules = NA, n_species_network = NA,
-                  n_edges = NA, mean_degree = NA))
+      return(if (return_full) empty_full else empty_summary)
     }
 
     volume_vec <- coral_master_df$volume[match(rownames(comm_filt), coral_master_df$coral_id)]
@@ -237,8 +256,14 @@ fit_network <- function(comm_mat, coral_master_df, cafi_df) {
 
     edge_idx_raw <- which(upper.tri(cor_mat) & cor_mat > threshold, arr.ind = TRUE)
     if (nrow(edge_idx_raw) == 0) {
-      return(list(modularity_Q = NA, n_modules = NA, n_species_network = 0,
-                  n_edges = 0, mean_degree = NA))
+      result <- list(modularity_Q = NA, n_modules = NA, n_species_network = 0,
+                     n_edges = 0, mean_degree = NA)
+      if (return_full) {
+        result$density <- NA; result$transitivity <- NA
+        result$graph <- NULL; result$edge_list <- NULL; result$centrality <- NULL
+        result$membership <- NULL; result$species_in_network <- character(0)
+      }
+      return(result)
     }
 
     raw_pvals <- sapply(seq_len(nrow(edge_idx_raw)), function(k)
@@ -248,8 +273,14 @@ fit_network <- function(comm_mat, coral_master_df, cafi_df) {
     edge_idx <- edge_idx_raw[sig_mask, , drop = FALSE]
 
     if (nrow(edge_idx) == 0) {
-      return(list(modularity_Q = NA, n_modules = NA, n_species_network = 0,
-                  n_edges = 0, mean_degree = NA))
+      result <- list(modularity_Q = NA, n_modules = NA, n_species_network = 0,
+                     n_edges = 0, mean_degree = NA)
+      if (return_full) {
+        result$density <- NA; result$transitivity <- NA
+        result$graph <- NULL; result$edge_list <- NULL; result$centrality <- NULL
+        result$membership <- NULL; result$species_in_network <- character(0)
+      }
+      return(result)
     }
 
     edge_list <- data.frame(
@@ -267,17 +298,39 @@ fit_network <- function(comm_mat, coral_master_df, cafi_df) {
     mod_Q <- igraph::modularity(comm_det)
     n_mod <- length(unique(igraph::membership(comm_det)))
 
-    list(
+    result <- list(
       modularity_Q = mod_Q,
       n_modules = n_mod,
       n_species_network = igraph::vcount(g),
       n_edges = igraph::ecount(g),
       mean_degree = mean(igraph::degree(g))
     )
+
+    if (return_full) {
+      result$density <- igraph::edge_density(g)
+      result$transitivity <- igraph::transitivity(g, type = "global")
+      result$graph <- g
+      result$edge_list <- edge_list
+      # Centrality metrics
+      deg <- igraph::degree(g)
+      eig <- tryCatch(
+        igraph::eigen_centrality(g, weights = igraph::E(g)$weight)$vector,
+        error = function(e) setNames(rep(NA, igraph::vcount(g)), igraph::V(g)$name)
+      )
+      result$centrality <- data.frame(
+        species = igraph::V(g)$name,
+        degree = deg,
+        eigenvector_centrality = eig[igraph::V(g)$name],
+        stringsAsFactors = FALSE
+      )
+      result$membership <- igraph::membership(comm_det)
+      result$species_in_network <- igraph::V(g)$name
+    }
+
+    result
   }, error = function(e) {
     cat("    Network error:", e$message, "\n")
-    list(modularity_Q = NA, n_modules = NA, n_species_network = NA,
-         n_edges = NA, mean_degree = NA)
+    if (return_full) empty_full else empty_summary
   })
 }
 
@@ -401,6 +454,7 @@ cat("============================================================\n\n")
 
 all_results <- list()
 all_species_scaling <- list()
+network_objects <- list()
 
 for (scenario_name in scenario_names) {
   sd <- scenario_data[[scenario_name]]
@@ -441,7 +495,8 @@ for (scenario_name in scenario_names) {
 
   # E. Network modularity
   cat("    [E] Network modularity... ")
-  net_result <- fit_network(comm_mat, coral_master, cafi_modified)
+  net_result <- fit_network(comm_mat, coral_master, cafi_modified, return_full = TRUE)
+  network_objects[[scenario_name]] <- net_result
   cat("Q =", round(net_result$modularity_Q, 3),
       ", modules =", net_result$n_modules, "\n")
 
@@ -580,6 +635,321 @@ for (i in seq_len(nrow(results_df))) {
 }
 
 # ============================================================================
+# NETWORK SENSITIVITY DEEP ANALYSIS (Fig S13)
+# ============================================================================
+# Detailed comparison of co-occurrence networks across taxonomy scenarios:
+#   A. Topology comparison (density, transitivity, etc.)
+#   B. Edge overlap (Jaccard similarity between scenario networks)
+#   C. Hub stability (do the same species remain central?)
+#   D. Degree distribution comparison
+# ============================================================================
+
+cat("============================================================\n")
+cat("NETWORK SENSITIVITY DEEP ANALYSIS\n")
+cat("============================================================\n\n")
+
+# --- A. Topology comparison table ---
+cat("  [A] Building topology comparison table...\n")
+
+topology_df <- bind_rows(lapply(scenario_names, function(sc) {
+  nr <- network_objects[[sc]]
+  tibble(
+    scenario = sc,
+    n_species = nr$n_species_network %||% NA_integer_,
+    n_edges = nr$n_edges %||% NA_integer_,
+    density = nr$density %||% NA_real_,
+    modularity_Q = nr$modularity_Q %||% NA_real_,
+    n_modules = nr$n_modules %||% NA_integer_,
+    mean_degree = nr$mean_degree %||% NA_real_,
+    transitivity = nr$transitivity %||% NA_real_
+  )
+}))
+
+save_table(topology_df, "network_topology_sensitivity")
+cat("    Saved: network_topology_sensitivity.csv\n")
+
+# Print topology comparison
+cat("\n    Network Topology Across Scenarios:\n")
+cat(sprintf("    %-15s %5s %5s %6s %6s %4s %6s %6s\n",
+            "Scenario", "Nodes", "Edges", "Dens.", "ModQ", "nMod", "MnDeg", "Trans."))
+cat("    ", paste(rep("-", 60), collapse = ""), "\n")
+for (i in seq_len(nrow(topology_df))) {
+  r <- topology_df[i, ]
+  cat(sprintf("    %-15s %5s %5s %6s %6s %4s %6s %6s\n",
+              r$scenario,
+              ifelse(is.na(r$n_species), "NA", as.character(r$n_species)),
+              ifelse(is.na(r$n_edges), "NA", as.character(r$n_edges)),
+              ifelse(is.na(r$density), "NA", sprintf("%.3f", r$density)),
+              ifelse(is.na(r$modularity_Q), "NA", sprintf("%.3f", r$modularity_Q)),
+              ifelse(is.na(r$n_modules), "NA", as.character(r$n_modules)),
+              ifelse(is.na(r$mean_degree), "NA", sprintf("%.1f", r$mean_degree)),
+              ifelse(is.na(r$transitivity), "NA", sprintf("%.3f", r$transitivity))))
+}
+cat("\n")
+
+# --- B. Edge overlap (Jaccard similarity) ---
+cat("  [B] Computing edge overlap (Jaccard similarity)...\n")
+
+# Create edge set strings for each scenario
+edge_sets <- lapply(scenario_names, function(sc) {
+  el <- network_objects[[sc]]$edge_list
+  if (is.null(el) || nrow(el) == 0) return(character(0))
+  # Sort species names within each edge for consistent comparison
+  apply(el[, c("sp1", "sp2")], 1, function(x) paste(sort(x), collapse = " -- "))
+})
+names(edge_sets) <- scenario_names
+
+# Compute pairwise Jaccard
+n_sc <- length(scenario_names)
+jaccard_mat <- matrix(NA_real_, nrow = n_sc, ncol = n_sc,
+                      dimnames = list(scenario_names, scenario_names))
+
+for (i in seq_len(n_sc)) {
+  for (j in seq_len(n_sc)) {
+    s_i <- edge_sets[[i]]
+    s_j <- edge_sets[[j]]
+    if (length(s_i) == 0 && length(s_j) == 0) {
+      jaccard_mat[i, j] <- NA_real_
+    } else if (length(s_i) == 0 || length(s_j) == 0) {
+      jaccard_mat[i, j] <- 0
+    } else {
+      inter <- length(base::intersect(s_i, s_j))
+      union_n <- length(base::union(s_i, s_j))
+      jaccard_mat[i, j] <- inter / union_n
+    }
+  }
+}
+
+jaccard_df <- as.data.frame(jaccard_mat) %>%
+  mutate(scenario = rownames(jaccard_mat)) %>%
+  dplyr::select(scenario, everything())
+save_table(jaccard_df, "network_edge_overlap")
+cat("    Saved: network_edge_overlap.csv\n")
+
+cat("    Jaccard edge overlap:\n")
+for (i in seq_len(n_sc)) {
+  for (j in i:n_sc) {
+    if (i != j) {
+      cat(sprintf("      %s vs %s: J = %.3f\n",
+                  scenario_names[i], scenario_names[j],
+                  jaccard_mat[i, j]))
+    }
+  }
+}
+cat("\n")
+
+# --- C. Hub stability ---
+cat("  [C] Analyzing hub species stability...\n")
+
+# Collect centrality from all scenarios
+hub_list <- list()
+for (sc in scenario_names) {
+  cent <- network_objects[[sc]]$centrality
+  if (!is.null(cent) && nrow(cent) > 0) {
+    cent$scenario <- sc
+    hub_list[[sc]] <- cent
+  }
+}
+
+if (length(hub_list) > 0) {
+  hub_all <- bind_rows(hub_list)
+
+  # Get top 10 species from baseline by eigenvector centrality
+  baseline_hubs <- hub_all %>%
+    filter(scenario == "Baseline") %>%
+    arrange(desc(eigenvector_centrality)) %>%
+    head(10)
+
+  cat("    Top 10 hub species (Baseline, by eigenvector centrality):\n")
+  for (i in seq_len(nrow(baseline_hubs))) {
+    sp <- baseline_hubs$species[i]
+    # Count how many scenarios this species appears in as a network node
+    n_appear <- sum(sapply(scenario_names, function(sc) {
+      sp %in% (network_objects[[sc]]$species_in_network %||% character(0))
+    }))
+    cat(sprintf("      %2d. %-30s eig=%.3f  deg=%d  in %d/%d scenarios\n",
+                i, sp, baseline_hubs$eigenvector_centrality[i],
+                baseline_hubs$degree[i], n_appear, length(scenario_names)))
+  }
+
+  save_table(hub_all, "network_hub_stability")
+  cat("    Saved: network_hub_stability.csv\n\n")
+} else {
+  hub_all <- tibble()
+  cat("    No networks produced centrality data.\n\n")
+}
+
+# --- D. Degree distribution data ---
+cat("  [D] Extracting degree distributions...\n")
+
+degree_list <- list()
+for (sc in scenario_names) {
+  g <- network_objects[[sc]]$graph
+  if (!is.null(g)) {
+    deg <- igraph::degree(g)
+    degree_list[[sc]] <- tibble(
+      scenario = sc,
+      species = names(deg),
+      degree = as.integer(deg)
+    )
+  }
+}
+
+if (length(degree_list) > 0) {
+  degree_all <- bind_rows(degree_list)
+  cat("    Degree distributions extracted for", length(degree_list), "scenarios\n\n")
+} else {
+  degree_all <- tibble()
+  cat("    No degree data available.\n\n")
+}
+
+# ============================================================================
+# FIGURE S13: Network Sensitivity (4-panel)
+# ============================================================================
+
+cat("============================================================\n")
+cat("GENERATING NETWORK SENSITIVITY FIGURE (S13)\n")
+cat("============================================================\n\n")
+
+scenario_colors <- c(
+  "Baseline" = "gray30",
+  "Species-only" = "#E69F00",
+  "Merge-up" = "#56B4E9",
+  "Lump-down" = "#009E73",
+  "Rare-excluded" = "#CC79A7"
+)
+
+# --- Panel A: Topology comparison (faceted bars) ---
+topo_long <- topology_df %>%
+  dplyr::select(scenario, n_species, n_edges, mean_degree) %>%
+  tidyr::pivot_longer(-scenario, names_to = "metric", values_to = "value") %>%
+  mutate(
+    scenario = factor(scenario, levels = scenario_names),
+    metric = factor(metric,
+                    levels = c("n_species", "n_edges", "mean_degree"),
+                    labels = c("Species", "Edges", "Mean degree"))
+  )
+
+p_topo <- ggplot(topo_long, aes(x = scenario, y = value, fill = scenario)) +
+  geom_col(color = "gray30", linewidth = 0.3) +
+  facet_wrap(~ metric, scales = "free_y", nrow = 1) +
+  scale_fill_manual(values = scenario_colors, guide = "none") +
+  labs(x = NULL, y = NULL, title = "A. Network topology") +
+  theme_publication(base_size = 10) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    strip.text = element_text(size = 9),
+    plot.margin = margin(5, 5, 5, 5, "mm")
+  )
+
+# --- Panel B: Edge Jaccard heatmap ---
+jaccard_long <- jaccard_mat %>%
+  as.data.frame() %>%
+  mutate(scenario1 = factor(rownames(.), levels = scenario_names)) %>%
+  tidyr::pivot_longer(-scenario1, names_to = "scenario2", values_to = "jaccard") %>%
+  mutate(scenario2 = factor(scenario2, levels = scenario_names))
+
+p_jaccard <- ggplot(jaccard_long, aes(x = scenario1, y = scenario2, fill = jaccard)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(aes(label = ifelse(is.na(jaccard), "", sprintf("%.2f", jaccard))),
+            size = 3, color = "black") +
+  scale_fill_viridis_c(option = "D", na.value = "grey90", limits = c(0, 1),
+                       name = "Jaccard", breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+  labs(x = NULL, y = NULL, title = "B. Edge overlap (Jaccard)") +
+  theme_publication(base_size = 10) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.text.y = element_text(size = 8),
+    legend.position = "right",
+    legend.direction = "vertical",
+    legend.key.height = unit(0.8, "cm"),
+    legend.key.width = unit(0.35, "cm"),
+    legend.title = element_text(size = 8),
+    legend.text = element_text(size = 7),
+    plot.margin = margin(5, 5, 5, 5, "mm")
+  )
+
+# --- Panel C: Hub stability dot plot ---
+if (nrow(hub_all) > 0 && nrow(baseline_hubs) > 0) {
+  # Show top 10 baseline hubs across all scenarios
+  target_species <- baseline_hubs$species
+
+  hub_plot_data <- hub_all %>%
+    filter(species %in% target_species) %>%
+    mutate(
+      species = factor(species, levels = rev(target_species)),
+      scenario = factor(scenario, levels = scenario_names)
+    )
+
+  p_hubs <- ggplot(hub_plot_data, aes(x = eigenvector_centrality, y = species,
+                                       color = scenario)) +
+    geom_point(shape = 21, aes(fill = scenario), size = 2.5, stroke = 0.4,
+               position = position_dodge(width = 0.6)) +
+    scale_color_manual(values = scenario_colors, name = "Scenario") +
+    scale_fill_manual(values = scenario_colors, name = "Scenario") +
+    labs(x = "Eigenvector centrality", y = NULL,
+         title = "C. Hub species stability") +
+    theme_publication(base_size = 10) +
+    theme(
+      axis.text.y = element_text(size = 7, face = "italic"),
+      legend.position = "right",
+      legend.direction = "vertical",
+      legend.title = element_text(size = 8),
+      legend.text = element_text(size = 7),
+      plot.margin = margin(5, 5, 5, 5, "mm")
+    )
+} else {
+  p_hubs <- ggplot() +
+    annotate("text", x = 0.5, y = 0.5, label = "Insufficient network data") +
+    labs(title = "C. Hub species stability") +
+    theme_void()
+}
+
+# --- Panel D: Degree distribution ---
+if (nrow(degree_all) > 0) {
+  degree_plot_data <- degree_all %>%
+    mutate(scenario = factor(scenario, levels = scenario_names))
+
+  p_degree <- ggplot(degree_plot_data, aes(x = degree, fill = scenario, color = scenario)) +
+    geom_density(alpha = 0.3, linewidth = 0.6) +
+    scale_fill_manual(values = scenario_colors, name = "Scenario") +
+    scale_color_manual(values = scenario_colors, name = "Scenario") +
+    labs(x = "Node degree", y = "Density",
+         title = "D. Degree distributions") +
+    theme_publication(base_size = 10) +
+    theme(
+      legend.position = "right",
+      legend.direction = "vertical",
+      legend.title = element_text(size = 8),
+      legend.text = element_text(size = 7),
+      plot.margin = margin(5, 5, 5, 5, "mm")
+    )
+} else {
+  p_degree <- ggplot() +
+    annotate("text", x = 0.5, y = 0.5, label = "Insufficient network data") +
+    labs(title = "D. Degree distributions") +
+    theme_void()
+}
+
+# --- Assemble Figure S13 ---
+figS13 <- (p_topo | p_jaccard) /
+  (p_hubs | p_degree) +
+  plot_layout(heights = c(1, 1.2)) +
+  plot_annotation(
+    title = "Figure S13: Network Sensitivity to Taxonomic Resolution",
+    subtitle = paste0("Co-occurrence networks reconstructed under ", length(scenario_names),
+                      " taxonomy scenarios across ", nrow(coral_master), " corals"),
+    theme = theme(
+      plot.title = element_text(size = 13, face = "bold"),
+      plot.subtitle = element_text(size = 10)
+    )
+  )
+
+save_figure(figS13, file.path(fig_dir, "figS13_network_sensitivity.png"),
+            width = 12, height = 10)
+cat("  Saved: figS13_network_sensitivity.png\n\n")
+
+# ============================================================================
 # FIGURE: Forest-Plot Style Comparison (Fig S8)
 # ============================================================================
 
@@ -617,7 +987,7 @@ scenario_colors <- c(
 )
 
 p_a <- ggplot(panel_a_data, aes(x = beta, y = scenario, color = scenario)) +
-  geom_vline(xintercept = 1, linetype = "dashed", color = "gray50", linewidth = 0.5) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "gray45", linewidth = 0.4) +
   geom_point(size = 3) +
   geom_errorbar(aes(xmin = ci_lower, xmax = ci_upper), width = 0.2, linewidth = 0.6,
                 orientation = "y") +
@@ -630,7 +1000,7 @@ p_a <- ggplot(panel_a_data, aes(x = beta, y = scenario, color = scenario)) +
   theme(plot.margin = margin(5, 10, 5, 5, "mm"))
 
 p_b <- ggplot(panel_b_data, aes(x = beta, y = scenario, color = scenario)) +
-  geom_vline(xintercept = 1, linetype = "dashed", color = "gray50", linewidth = 0.5) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "gray45", linewidth = 0.4) +
   geom_point(size = 3) +
   geom_errorbar(aes(xmin = ci_lower, xmax = ci_upper), width = 0.2, linewidth = 0.6,
                 orientation = "y") +
@@ -670,7 +1040,7 @@ p_d <- ggplot(panel_d_data %>% filter(!is.na(beta)),
 
 p_combined <- (p_a | p_b) / (p_c | p_d) +
   plot_annotation(
-    title = "Sensitivity of Key Results to Taxonomic Resolution",
+    title = "Figure S8: Sensitivity of Key Results to Taxonomic Resolution",
     subtitle = paste0("5 scenarios tested across ", nrow(coral_master), " corals, ",
                       nrow(cafi_clean), " CAFI records"),
     theme = theme(
@@ -679,8 +1049,8 @@ p_combined <- (p_a | p_b) / (p_c | p_d) +
     )
   )
 
-ggsave(file.path(fig_dir, "figS8_taxonomy_sensitivity.png"),
-       p_combined, width = 10, height = 7, dpi = 300, bg = "white")
+save_figure(p_combined, file.path(fig_dir, "figS8_taxonomy_sensitivity.png"),
+            width = 10, height = 7)
 cat("  Saved: figS8_taxonomy_sensitivity.png\n\n")
 
 # ============================================================================
@@ -706,6 +1076,10 @@ cat("  Q3 Rarefied richness NS: ", n_stable_condition, "/", n_scenarios, "scenar
 cat("\nOutputs:\n")
 cat("  Table: output/tables/taxonomy_sensitivity.csv\n")
 cat("  Table: output/tables/taxonomy_sensitivity_species_scaling.csv\n")
-cat("  Figure: output/figures/supplement/figS8_taxonomy_sensitivity.png\n\n")
+cat("  Table: output/tables/network_topology_sensitivity.csv\n")
+cat("  Table: output/tables/network_edge_overlap.csv\n")
+cat("  Table: output/tables/network_hub_stability.csv\n")
+cat("  Figure: output/figures/supplement/figS8_taxonomy_sensitivity.png\n")
+cat("  Figure: output/figures/supplement/figS13_network_sensitivity.png\n\n")
 
 cat("Script 13 complete.\n\n")

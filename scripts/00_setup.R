@@ -10,7 +10,7 @@
 # NOTE: Run this script before any analysis scripts
 #
 # Author: CAFI Survey Analysis Pipeline
-# Last Updated: 2025-12-05
+# Last Updated: 2026-03-04
 # ============================================================================
 
 cat("\n")
@@ -30,8 +30,8 @@ required_pkgs <- c(
   "vegan", "lme4", "MuMIn", "broom", "car", "moments",
   # Visualization
   "patchwork", "viridis", "scales",
-  # Used by downstream scripts (06, 07, 09)
-  "igraph", "spdep", "sf", "sandwich", "lmtest", "DHARMa", "ggrepel"
+  # Used by downstream scripts (04, 06, 07, 09)
+  "igraph", "spdep", "sf", "sandwich", "lmtest", "DHARMa", "ggrepel", "cowplot"
 )
 missing_pkgs <- required_pkgs[!sapply(required_pkgs, requireNamespace, quietly = TRUE)]
 if (length(missing_pkgs) > 0) {
@@ -104,14 +104,15 @@ PATHS <- list(
   fig_03_landscape = here("output", "figures", "03_landscape"),
   fig_04_effects = here("output", "figures", "04_effects"),
   fig_05_scaling = here("output", "figures", "05_scaling"),
+  fig_06_network = here("output", "figures", "06_network"),
+  fig_07_spatial = here("output", "figures", "07_spatial"),
+  fig_08_functional = here("output", "figures", "functional_groups"),
+  fig_supplement = here("output", "figures", "supplement"),
   fig_manuscript = here("output", "figures", "manuscript")
 )
 
-# Create all output directories
-output_dirs <- c("objects", "tables", "reports", "figures",
-                 "fig_01_data", "fig_02_community", "fig_03_landscape",
-                 "fig_04_effects", "fig_05_scaling", "fig_manuscript")
-walk(PATHS[output_dirs], ~dir.create(.x, recursive = TRUE, showWarnings = FALSE))
+# Create all output directories (automatically walks all PATHS entries)
+walk(PATHS, ~dir.create(.x, recursive = TRUE, showWarnings = FALSE))
 
 cat("[OK] Paths configured\n")
 
@@ -120,35 +121,59 @@ cat("[OK] Paths configured\n")
 # ============================================================================
 
 # Define consistent theme for all figures
-theme_publication <- function(base_size = 12) {
+# Aligned with companion experimental paper (CAFI-136) for visual cohesion
+# @param base_size  Base font size in pt (default 13; use 9 for embedded sub-panels)
+# @param grid       If TRUE, show major gridlines (grey90); default FALSE
+theme_publication <- function(base_size = 13, grid = FALSE) {
   theme_bw(base_size = base_size) +
     theme(
       # Panel
-      panel.grid.minor = element_blank(),
-      panel.grid.major = element_line(color = "gray90", linewidth = 0.3),
-      panel.border = element_rect(color = "black", linewidth = 0.5),
+      panel.grid.major  = if(grid) element_line(color = "grey90", linewidth = 0.25) else element_blank(),
+      panel.grid.minor  = element_blank(),
+      panel.border      = element_rect(color = "black", fill = NA, linewidth = 0.8),
+      panel.background  = element_rect(fill = "white"),
 
       # Axis
-      axis.text = element_text(color = "black", size = base_size - 2),
-      axis.title = element_text(size = base_size, face = "bold"),
-      axis.ticks = element_line(color = "black", linewidth = 0.3),
+      axis.title        = element_text(size = base_size, face = "bold"),
+      axis.text         = element_text(size = base_size - 1, color = "black"),
+      axis.ticks        = element_line(color = "black", linewidth = 0.5),
+      axis.ticks.length = unit(0.15, "cm"),
 
       # Legend
-      legend.position = "bottom",
-      legend.background = element_blank(),
-      legend.key = element_blank(),
-      legend.title = element_text(size = base_size - 1, face = "bold"),
-      legend.text = element_text(size = base_size - 2),
+      legend.position    = "bottom",
+      legend.direction   = "horizontal",
+      legend.title       = element_text(size = base_size - 1, face = "bold"),
+      legend.text        = element_text(size = base_size - 2),
+      legend.key         = element_rect(fill = "white", color = NA),
+      legend.background  = element_rect(fill = "white", color = NA),
 
-      # Strip (for facets)
-      strip.background = element_rect(fill = "gray95", color = "black"),
-      strip.text = element_text(size = base_size - 1, face = "bold"),
+      # Facet strips
+      strip.background = element_rect(fill = "grey95", color = "black", linewidth = 0.8),
+      strip.text       = element_text(size = base_size - 1, face = "bold"),
 
-      # Plot
-      plot.title = element_text(size = base_size + 2, face = "bold", hjust = 0),
+      # Plot-level
+      plot.title    = element_text(size = base_size + 3, face = "bold", hjust = 0),
       plot.subtitle = element_text(size = base_size, hjust = 0),
-      plot.caption = element_text(size = base_size - 3, hjust = 1, color = "gray50"),
-      plot.margin = margin(10, 10, 10, 10, "mm")
+      plot.caption  = element_text(size = base_size - 3, hjust = 1, color = "grey40"),
+      plot.margin   = margin(0.5, 0.5, 0.5, 0.5, "cm"),
+      plot.background = element_rect(fill = "white", color = NA),
+
+      # Panel tags (for patchwork)
+      plot.tag = element_text(face = "bold", size = 16)
+    )
+}
+
+# Compact theme for dense multi-panel composites (e.g., Fig 5: 4-panel)
+# @param base_size  Base font size in pt (default 11; smaller than theme_publication)
+theme_multipanel <- function(base_size = 11) {
+  theme_publication(base_size = base_size) +
+    theme(
+      plot.title  = element_text(size = base_size + 3),
+      axis.title  = element_text(size = base_size),
+      axis.text   = element_text(size = base_size - 1),
+      strip.text  = element_text(size = base_size),
+      legend.position = "bottom",
+      legend.box      = "horizontal"
     )
 }
 
@@ -165,8 +190,15 @@ SITE_COLORS <- c(
 # (Redirection = blue #5A8FAF, Super-linear = vermillion #D55E00).
 # Previous Okabe-Ito palette (orange/blue/teal) conflicted with those semantics.
 
-# Taxonomic group colors
-FUNC_COLORS <- c(
+# Scaling-class palette (used in Fig 2 Panel C and species forest plots)
+SCALING_COLORS <- c(
+  "Redirection"     = "#5A8FAF",
+  "Field of Dreams" = "gray55",
+  "Super-linear"    = "#D55E00"
+)
+
+# Functional group colors (used in scripts 02 and 08 for grouped analyses)
+FUNC_GROUP_COLORS <- c(
   "Trapezia" = "#D55E00",        # Red-orange (mutualist crabs)
   "Resident Fish" = "#0072B2",   # Blue
   "Gastropod" = "#CC79A7",       # Pink (all snails)
@@ -174,6 +206,21 @@ FUNC_COLORS <- c(
   "Other Crab" = "#009E73",      # Teal
   "Shrimp" = "#E69F00",          # Orange
   "Other" = "#999999"            # Gray
+)
+
+# Broad taxonomic type colors (Fig 3 barchart + NMDS vectors; colorblind-safe)
+# Hue families deliberately separated to avoid pink/magenta confusion
+TYPE_COLORS <- c(
+  "Shrimp" = "#D55E00",
+  "Crabs" = "#0072B2",
+  "Hermit crabs" = "#117733",
+  "Fish" = "#DDCC77",
+  "Gastropods" = "#CC79A7",
+  "Echinoderms" = "#88CCEE",
+  "Polychaetes" = "#999999",
+  "Amphipods" = "#332288",
+  "Squat lobsters" = "#661100",
+  "Other" = "#BBBBBB"
 )
 
 cat("[OK] Publication theme set\n")
@@ -199,27 +246,26 @@ load_object <- function(name) {
   readRDS(path)
 }
 
-# Save figure with standard settings
-# script_dir: one of "01_data", "02_community", "03_landscape", "04_effects", "05_scaling", "manuscript"
-save_figure <- function(plot, name, width = 8, height = 6, dpi = 300,
-                       script_dir = NULL, manuscript = FALSE) {
-  if (manuscript) {
-    fig_dir <- PATHS$fig_manuscript
-  } else if (!is.null(script_dir)) {
-    dir_key <- paste0("fig_", script_dir)
-    if (dir_key %in% names(PATHS)) {
-      fig_dir <- PATHS[[dir_key]]
-    } else {
-      # Create custom directory if needed
-      fig_dir <- file.path(PATHS$figures, script_dir)
-      dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
-    }
-  } else {
-    fig_dir <- PATHS$figures
+# Save figure as PNG + PDF dual-save (aligned with experimental companion paper)
+# path: full file path including .png extension; PDF auto-generated alongside
+save_figure <- function(plot, path, width = 8, height = 6, units = "in", dpi = 600) {
+  ggsave(path, plot, width = width, height = height, units = units, dpi = dpi, bg = "white")
+  pdf_path <- sub("\\.[^.]+$", ".pdf", path)
+  # Try cairo_pdf first (higher quality); fall back to standard pdf
+  suppressWarnings(tryCatch(
+    ggsave(pdf_path, plot, width = width, height = height, units = units,
+           device = cairo_pdf, bg = "white"),
+    error = function(e) NULL, warning = function(w) NULL
+  ))
+  if (!file.exists(pdf_path)) {
+    tryCatch(
+      ggsave(pdf_path, plot, width = width, height = height, units = units,
+             device = grDevices::pdf),
+      error = function(e) NULL
+    )
   }
-  path <- file.path(fig_dir, paste0(name, ".png"))
-  ggsave(path, plot, width = width, height = height, dpi = dpi, bg = "white")
-  cat("  Saved:", path, "\n")
+  pdf_ok <- file.exists(pdf_path)
+  cat("  Saved:", path, if(pdf_ok) "(+ PDF)" else "(PNG only)", "\n")
   invisible(path)
 }
 

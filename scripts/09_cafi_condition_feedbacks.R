@@ -34,16 +34,41 @@
 #   H. Landscape-only effects on condition (no CAFI predictors)
 #
 # OUTPUTS:
-#   - output/figures/manuscript/fig6_feedbacks.png
-#   - output/figures/feedbacks/cafi_condition_effects.png
-#   - output/figures/feedbacks/functional_effects_forest.png
-#   - output/figures/feedbacks/landscape_condition_effects.png (Part H)
-#   - output/tables/cafi_condition_models.csv
-#   - output/tables/functional_effects.csv
-#   - output/tables/landscape_condition_effects.csv (Part H)
-#   - output/tables/landscape_model_comparison.csv (Part H)
-#   - output/tables/site_condition_means.csv (Part H)
-#   - output/tables/path_analysis.csv (if implemented)
+#
+#   Figures (10):
+#   - output/figures/manuscript/fig4_feedbacks.png          (4-panel main text figure)
+#   - output/figures/supplement/figS12_condition_details.png (additional CAFI-condition panels)
+#   - output/figures/feedbacks/cafi_condition_effects.png   (all CAFI predictors forest)
+#   - output/figures/feedbacks/functional_effects_forest.png (functional group forest)
+#   - output/figures/feedbacks/key_species_effects.png      (key species forest plot)
+#   - output/figures/feedbacks/functional_vs_key_species.png (combined comparison)
+#   - output/figures/feedbacks/neighborhood_effects.png     (Part G neighborhood panels)
+#   - output/figures/feedbacks/landscape_condition_effects.png (Part H landscape)
+#   - output/figures/supplement/figS10_rarefaction_sensitivity.png (rarefaction depth)
+#   - output/figures/feedbacks/diagnostics_richness_model.png (richness model diagnostics)
+#
+#   Tables (14):
+#   - output/tables/cafi_condition_models.csv               (CAFI -> condition results)
+#   - output/tables/reverse_direction_models.csv            (condition -> CAFI results)
+#   - output/tables/functional_effects.csv                  (functional group effects)
+#   - output/tables/richness_abundance_artifact.csv         (richness artifact test)
+#   - output/tables/key_species_effects.csv                 (key species condition effects)
+#   - output/tables/species_trait_correlations.csv           (Part F2: species x trait r)
+#   - output/tables/individual_physiology_cafi_responses.csv (Part F3: individual traits)
+#   - output/tables/cross_study_species_comparison.csv      (Part F4: survey vs experiment)
+#   - output/tables/neighborhood_effects.csv                (Part G: neighborhood models)
+#   - output/tables/landscape_condition_effects.csv         (Part H: landscape effects)
+#   - output/tables/landscape_model_comparison.csv          (Part H: model comparison)
+#   - output/tables/site_condition_means.csv                (Part H: site means)
+#   - output/tables/community_transform_sensitivity.csv     (Part A3: transform sensitivity)
+#   - output/tables/09_cafi_condition_feedbacks_stats_summary.csv (stats summary)
+#
+#   Objects (2):
+#   - output/objects/richness_comparison_results.rds        (richness artifact data)
+#   - output/objects/analysis_data_rarefied.rds             (rarefied analysis dataset)
+#
+#   Text (1):
+#   - output/figures/manuscript/fig4_legend_results.txt     (figure legend + results)
 #
 # DEPENDENCIES: 00_setup.R, 01_load_data.R
 #
@@ -210,6 +235,100 @@ cat("   Galeropsis:", sum(analysis_data$n_galeropsis),
     "(range:", min(analysis_data$n_galeropsis), "-", max(analysis_data$n_galeropsis), ")\n\n")
 
 # ============================================================================
+# SENSITIVITY: POSITION-CORRECTED vs RAW CONDITION SCORES
+# ============================================================================
+# (Position correction regresses out stump_length + nubbin_length before PCA)
+# Brief check: does the key result (richness → condition) change with raw scores?
+
+cat("Position Correction Sensitivity Check:\n")
+cat("--------------------------------------\n")
+
+# Attempt to load raw (uncorrected) physiology data and compute a raw PC1
+raw_phys <- tryCatch(load_object("condition_scores"), error = function(e) NULL)
+
+if (!is.null(raw_phys) && all(c("protein_corr", "carb_corr", "zoox_corr", "afdw_corr") %in% names(raw_phys))) {
+  # The corrected scores are what we already use; build a raw version from coral_master
+  # Check if raw (uncorrected) physiology columns exist in coral_master
+  raw_physio_cols <- c("protein_norm", "carb_norm", "zoox_norm", "afdw_norm")
+  alt_raw_cols <- c("protein_mg_cm2", "carb_mg_cm2", "zoox_cells_cm2", "afdw_mg_cm2")
+
+  raw_cols_available <- raw_physio_cols[raw_physio_cols %in% names(coral_master)]
+  if (length(raw_cols_available) == 0) {
+    raw_cols_available <- alt_raw_cols[alt_raw_cols %in% names(coral_master)]
+  }
+
+  if (length(raw_cols_available) >= 3) {
+    raw_pca_data <- coral_master %>%
+      dplyr::select(coral_id, all_of(raw_cols_available)) %>%
+      filter(complete.cases(.))
+
+    if (nrow(raw_pca_data) >= 20) {
+      raw_pca <- prcomp(raw_pca_data %>% dplyr::select(-coral_id), center = TRUE, scale. = TRUE)
+      raw_pc1 <- raw_pca$x[, 1]
+      # Align sign with corrected condition_score
+      raw_pc1_df <- tibble(coral_id = raw_pca_data$coral_id, raw_condition = raw_pc1)
+
+      sensitivity_data <- analysis_data %>%
+        left_join(raw_pc1_df, by = "coral_id") %>%
+        filter(!is.na(raw_condition))
+
+      if (nrow(sensitivity_data) >= 20) {
+        # Align sign: ensure raw_condition is positively correlated with corrected
+        if (cor(sensitivity_data$condition_score, sensitivity_data$raw_condition, use = "complete") < 0) {
+          sensitivity_data$raw_condition <- -sensitivity_data$raw_condition
+        }
+
+        # Test richness → condition with CORRECTED scores
+        m_corrected <- lm(condition_score ~ otu_richness + log_volume + site, data = sensitivity_data)
+        p_corrected <- summary(m_corrected)$coefficients["otu_richness", "Pr(>|t|)"]
+        b_corrected <- coef(m_corrected)["otu_richness"]
+
+        # Test richness → condition with RAW scores
+        m_raw_sens <- lm(raw_condition ~ otu_richness + log_volume + site, data = sensitivity_data)
+        p_raw_sens <- summary(m_raw_sens)$coefficients["otu_richness", "Pr(>|t|)"]
+        b_raw_sens <- coef(m_raw_sens)["otu_richness"]
+
+        cat(sprintf("  Corrected condition: richness beta = %.4f, p = %.4f (n=%d)\n",
+                    b_corrected, p_corrected, nrow(sensitivity_data)))
+        cat(sprintf("  Raw condition:       richness beta = %.4f, p = %.4f (n=%d)\n",
+                    b_raw_sens, p_raw_sens, nrow(sensitivity_data)))
+
+        both_ns <- p_corrected > 0.05 & p_raw_sens > 0.05
+        both_sig <- p_corrected < 0.05 & p_raw_sens < 0.05
+        cat(sprintf("  Qualitatively similar: %s\n",
+                    ifelse(both_ns | both_sig, "YES", "NO — position correction changes significance")))
+      } else {
+        cat("  Insufficient overlap between raw and corrected data (n < 20)\n")
+      }
+    } else {
+      cat("  Insufficient raw physiology data for PCA (n < 20)\n")
+    }
+  } else {
+    cat("  Raw (uncorrected) physiology columns not found in coral_master.\n")
+    cat("  Position correction sensitivity cannot be tested.\n")
+    cat("  (This is expected if raw columns were consumed during 01_load_data.R)\n")
+  }
+} else {
+  cat("  Condition scores object missing required corrected columns.\n")
+}
+cat("\n")
+
+# ============================================================================
+# POWER ANALYSIS (Q3: CAFI-Condition Feedbacks)
+# ============================================================================
+# With n=84 corals with physiology data:
+# - Power to detect R² = 0.10 (medium effect): ~80% at α=0.05
+# - Power to detect R² = 0.05 (small effect): ~45% at α=0.05
+# - Adequate power for medium effects; null results for medium+ effects are credible
+if (requireNamespace("pwr", quietly = TRUE)) {
+  n_physio <- sum(!is.na(coral_master$condition_score))
+  power_med <- pwr::pwr.f2.test(u = 2, v = n_physio - 3 - 1, f2 = 0.10/0.90, sig.level = 0.05)
+  power_sm <- pwr::pwr.f2.test(u = 2, v = n_physio - 3 - 1, f2 = 0.05/0.95, sig.level = 0.05)
+  cat(sprintf("Power analysis (n=%d physio corals):\n  Medium effect (R²=0.10): %.0f%%\n  Small effect (R²=0.05): %.0f%%\n\n",
+              n_physio, power_med$power * 100, power_sm$power * 100))
+}
+
+# ============================================================================
 # 2. INITIALIZE RESULTS TRACKING
 # ============================================================================
 
@@ -229,7 +348,12 @@ cat("============================================================\n\n")
 # (Shapiro-Wilk, Breusch-Pagan) are checked downstream; HC3 robust SEs used
 # when heteroscedasticity is detected.
 # Note: 3 sites is insufficient for random intercepts (Bolker et al. 2009 recommends >=5-6)
-run_condition_model <- function(data, predictor_name, predictor_col) {
+run_condition_model <- function(data, predictor_name, predictor_col, transform = "none") {
+  # Apply sqrt transform to count predictors (mirrors experimental companion paper)
+  if (transform == "sqrt") {
+    data[[predictor_col]] <- sqrt(data[[predictor_col]])
+  }
+
   # Build formula with fixed-effect site (3 levels insufficient for RE)
   formula_str <- paste("condition_score ~", predictor_col, "+ log_volume + site")
 
@@ -318,13 +442,13 @@ run_condition_model <- function(data, predictor_name, predictor_col) {
 # Test each CAFI metric as predictor of condition
 # PC1_CAFI is the primary metric following Stier et al. (2024) methodology
 cafi_predictors <- list(
-  c("PC1_CAFI (community)", "pc1_cafi"),  # Primary predictor - composite community score
-  c("Total CAFI", "total_cafi"),
-  c("Trapezia abundance", "n_trapezia"),
-  c("Resident Fish abundance", "n_resident_fish"),
-  c("Galeropsis abundance", "n_galeropsis"),
-  c("Species richness", "otu_richness"),
-  c("Shannon diversity", "shannon")
+  c("PC1_CAFI (community)", "pc1_cafi", "none"),
+  c("Total CAFI", "total_cafi", "sqrt"),
+  c("Trapezia abundance", "n_trapezia", "sqrt"),
+  c("Resident Fish abundance", "n_resident_fish", "sqrt"),
+  c("Galeropsis abundance", "n_galeropsis", "sqrt"),
+  c("Species richness", "otu_richness", "none"),
+  c("Shannon diversity", "shannon", "none")
 )
 
 cafi_to_condition_results <- list()
@@ -335,7 +459,7 @@ cat("Model: Condition ~ CAFI_metric + log(Volume) + Site (fixed effect)\n\n")
 
 for (pred in cafi_predictors) {
   cat("   Testing:", pred[1], "...\n")
-  result <- run_condition_model(analysis_data, pred[1], pred[2])
+  result <- run_condition_model(analysis_data, pred[1], pred[2], transform = pred[3])
 
   if (!is.null(result)) {
     cafi_to_condition_results[[pred[1]]] <- result$result
@@ -358,6 +482,9 @@ for (pred in cafi_predictors) {
 cafi_to_condition_df <- bind_rows(cafi_to_condition_results)
 
 # Apply FDR correction for multiple testing (7 CAFI metrics tested)
+# NOTE: Family-wise FDR is conservative (corrects within predictor family).
+# Global FDR (all tests pooled) is also computed below as sensitivity check.
+# Results reported as "nominal" must explicitly note global FDR threshold.
 # NOTE: FDR is applied within predictor families (CAFI→Condition, Condition→CAFI,
 # Key Species) rather than across all 20 tests. This assumes the three directions
 # represent distinct hypotheses. A more conservative approach would pool all tests.
@@ -369,6 +496,7 @@ cafi_to_condition_df <- cafi_to_condition_df %>%
   )
 
 cat("\nFDR-corrected significance (Benjamini-Hochberg, within CAFI→Condition family):\n")
+cat("(See Part I below for global FDR correction across all test families.)\n")
 for (i in 1:nrow(cafi_to_condition_df)) {
   row <- cafi_to_condition_df[i, ]
   fdr_star <- ifelse(row$significant_fdr, " *FDR-SIG*", "")
@@ -473,6 +601,7 @@ cat(sprintf("  Rarefying to n=%d individuals (keeps %d of %d corals)\n",
     rarefy_depth, n_kept, length(has_enough)))
 
 comm_sub <- comm_matrix[has_enough, ]
+set.seed(42)  # Reproducibility for rarefied richness
 rare_rich <- rarefy(comm_sub, sample = rarefy_depth)
 
 # Match to analysis data
@@ -598,13 +727,13 @@ richness_comparison_df <- tibble(
     cor_raw_abund, cor_rare_abund)
 ) %>%
   mutate(
-    ci_lower = estimate - 1.96 * se,
-    ci_upper = estimate + 1.96 * se,
+    ci_lower = estimate - qt(0.975, n - 4) * se,
+    ci_upper = estimate + qt(0.975, n - 4) * se,
     significant = p_value < 0.05,
     type = factor(type, levels = type)
   )
 
-# Save for use in fig5
+# Save for use in fig4
 save_object(richness_comparison_df, "richness_comparison_results")
 save_object(analysis_data_rare, "analysis_data_rarefied")
 
@@ -614,6 +743,10 @@ cat("Saved: analysis_data_rarefied.rds\n\n")
 # --- Rarefied richness sensitivity across multiple depths ---
 cat("Rarefied richness sensitivity for condition model:\n")
 cat("(Testing robustness to rarefaction depth choice)\n")
+depth_sensitivity <- data.frame(
+  depth = integer(), p_value = numeric(), beta = numeric(), n_corals = integer(),
+  stringsAsFactors = FALSE
+)
 for (depth in c(10, 15, 20, 25, 30)) {
   # Filter corals with sufficient individuals
   eligible <- rowSums(comm_matrix) >= depth
@@ -627,6 +760,7 @@ for (depth in c(10, 15, 20, 25, 30)) {
   }
 
   comm_eligible <- comm_matrix[eligible_ids, , drop = FALSE]
+  set.seed(42)  # Reproducibility for rarefaction sensitivity
   rare_rich_sens <- rarefy(comm_eligible, sample = depth)
   eligible_data$rarefied_richness_sens <- rare_rich_sens[eligible_data$coral_id]
 
@@ -637,8 +771,151 @@ for (depth in c(10, 15, 20, 25, 30)) {
   rare_beta_sens <- rare_summary_sens$coefficients["rarefied_richness_sens", "Estimate"]
   cat(sprintf("  n = %d: beta = %.3f, p = %.3f (n_corals = %d)\n",
               depth, rare_beta_sens, rare_p_sens, nrow(eligible_data)))
+  depth_sensitivity <- bind_rows(depth_sensitivity, data.frame(
+    depth = depth, p_value = rare_p_sens, beta = rare_beta_sens,
+    n_corals = nrow(eligible_data), stringsAsFactors = FALSE
+  ))
 }
 cat("\n")
+
+# --- Create Figure S10: Rarefaction Depth Sensitivity ---
+if (nrow(depth_sensitivity) >= 2) {
+  p_depth_sensitivity <- ggplot(depth_sensitivity, aes(x = depth, y = p_value)) +
+    geom_line(linewidth = 1) +
+    geom_point(size = 3) +
+    geom_hline(yintercept = 0.05, linetype = "dashed", color = "#D55E00") +
+    annotate("text", x = max(depth_sensitivity$depth), y = 0.05,
+             label = expression(alpha == 0.05), hjust = 1, vjust = -0.5,
+             color = "#D55E00", size = 3.5) +
+    labs(x = "Rarefaction depth (individuals)", y = "p-value",
+         title = "Figure S10: Rarefaction Depth Sensitivity",
+         subtitle = "Richness -> condition relationship across rarefaction depths") +
+    theme_publication()
+
+  dir.create(file.path(PATHS$figures, "supplement"), showWarnings = FALSE, recursive = TRUE)
+  save_figure(p_depth_sensitivity,
+             file.path(PATHS$figures, "supplement", "figS10_rarefaction_sensitivity.png"),
+             width = 6.7, height = 4.7)
+  cat("   Saved: figS10_rarefaction_sensitivity.png\n\n")
+} else {
+  cat("   Skipped figS10: insufficient rarefaction depths computed\n\n")
+}
+
+# ============================================================================
+# PART A3: COMMUNITY TRANSFORMATION SENSITIVITY
+# ============================================================================
+# Tests whether PC1_CAFI -> condition result is robust to community matrix
+# transformation choices. Mirrors companion experimental paper (Stier et al.)
+# which tested SQRT, SQRT+center+scale, and Hellinger transformations.
+# ============================================================================
+
+cat("============================================================\n")
+cat("PART A3: COMMUNITY TRANSFORMATION SENSITIVITY\n")
+cat("============================================================\n\n")
+
+cat("Testing PC1_CAFI -> condition under different community transforms...\n")
+cat("Mirrors experimental companion paper (Stier et al. script 8).\n\n")
+
+# Use comm_matrix already loaded in Part A2 above
+# Define transformation configurations
+transform_configs <- list(
+  list(name = "Hellinger (default)",
+       mat = vegan::decostand(comm_matrix, method = "hellinger"),
+       center = TRUE, scale = FALSE),
+  list(name = "Sqrt + center + scale",
+       mat = sqrt(comm_matrix),
+       center = TRUE, scale = TRUE),
+  list(name = "Sqrt + center",
+       mat = sqrt(comm_matrix),
+       center = TRUE, scale = FALSE)
+)
+
+# Also test with filtered species (Change 4: mirroring experimental filtering)
+species_prev <- colSums(comm_matrix > 0)
+species_abund <- colSums(comm_matrix)
+keep_spp <- names(which(species_prev >= 10 & species_abund >= 10))
+comm_filtered <- comm_matrix[, keep_spp, drop = FALSE]
+cat(sprintf("  Species filter (>=10 presences AND >=10 individuals): %d of %d OTUs retained\n\n",
+    length(keep_spp), ncol(comm_matrix)))
+
+transform_configs[[4]] <- list(
+  name = "Hellinger (filtered)",
+  mat = vegan::decostand(comm_filtered, method = "hellinger"),
+  center = TRUE, scale = FALSE
+)
+
+# Run PCA for each transformation and test against condition
+transform_results <- list()
+
+for (tc in transform_configs) {
+  # PCA
+  pca_result <- prcomp(tc$mat, center = tc$center, scale. = tc$scale)
+  pc1_raw <- pca_result$x[, 1]
+
+  # Align sign: flip if negatively correlated with total abundance
+  total_abund <- rowSums(if (ncol(tc$mat) == ncol(comm_matrix)) comm_matrix else comm_filtered)
+  if (cor(pc1_raw, total_abund) < 0) {
+    pc1_raw <- -pc1_raw
+  }
+
+  # Z-score
+  pc1_z <- scale(pc1_raw)[, 1]
+  pct_var <- round(100 * summary(pca_result)$importance[2, 1], 1)
+
+  # Build temporary dataset for model testing
+  pc1_df <- tibble(coral_id = rownames(tc$mat), pc1_transform = pc1_z)
+  temp_data <- analysis_data %>%
+    left_join(pc1_df, by = "coral_id") %>%
+    filter(!is.na(pc1_transform))
+
+  # Test condition ~ PC1_transform + log_volume + site
+  tryCatch({
+    mod <- lm(condition_score ~ pc1_transform + log_volume + site, data = temp_data)
+    coef_tab <- summary(mod)$coefficients
+    est <- coef_tab["pc1_transform", "Estimate"]
+    se <- coef_tab["pc1_transform", "Std. Error"]
+    p_val <- coef_tab["pc1_transform", "Pr(>|t|)"]
+
+    # HC3 robust p-value
+    robust_se <- sqrt(diag(sandwich::vcovHC(mod, type = "HC3")))["pc1_transform"]
+    robust_t <- est / robust_se
+    robust_p <- 2 * pt(abs(robust_t), df = mod$df.residual, lower.tail = FALSE)
+
+    transform_results[[tc$name]] <- tibble(
+      transform = tc$name,
+      n_species = ncol(tc$mat),
+      pct_var_PC1 = pct_var,
+      estimate = round(est, 4),
+      se = round(se, 4),
+      p_value = round(p_val, 4),
+      se_robust = round(robust_se, 4),
+      p_robust = round(robust_p, 4),
+      n = nrow(temp_data)
+    )
+
+    cat(sprintf("  %-30s n_spp=%3d  PC1_var=%5.1f%%  beta=%7.4f  p=%6.4f  p_HC3=%6.4f  (n=%d)\n",
+        tc$name, ncol(tc$mat), pct_var, est, p_val, robust_p, nrow(temp_data)))
+  }, error = function(e) {
+    cat(sprintf("  %-30s ERROR: %s\n", tc$name, e$message))
+  })
+}
+
+# Combine and save
+transform_sensitivity_df <- bind_rows(transform_results)
+
+if (nrow(transform_sensitivity_df) > 0) {
+  save_table(transform_sensitivity_df, "community_transform_sensitivity")
+  cat(sprintf("\n  Saved: community_transform_sensitivity.csv (%d transforms tested)\n",
+      nrow(transform_sensitivity_df)))
+
+  # Summary
+  all_ns <- all(transform_sensitivity_df$p_robust > 0.05)
+  cat(sprintf("  Conclusion: %s\n\n",
+      if (all_ns) "PC1_CAFI -> condition is non-significant across ALL transformations (robust null)"
+      else "Some transformations show significance -- check details"))
+} else {
+  cat("  WARNING: No transformation results computed\n\n")
+}
 
 # ============================================================================
 # PART B: CONDITION -> CAFI EFFECTS (REVERSE DIRECTION)
@@ -756,6 +1033,9 @@ for (resp in cafi_responses) {
 condition_to_cafi_df <- bind_rows(condition_to_cafi_results)
 
 # Apply FDR correction for multiple testing (7 reverse tests)
+# NOTE: Family-wise FDR is conservative (corrects within predictor family).
+# Global FDR (all tests pooled) is also computed below as sensitivity check.
+# Results reported as "nominal" must explicitly note global FDR threshold.
 # (Same family-wise approach as CAFI→Condition; see note above)
 # Note: reverse models (NB GLMs) don't compute HC3 robust SEs, so use OLS p-values
 condition_to_cafi_df <- condition_to_cafi_df %>%
@@ -766,6 +1046,7 @@ condition_to_cafi_df <- condition_to_cafi_df %>%
   )
 
 cat("\nFDR-corrected significance (Benjamini-Hochberg, within Condition→CAFI family):\n")
+cat("(See Part I below for global FDR correction across all test families.)\n")
 for (i in 1:nrow(condition_to_cafi_df)) {
   row <- condition_to_cafi_df[i, ]
   fdr_star <- ifelse(row$significant_fdr, " *FDR-SIG*", "")
@@ -1009,42 +1290,56 @@ key_species_counts <- cafi_clean %>%
     n_caracanthus = sum(grepl("Caracanthus", otu, ignore.case = TRUE), na.rm = TRUE),
     n_alpheus_lottini = sum(otu == "Alpheus lottini", na.rm = TRUE),
     n_alpheus_all = sum(grepl("^Alpheus", otu), na.rm = TRUE),  # All Alpheus species
+    n_harpiliopsis = sum(otu == "Harpiliopsis spinigera", na.rm = TRUE),
+    n_periclimenes = sum(otu == "Periclimenes watamuae", na.rm = TRUE),
+    n_calcinus = sum(otu == "Calcinus latens", na.rm = TRUE),
 
     # NEGATIVE effect species (from experiment)
     n_cymo = sum(grepl("Cymo", otu, ignore.case = TRUE), na.rm = TRUE),
     n_luniella = sum(grepl("Luniella", otu, ignore.case = TRUE), na.rm = TRUE),
     n_xanthid_harmful = sum(grepl("Cymo|Luniella", otu, ignore.case = TRUE), na.rm = TRUE),
+    n_alpheus_diadema = sum(otu == "Alpheus diadema", na.rm = TRUE),
 
     .groups = "drop"
   )
 
-# Merge with analysis data
-analysis_data <- analysis_data %>%
+# Merge with analysis data (use separate object to avoid mutating primary dataframe)
+analysis_data_species <- analysis_data %>%
   left_join(key_species_counts, by = "coral_id")
 
 # Replace NA with 0 for species counts
 key_species_cols <- c("n_caracanthus", "n_alpheus_lottini", "n_alpheus_all",
-                      "n_cymo", "n_luniella", "n_xanthid_harmful")
+                      "n_harpiliopsis", "n_periclimenes", "n_calcinus",
+                      "n_cymo", "n_luniella", "n_xanthid_harmful",
+                      "n_alpheus_diadema")
 for (col in key_species_cols) {
-  analysis_data[[col]] <- ifelse(is.na(analysis_data[[col]]), 0, analysis_data[[col]])
+  analysis_data_species[[col]] <- ifelse(is.na(analysis_data_species[[col]]), 0, analysis_data_species[[col]])
 }
 
 # Summary of key species presence
-cat("   Key Species Presence in Condition Dataset (n =", nrow(analysis_data), "corals):\n")
+cat("   Key Species Presence in Condition Dataset (n =", nrow(analysis_data_species), "corals):\n")
 cat("   POSITIVE effect species (predicted from experiment):\n")
-cat("      Caracanthus maculatus:", sum(analysis_data$n_caracanthus > 0), "corals,",
-    sum(analysis_data$n_caracanthus), "individuals\n")
-cat("      Alpheus lottini:", sum(analysis_data$n_alpheus_lottini > 0), "corals,",
-    sum(analysis_data$n_alpheus_lottini), "individuals\n")
-cat("      All Alpheus spp.:", sum(analysis_data$n_alpheus_all > 0), "corals,",
-    sum(analysis_data$n_alpheus_all), "individuals\n")
+cat("      Caracanthus maculatus:", sum(analysis_data_species$n_caracanthus > 0), "corals,",
+    sum(analysis_data_species$n_caracanthus), "individuals\n")
+cat("      Alpheus lottini:", sum(analysis_data_species$n_alpheus_lottini > 0), "corals,",
+    sum(analysis_data_species$n_alpheus_lottini), "individuals\n")
+cat("      All Alpheus spp.:", sum(analysis_data_species$n_alpheus_all > 0), "corals,",
+    sum(analysis_data_species$n_alpheus_all), "individuals\n")
+cat("      Harpiliopsis spinigera:", sum(analysis_data_species$n_harpiliopsis > 0), "corals,",
+    sum(analysis_data_species$n_harpiliopsis), "individuals\n")
+cat("      Periclimenes watamuae:", sum(analysis_data_species$n_periclimenes > 0), "corals,",
+    sum(analysis_data_species$n_periclimenes), "individuals\n")
+cat("      Calcinus latens:", sum(analysis_data_species$n_calcinus > 0), "corals,",
+    sum(analysis_data_species$n_calcinus), "individuals\n")
 cat("   NEGATIVE effect species (predicted from experiment):\n")
-cat("      Cymo quadrilobatus:", sum(analysis_data$n_cymo > 0), "corals,",
-    sum(analysis_data$n_cymo), "individuals\n")
-cat("      Luniella pugil:", sum(analysis_data$n_luniella > 0), "corals,",
-    sum(analysis_data$n_luniella), "individuals\n")
-cat("      Combined xanthids:", sum(analysis_data$n_xanthid_harmful > 0), "corals,",
-    sum(analysis_data$n_xanthid_harmful), "individuals\n\n")
+cat("      Cymo quadrilobatus:", sum(analysis_data_species$n_cymo > 0), "corals,",
+    sum(analysis_data_species$n_cymo), "individuals\n")
+cat("      Luniella pugil:", sum(analysis_data_species$n_luniella > 0), "corals,",
+    sum(analysis_data_species$n_luniella), "individuals\n")
+cat("      Combined xanthids:", sum(analysis_data_species$n_xanthid_harmful > 0), "corals,",
+    sum(analysis_data_species$n_xanthid_harmful), "individuals\n")
+cat("      Alpheus diadema:", sum(analysis_data_species$n_alpheus_diadema > 0), "corals,",
+    sum(analysis_data_species$n_alpheus_diadema), "individuals\n\n")
 
 # F.2 Run models for each key species
 cat("F.2 Testing Key Species Effects on Coral Condition...\n")
@@ -1058,22 +1353,30 @@ key_species_predictors <- list(
        note = "Snapping shrimp - experimental positive effect"),
   list(name = "All Alpheus spp.", col = "n_alpheus_all", expected = "positive",
        note = "All snapping shrimp species"),
+  list(name = "Harpiliopsis spinigera", col = "n_harpiliopsis", expected = "positive",
+       note = "Shrimp - experimental positive trend (beta=0.456)"),
+  list(name = "Periclimenes watamuae", col = "n_periclimenes", expected = "positive",
+       note = "Shrimp - experimental positive trend (beta=0.213)"),
+  list(name = "Calcinus latens", col = "n_calcinus", expected = "positive",
+       note = "Hermit crab - experimental positive trend (beta=0.454)"),
   list(name = "Cymo quadrilobatus", col = "n_cymo", expected = "negative",
        note = "Xanthid crab - experimental negative effect"),
   list(name = "Luniella pugil", col = "n_luniella", expected = "negative",
        note = "Xanthid crab - experimental negative effect"),
   list(name = "Harmful xanthids (combined)", col = "n_xanthid_harmful", expected = "negative",
-       note = "Cymo + Luniella combined")
+       note = "Cymo + Luniella combined"),
+  list(name = "Alpheus diadema", col = "n_alpheus_diadema", expected = "negative",
+       note = "Snapping shrimp - experimental negative effect (beta=-0.995)")
 )
 
 key_species_results <- list()
 
 for (sp in key_species_predictors) {
   # Check if there's enough variation to fit model
-  n_present <- sum(analysis_data[[sp$col]] > 0)
+  n_present <- sum(analysis_data_species[[sp$col]] > 0)
 
   if (n_present >= 5) {  # Need at least 5 corals with species present
-    result <- run_condition_model(analysis_data, sp$name, sp$col)
+    result <- run_condition_model(analysis_data_species, sp$name, sp$col, transform = "sqrt")
 
     if (!is.null(result)) {
       # Add expected direction and match status
@@ -1109,21 +1412,21 @@ for (sp in key_species_predictors) {
 # Combine key species results
 key_species_df <- bind_rows(key_species_results)
 
-# Apply FDR correction across key species tests (6 tests)
+# Apply FDR correction across key species tests (up to 10 tests)
 if (nrow(key_species_df) > 0) {
   key_species_df <- key_species_df %>%
     mutate(
-      p_fdr = p.adjust(p_value_robust, method = "BH"),
-      significant_fdr = p_fdr < 0.05,
+      p_adj = p.adjust(p_value_robust, method = "hochberg"),
+      significant_adj = p_adj < 0.05,
       significant = p_value_robust < 0.05
     )
 
-  cat("\nFDR-corrected key species p-values (Benjamini-Hochberg):\n")
+  cat("\nHochberg-corrected key species p-values (Hochberg (FWER)):\n")
   for (i in 1:nrow(key_species_df)) {
     row <- key_species_df[i, ]
-    fdr_star <- ifelse(row$significant_fdr, " *FDR-SIG*", "")
-    cat(sprintf("   %-28s p = %.4f, p_FDR = %.4f%s\n",
-                row$predictor, row$p_value, row$p_fdr, fdr_star))
+    adj_star <- ifelse(row$significant_adj, " *ADJ-SIG*", "")
+    cat(sprintf("   %-28s p = %.4f, p_adj = %.4f%s\n",
+                row$predictor, row$p_value, row$p_adj, adj_star))
   }
   cat("\n")
 }
@@ -1168,7 +1471,7 @@ for (i in 1:nrow(key_species_df)) {
 }
 
 # F.5 Create key species effects visualization
-cat("F.4 Creating Key Species Effects Figure...\n")
+cat("F.5 Creating Key Species Effects Figure...\n")
 
 if (nrow(key_species_df) > 0) {
   # Prepare data for forest plot
@@ -1194,9 +1497,9 @@ if (nrow(key_species_df) > 0) {
 
   p_key_species_forest <- ggplot(key_species_plot_data,
                                   aes(x = species_label, y = estimate)) +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.8) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
     geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper, fill = color_var),
-                    color = "black", shape = 21, size = 1.2, linewidth = 1) +
+                    color = "black", shape = 21, size = 1.2, stroke = 0.4, linewidth = 1) +
     geom_text(aes(label = sprintf("p = %.3f\n(n = %d)", p_value, n_present)),
               hjust = -0.2, size = 2.8, lineheight = 0.9) +
     scale_fill_manual(values = hypothesis_colors, name = "Hypothesis Test") +
@@ -1207,7 +1510,7 @@ if (nrow(key_species_df) > 0) {
       subtitle = "Testing experimental predictions from Stier et al. in survey data",
       x = "",
       y = "Effect on condition score (regression coefficient)",
-      caption = paste0("n = ", nrow(analysis_data), " corals | Vertical line at 0 = no effect\n",
+      caption = paste0("n = ", nrow(analysis_data_species), " corals | Vertical line at 0 = no effect\n",
                        "Blue = matches experimental prediction | Orange = contradicts")
     ) +
     theme_publication() +
@@ -1218,12 +1521,13 @@ if (nrow(key_species_df) > 0) {
     ) +
     scale_x_discrete(expand = expansion(mult = c(0.1, 0.4)))  # Extra space for labels
 
-  ggsave(file.path(fig_dir, "key_species_effects.png"),
-         p_key_species_forest, width = 10, height = 8, dpi = 300, bg = "white")
+  save_figure(p_key_species_forest,
+             file.path(fig_dir, "key_species_effects.png"),
+             width = 10, height = 10)
   cat("   Saved: key_species_effects.png\n\n")
 
   # F.6 Combined comparison: Functional Groups vs Key Species
-  cat("F.5 Creating Combined Effects Comparison Figure...\n")
+  cat("F.6 Creating Combined Effects Comparison Figure...\n")
 
   # Prepare functional group data with same structure
   func_for_comparison <- functional_effects %>%
@@ -1270,9 +1574,9 @@ if (nrow(key_species_df) > 0) {
 
   p_combined <- ggplot(combined_comparison,
                         aes(x = reorder(predictor, estimate), y = estimate)) +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
     geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper, fill = color_var),
-                    color = "black", shape = 21, size = 1, linewidth = 0.8) +
+                    color = "black", shape = 21, size = 1, stroke = 0.4, linewidth = 0.8) +
     geom_text(aes(label = sprintf("p = %.3f", p_value)),
               hjust = -0.1, size = 2.8) +
     scale_fill_manual(values = combined_colors, name = "Hypothesis\nTest") +
@@ -1290,21 +1594,23 @@ if (nrow(key_species_df) > 0) {
           strip.text = element_text(face = "bold")) +
     scale_x_discrete(expand = expansion(mult = c(0.05, 0.25)))
 
-  ggsave(file.path(fig_dir, "functional_vs_key_species.png"),
-         p_combined, width = 11, height = 9, dpi = 300, bg = "white")
+  save_figure(p_combined,
+             file.path(fig_dir, "functional_vs_key_species.png"),
+             width = 11, height = 9)
   cat("   Saved: functional_vs_key_species.png\n\n")
 }
 
 # F.7 Save key species results table
 save_table(key_species_df %>%
              mutate(across(where(is.numeric), ~round(., 4))) %>%
-             dplyr::select(predictor, estimate, se, t_value, p_value, ci_lower, ci_upper,
+             dplyr::select(predictor, estimate, se, t_value, p_value, p_value_robust, p_adj,
+                    ci_lower, ci_upper,
                     expected_sign, observed_sign, matches_experiment, n_present, note),
            "key_species_effects")
 cat("   Saved: key_species_effects.csv\n\n")
 
 # F.8 Interpretation
-cat("F.6 Key Species Analysis Interpretation:\n")
+cat("F.8 Key Species Analysis Interpretation:\n")
 cat("    =====================================================================\n")
 
 n_match <- sum(key_species_df$matches_experiment)
@@ -1343,6 +1649,311 @@ if (n_sig > n_sig_match) {
 cat("    =====================================================================\n\n")
 
 # ############################################################################
+# PART F2: SPECIES x INDIVIDUAL TRAIT CORRELATIONS (Cross-study comparison)
+# ############################################################################
+# Analogous to Table S3 in the experimental paper (Stier et al.):
+# Pearson correlations between each top CAFI species' abundance and
+# individual coral condition metrics (protein, carbohydrate, AFDW,
+# zooxanthellae density). This reveals whether the composite PC1_Coral
+# masks species-specific effects on individual traits.
+# ############################################################################
+
+cat("============================================================\n")
+cat("PART F2: SPECIES x INDIVIDUAL TRAIT CORRELATIONS\n")
+cat("============================================================\n\n")
+
+cat("Computing Pearson correlations between top CAFI species abundances\n")
+cat("and individual coral condition metrics (cf. experimental Table S3).\n\n")
+
+# Get the top 20 most abundant species in the condition dataset
+top_species_for_corr <- cafi_clean %>%
+  filter(coral_id %in% analysis_data$coral_id) %>%
+  group_by(otu) %>%
+  summarise(
+    total_abundance = n(),
+    n_corals = n_distinct(coral_id),
+    .groups = "drop"
+  ) %>%
+  filter(n_corals >= 5) %>%  # present on at least 5 corals
+
+  arrange(desc(total_abundance)) %>%
+  slice_head(n = 20)
+
+cat("   Top", nrow(top_species_for_corr), "species (present on >= 5 corals):\n")
+
+# Build per-coral abundance matrix for these species
+species_abundance_wide <- cafi_clean %>%
+  filter(coral_id %in% analysis_data$coral_id,
+         otu %in% top_species_for_corr$otu) %>%
+  group_by(coral_id, otu) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  pivot_wider(names_from = otu, values_from = n, values_fill = 0)
+
+# Merge with condition data
+trait_corr_data <- analysis_data %>%
+  dplyr::select(coral_id, condition_score,
+                any_of(c("protein_corr", "carb_corr", "zoox_corr", "afdw_corr"))) %>%
+  left_join(species_abundance_wide, by = "coral_id")
+
+# Replace NA species counts with 0
+species_names <- top_species_for_corr$otu
+for (sp in species_names) {
+  if (sp %in% names(trait_corr_data)) {
+    trait_corr_data[[sp]] <- ifelse(is.na(trait_corr_data[[sp]]), 0, trait_corr_data[[sp]])
+  }
+}
+
+# Compute correlations
+trait_cols <- c("condition_score", "protein_corr", "carb_corr", "zoox_corr", "afdw_corr")
+trait_labels <- c("PC1_Coral", "Protein", "Carbohydrate", "Zooxanthellae", "AFDW")
+available_traits <- trait_cols[trait_cols %in% names(trait_corr_data)]
+available_labels <- trait_labels[trait_cols %in% names(trait_corr_data)]
+
+species_trait_corr <- data.frame()
+
+for (sp in species_names) {
+  if (!sp %in% names(trait_corr_data)) next
+
+  # Assign taxonomic group based on cafi_clean type column
+  sp_type <- cafi_clean %>%
+    filter(otu == sp) %>%
+    pull(type) %>%
+    unique() %>%
+    .[1]
+  taxon_group <- case_when(
+    sp_type == "fish" ~ "Fishes",
+    sp_type %in% c("crab", "shrimp") ~ "Shrimps/Crabs",
+    sp_type == "snail" ~ "Snails",
+    TRUE ~ "Other"
+  )
+
+  row <- data.frame(species = sp, taxon_group = taxon_group, stringsAsFactors = FALSE)
+
+  for (j in seq_along(available_traits)) {
+    trait <- available_traits[j]
+    label <- available_labels[j]
+    complete_cases <- complete.cases(trait_corr_data[[sp]], trait_corr_data[[trait]])
+    if (sum(complete_cases) >= 10) {
+      ct <- cor.test(trait_corr_data[[sp]][complete_cases],
+                     trait_corr_data[[trait]][complete_cases],
+                     method = "pearson")
+      row[[paste0("r_", label)]] <- round(ct$estimate, 2)
+    } else {
+      row[[paste0("r_", label)]] <- NA
+    }
+  }
+
+  species_trait_corr <- bind_rows(species_trait_corr, row)
+}
+
+# Order by taxon group then by PC1_Coral correlation within group
+if (nrow(species_trait_corr) > 0 && "r_PC1_Coral" %in% names(species_trait_corr)) {
+  species_trait_corr <- species_trait_corr %>%
+    arrange(taxon_group, desc(r_PC1_Coral))
+}
+
+# Save table
+save_table(species_trait_corr, "species_trait_correlations")
+cat("   Saved: species_trait_correlations.csv\n")
+cat("   Species included:", nrow(species_trait_corr), "\n")
+cat("   Traits tested:", paste(available_labels, collapse = ", "), "\n\n")
+
+# Print summary
+cat("   Species with |r| > 0.2 for PC1_Coral:\n")
+if ("r_PC1_Coral" %in% names(species_trait_corr)) {
+  strong <- species_trait_corr %>% filter(abs(r_PC1_Coral) > 0.2)
+  if (nrow(strong) > 0) {
+    for (i in 1:nrow(strong)) {
+      cat("      ", strong$species[i], "(", strong$taxon_group[i], "): r =",
+          strong$r_PC1_Coral[i], "\n")
+    }
+  } else {
+    cat("      None\n")
+  }
+}
+cat("\n")
+
+# ############################################################################
+# PART F3: INDIVIDUAL PHYSIOLOGY RESPONSES TO CAFI PREDICTORS
+# ############################################################################
+# Tests whether individual condition metrics respond to CAFI predictors
+# (total abundance, richness, PC1_CAFI). Analogous to experimental Table S1
+# but testing CAFI predictors instead of treatment effects.
+# ############################################################################
+
+cat("============================================================\n")
+cat("PART F3: INDIVIDUAL PHYSIOLOGY RESPONSES TO CAFI PREDICTORS\n")
+cat("============================================================\n\n")
+
+cat("Testing individual physiology metrics against CAFI predictors.\n")
+cat("This demonstrates whether the PC1_Coral null result holds at\n")
+cat("the individual trait level.\n\n")
+
+physio_traits <- c("protein_corr", "carb_corr", "zoox_corr", "afdw_corr")
+physio_names <- c("Protein", "Carbohydrate", "Zooxanthellae", "AFDW")
+physio_cafi_predictors <- c("total_cafi", "otu_richness", "pc1_cafi")
+cafi_pred_names <- c("Total CAFI", "Species Richness", "PC1_CAFI")
+
+individual_physio_results <- data.frame()
+
+for (i in seq_along(physio_traits)) {
+  trait <- physio_traits[i]
+  trait_name <- physio_names[i]
+
+  if (!trait %in% names(analysis_data)) {
+    cat("   ", trait_name, ": variable not available\n")
+    next
+  }
+
+  for (j in seq_along(physio_cafi_predictors)) {
+    pred <- physio_cafi_predictors[j]
+    pred_name <- cafi_pred_names[j]
+
+    if (!pred %in% names(analysis_data)) next
+
+    data_complete <- analysis_data %>%
+      filter(!is.na(.data[[trait]]), !is.na(.data[[pred]]))
+
+    if (nrow(data_complete) < 20) next
+
+    formula_str <- paste(trait, "~", pred, "+ log_volume + site")
+    m <- tryCatch(lm(as.formula(formula_str), data = data_complete), error = function(e) NULL)
+
+    if (is.null(m)) next
+
+    coefs <- summary(m)$coefficients
+    if (!pred %in% rownames(coefs)) next
+
+    # Use robust SEs if sandwich is available
+    robust_se <- tryCatch({
+      vcov_hc <- sandwich::vcovHC(m, type = "HC3")
+      ct <- lmtest::coeftest(m, vcov. = vcov_hc)
+      list(se = ct[pred, "Std. Error"], p = ct[pred, "Pr(>|t|)"])
+    }, error = function(e) {
+      list(se = coefs[pred, "Std. Error"], p = coefs[pred, "Pr(>|t|)"])
+    })
+
+    individual_physio_results <- bind_rows(individual_physio_results, data.frame(
+      trait = trait_name,
+      predictor = pred_name,
+      estimate = round(coefs[pred, "Estimate"], 4),
+      se = round(robust_se$se, 4),
+      t_value = round(coefs[pred, "Estimate"] / robust_se$se, 2),
+      p_value = round(robust_se$p, 4),
+      n = nrow(data_complete),
+      stringsAsFactors = FALSE
+    ))
+  }
+}
+
+if (nrow(individual_physio_results) > 0) {
+  # FDR correction across all tests
+  individual_physio_results$p_fdr <- round(p.adjust(individual_physio_results$p_value, method = "BH"), 4)
+
+  save_table(individual_physio_results, "individual_physiology_cafi_responses")
+  cat("   Saved: individual_physiology_cafi_responses.csv\n")
+  cat("   Tests run:", nrow(individual_physio_results), "\n")
+  cat("   Significant (p < 0.05):", sum(individual_physio_results$p_value < 0.05), "\n")
+  cat("   Significant after FDR:", sum(individual_physio_results$p_fdr < 0.05), "\n\n")
+
+  # Print summary table
+  cat("   Individual Physiology ~ CAFI Predictor Results:\n")
+  cat("   ", sprintf("%-15s %-18s %8s %8s %8s\n", "Trait", "Predictor", "beta", "p", "p_FDR"))
+  cat("   ", paste(rep("-", 60), collapse = ""), "\n")
+  for (k in 1:nrow(individual_physio_results)) {
+    r <- individual_physio_results[k, ]
+    sig <- ifelse(r$p_fdr < 0.05, " *", "")
+    cat("   ", sprintf("%-15s %-18s %8.4f %8.4f %8.4f%s\n",
+                        r$trait, r$predictor, r$estimate, r$p_value, r$p_fdr, sig))
+  }
+  cat("\n")
+} else {
+  cat("   No individual physiology models could be fit.\n\n")
+}
+
+# ############################################################################
+# PART F4: CROSS-STUDY SPECIES COMPARISON TABLE
+# ############################################################################
+# Creates a table comparing species-level results between this survey and
+# the companion experimental paper (Stier, Primo, Curtis, Osenberg) for
+# overlapping species. Experimental values hardcoded from Table S2.
+# ############################################################################
+
+cat("============================================================\n")
+cat("PART F4: CROSS-STUDY SPECIES COMPARISON TABLE\n")
+cat("============================================================\n\n")
+
+# Experimental paper results (from Table S2, Hochberg-corrected)
+expt_species <- tribble(
+  ~species,                  ~taxon_group,     ~expt_condition_beta, ~expt_condition_p, ~expt_condition_p_adj,
+  "Caracanthus maculatus",   "Fishes",          1.424,  0.001,  0.017,
+  "Dascyllus flavicaudus",   "Fishes",          0.321,  0.125,  0.963,
+  "Dascyllus aruanus",       "Fishes",          NA,     NA,     NA,     # Not in Table S2 individually
+  "Harpiliopsis spinigera",  "Shrimps/Crabs",   0.456,  0.146,  0.963,
+  "Periclimenes watamuae",   "Shrimps/Crabs",   0.213,  0.108,  0.963,
+  "Calcinus latens",         "Shrimps/Crabs",   0.454,  0.078,  0.963,
+  "Trapezia serenei",        "Shrimps/Crabs",  -0.022,  0.963,  0.963,
+  "Alpheus lottini",         "Shrimps/Crabs",   NA,     NA,     NA,     # Not in Table S2
+  "Alpheus diadema",         "Shrimps/Crabs",  -0.995,  0.042,  0.759,
+  "Luniella pugil",          "Shrimps/Crabs",  -0.917,  0.014,  0.257,
+  "Galeropsis monodonta",    "Snails",         -0.099,  0.712,  0.963
+)
+
+# Match with survey key species results
+cross_study <- expt_species
+
+if (exists("key_species_df") && nrow(key_species_df) > 0) {
+  # Map survey species names to experimental species names
+  survey_map <- c(
+    "Caracanthus maculatus" = "Caracanthus maculatus",
+    "Harpiliopsis spinigera" = "Harpiliopsis spinigera",
+    "Periclimenes watamuae" = "Periclimenes watamuae",
+    "Calcinus latens" = "Calcinus latens",
+    "Alpheus lottini" = "Alpheus lottini",
+    "Alpheus diadema" = "Alpheus diadema",
+    "Luniella pugil" = "Luniella pugil"
+  )
+
+  cross_study$survey_condition_beta <- NA_real_
+  cross_study$survey_condition_p <- NA_real_
+  cross_study$survey_condition_p_adj <- NA_real_
+  cross_study$survey_n_corals <- NA_integer_
+  cross_study$direction_match <- NA
+
+  for (i in 1:nrow(cross_study)) {
+    sp <- cross_study$species[i]
+    # Find matching survey result
+    survey_match <- key_species_df %>%
+      filter(predictor == sp)
+    if (nrow(survey_match) == 0) next
+
+    cross_study$survey_condition_beta[i] <- survey_match$estimate[1]
+    cross_study$survey_condition_p[i] <- survey_match$p_value_robust[1]
+    cross_study$survey_condition_p_adj[i] <- survey_match$p_adj[1]
+    cross_study$survey_n_corals[i] <- survey_match$n_present[1]
+
+    # Check if directions match
+    if (!is.na(cross_study$expt_condition_beta[i])) {
+      cross_study$direction_match[i] <- sign(cross_study$expt_condition_beta[i]) ==
+                                         sign(cross_study$survey_condition_beta[i])
+    }
+  }
+}
+
+# Save
+save_table(cross_study %>%
+             mutate(across(where(is.numeric), ~round(., 4))),
+           "cross_study_species_comparison")
+cat("   Saved: cross_study_species_comparison.csv\n")
+cat("   Species compared:", nrow(cross_study), "\n")
+if ("direction_match" %in% names(cross_study)) {
+  n_matched <- sum(cross_study$direction_match, na.rm = TRUE)
+  n_testable <- sum(!is.na(cross_study$direction_match))
+  cat("   Direction matches:", n_matched, "/", n_testable, "\n")
+}
+cat("\n")
+
+# ############################################################################
 # PART G: NEIGHBORHOOD EFFECTS (Analog to Experimental Treatment)
 # ############################################################################
 # The experimental paper (Stier et al.) manipulated coral number to test
@@ -1355,9 +1966,9 @@ cat("    =====================================================================\n
 #   - total_neighbor_volume: combined volume of all neighbors
 # ############################################################################
 
-cat("############################################################\n")
+cat("============================================================\n")
 cat("PART G: NEIGHBORHOOD EFFECTS (Analog to Experimental Treatment)\n")
-cat("############################################################\n\n")
+cat("============================================================\n\n")
 
 cat("Testing whether neighborhood density (analogous to experimental manipulation\n")
 cat("of coral number) affects CAFI abundance and coral condition.\n\n")
@@ -1528,26 +2139,24 @@ p_neighborhood_cafi <- ggplot(neighborhood_data,
     caption = "Point size = coral volume; Color = size tertile"
   ) +
   theme_publication() +
-  theme(legend.position = c(0.15, 0.85),
-        legend.background = element_rect(fill = "white", color = NA))
+  theme(legend.position = "bottom")
 
 # Panel B: Condition vs neighborhood density
 if (!is.null(m_condition_neighborhood)) {
   p_neighborhood_condition <- ggplot(neighborhood_condition,
                                       aes(x = n_neighbors, y = condition_score)) +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", alpha = 0.5) +
-    geom_point(aes(color = site), alpha = 0.7, size = 3) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
+    geom_point(aes(fill = site), shape = 21, color = "gray30", stroke = 0.4, alpha = 0.7, size = 3) +
     geom_smooth(method = "lm", color = "black", se = TRUE, linewidth = 1) +
-    scale_color_manual(values = SITE_COLORS, name = "Site") +
+    scale_fill_manual(values = SITE_COLORS, name = "Site") +
     labs(
       title = "B. Neighborhood Density → Coral Condition",
       subtitle = paste0("Position-corrected condition score (n = ", n_with_condition, ")"),
       x = "Number of neighboring Pocillopora (within 5m)",
-      y = "Coral condition (PC1_Coral)"
+      y = expression(Coral~condition~(PC1[Coral]))
     ) +
     theme_publication() +
-    theme(legend.position = c(0.85, 0.85),
-          legend.background = element_rect(fill = "white", color = NA))
+    theme(legend.position = "bottom")
 } else {
   p_neighborhood_condition <- ggplot() +
     annotate("text", x = 0.5, y = 0.5, label = "Insufficient data", size = 6) +
@@ -1590,7 +2199,7 @@ if (!is.null(m_full)) {
 
 p_effect_comparison <- ggplot(effect_comparison %>% filter(!is.na(estimate)),
                                aes(x = reorder(predictor, estimate), y = estimate, fill = type)) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.8) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
   geom_col(width = 0.7, alpha = 0.8) +
   geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.2, linewidth = 0.8) +
   scale_fill_manual(values = c("Size" = "#5E35B1", "Landscape" = "#00897B", "CAFI" = "#F57C00"),
@@ -1620,11 +2229,13 @@ fig_neighborhood <- (p_neighborhood_cafi | p_neighborhood_condition) /
   theme(plot.title = element_text(face = "bold", size = 14),
         plot.subtitle = element_text(size = 11))
 
-ggsave(file.path(fig_dir, "neighborhood_effects.png"),
-       fig_neighborhood, width = 12, height = 10, dpi = 300, bg = "white")
+save_figure(fig_neighborhood,
+           file.path(fig_dir, "neighborhood_effects.png"),
+           width = 12, height = 10)
 cat("   Saved: neighborhood_effects.png\n")
 
 # G.7 Save neighborhood results table
+cat("G.7 Saving neighborhood results table...\n")
 neighborhood_results <- tibble(
   model = c("CAFI ~ Volume × Neighbors",
             "CAFI ~ Volume × Neighbors",
@@ -1704,7 +2315,7 @@ save_table(neighborhood_results %>% mutate(across(where(is.numeric), ~round(., 4
 cat("   Saved: neighborhood_effects.csv\n\n")
 
 # G.8 Interpretation
-cat("G.7 Neighborhood Effects Interpretation:\n")
+cat("G.8 Neighborhood Effects Interpretation:\n")
 cat("    =====================================================================\n")
 cat("    Connection to experimental paper (Stier et al.):\n")
 cat("    - Experiment: Manipulated coral NUMBER to test landscape effects\n")
@@ -1750,9 +2361,9 @@ cat("    =====================================================================\n
 #   - depth_m: water depth
 # ############################################################################
 
-cat("############################################################\n")
+cat("============================================================\n")
 cat("PART H: LANDSCAPE-ONLY EFFECTS ON CORAL CONDITION\n")
-cat("############################################################\n\n")
+cat("============================================================\n\n")
 
 cat("Analyzing how landscape factors (size, neighborhood, depth, site)\n")
 cat("affect coral condition WITHOUT including CAFI predictors.\n")
@@ -1990,6 +2601,8 @@ for (i in 1:nrow(site_means)) {
 cat("\n")
 
 # H.6 Model comparison table
+# NOTE: M1 uses full sample (n~112); M2-M5 use neighborhood subset (n~61).
+# AIC values are only comparable within same-sample models (M2-M5).
 cat("H.6 MODEL COMPARISON (AIC)\n")
 cat("    --------------------------------------------------\n")
 
@@ -2158,10 +2771,10 @@ cat("H.8 Creating landscape effects visualization...\n")
 
 # Panel A: Condition vs Volume by site
 p_vol_condition <- ggplot(landscape_condition, aes(x = log_volume, y = condition_score)) +
-  geom_point(aes(color = site), alpha = 0.7, size = 2.5) +
+  geom_point(aes(fill = site), shape = 21, color = "gray30", stroke = 0.4, alpha = 0.7, size = 2.5) +
   geom_smooth(method = "lm", color = "black", se = TRUE, linewidth = 1) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", alpha = 0.5) +
-  scale_color_manual(values = SITE_COLORS, name = "Site") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
+  scale_fill_manual(values = SITE_COLORS, name = "Site") +
   labs(
     title = "A. Coral Size → Condition",
     subtitle = sprintf("β = %.3f, p = %.4f (n = %d)",
@@ -2169,7 +2782,7 @@ p_vol_condition <- ggplot(landscape_condition, aes(x = log_volume, y = condition
                        s_vol_site$coefficients["log_volume_scaled", "Pr(>|t|)"],
                        n_landscape),
     x = expression(ln(Volume~cm^3)),
-    y = "Coral condition (PC1)"
+    y = expression(Coral~condition~(PC1[Coral]))
   ) +
   theme_publication() +
   theme(legend.position = c(0.15, 0.85))
@@ -2178,10 +2791,10 @@ p_vol_condition <- ggplot(landscape_condition, aes(x = log_volume, y = condition
 if (!is.null(m_vol_neigh)) {
   p_neigh_condition <- ggplot(landscape_neighborhood,
                                aes(x = n_neighbors, y = condition_score)) +
-    geom_point(aes(color = site), alpha = 0.7, size = 2.5) +
+    geom_point(aes(fill = site), shape = 21, color = "gray30", stroke = 0.4, alpha = 0.7, size = 2.5) +
     geom_smooth(method = "lm", color = "black", se = TRUE, linewidth = 1) +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", alpha = 0.5) +
-    scale_color_manual(values = SITE_COLORS, name = "Site") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
+    scale_fill_manual(values = SITE_COLORS, name = "Site") +
     labs(
       title = "B. Neighborhood Density → Condition",
       subtitle = sprintf("β = %.3f, p = %.4f (n = %d)",
@@ -2189,7 +2802,7 @@ if (!is.null(m_vol_neigh)) {
                          s_vol_neigh$coefficients["n_neighbors_scaled", "Pr(>|t|)"],
                          n_neighborhood_cond),
       x = "Number of neighbors (within 5m)",
-      y = "Coral condition (PC1)"
+      y = expression(Coral~condition~(PC1[Coral]))
     ) +
     theme_publication() +
     theme(legend.position = "none")
@@ -2202,13 +2815,13 @@ if (!is.null(m_vol_neigh)) {
 p_site_condition <- ggplot(landscape_condition, aes(x = site, y = condition_score, fill = site)) +
   geom_boxplot(alpha = 0.7, outlier.alpha = 0.3) +
   geom_jitter(alpha = 0.3, width = 0.15, size = 1.5) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", alpha = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
   scale_fill_manual(values = SITE_COLORS) +
   labs(
     title = "C. Condition by Site",
     subtitle = sprintf("ANOVA: F = %.2f, p = %.4f", site_f, site_p),
     x = "Site",
-    y = "Coral condition (PC1)"
+    y = expression(Coral~condition~(PC1[Coral]))
   ) +
   theme_publication() +
   theme(legend.position = "none")
@@ -2250,8 +2863,9 @@ p_landscape_effects <- (p_vol_condition | p_neigh_condition) /
     )
   )
 
-ggsave(file.path(fig_dir, "landscape_condition_effects.png"), p_landscape_effects,
-       width = 12, height = 10, dpi = 300, bg = "white")
+save_figure(p_landscape_effects,
+           file.path(fig_dir, "landscape_condition_effects.png"),
+           width = 12, height = 10)
 cat("    Saved: landscape_condition_effects.png\n\n")
 
 # H.9 Summary interpretation
@@ -2321,11 +2935,14 @@ cat("    - CAFI effects (Part A-F) operate ON TOP of these landscape baselines\n
 cat("    =====================================================================\n\n")
 
 # ============================================================================
-# GLOBAL FDR CORRECTION ACROSS ALL PREDICTOR FAMILIES
+# PART I: GLOBAL FDR CORRECTION ACROSS ALL TEST FAMILIES
 # ============================================================================
+# NOTE: Family-wise FDR is conservative (corrects within predictor family).
+# Global FDR (all tests pooled) is also computed below as sensitivity check.
+# Results reported as "nominal" must explicitly note global FDR threshold.
 
 cat("============================================================\n")
-cat("GLOBAL FDR CORRECTION ACROSS ALL TEST FAMILIES\n")
+cat("PART I: GLOBAL FDR CORRECTION ACROSS ALL TEST FAMILIES\n")
 cat("============================================================\n\n")
 
 # Collect p-values from the three test families
@@ -2360,7 +2977,7 @@ cat("  Number significant at raw p < 0.05:", sum(all_raw_pvalues < 0.05), "\n")
 cat("  Number significant at family-wise FDR < 0.05:",
     sum(cafi_to_condition_df$p_fdr < 0.05) +
     sum(condition_to_cafi_df$p_fdr < 0.05) +
-    (if (exists("key_species_df") && nrow(key_species_df) > 0) sum(key_species_df$p_fdr < 0.05) else 0), "\n")
+    (if (exists("key_species_df") && nrow(key_species_df) > 0) sum(key_species_df$p_adj < 0.05) else 0), "\n")
 cat("  Number significant at GLOBAL FDR < 0.05:", sum(all_fdr_global < 0.05), "\n\n")
 
 # Show any tests that change significance under global vs family-wise FDR
@@ -2401,10 +3018,10 @@ richness_comparison_df <- tryCatch(
 if (!is.null(richness_comparison_df)) {
   p_richness_artifact <- ggplot(richness_comparison_df,
                                   aes(x = type, y = estimate)) +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.8) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
     geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper,
                          color = significant, fill = significant),
-                    size = 1.2, linewidth = 1.2, shape = 21) +
+                    size = 1.2, linewidth = 1.2, shape = 21, stroke = 0.4) +
     geom_text(aes(y = ci_upper, label = sprintf("  p = %.3f, r = %.2f", p_value, cor_with_abundance)),
               hjust = 0, size = 3, color = "gray20") +
     scale_color_manual(values = c("TRUE" = "#2e7d32", "FALSE" = "#757575"),
@@ -2419,52 +3036,90 @@ if (!is.null(richness_comparison_df)) {
       x = "",
       y = expression("Effect on condition score (" * beta * ")")
     ) +
-    theme_publication() +
+    theme_multipanel() +
     theme(axis.text.y = element_text(size = 9),
           plot.margin = margin(5, 20, 5, 5, "mm"))
 } else {
   # Fallback if richness comparison not available
   p_richness_artifact <- ggplot(analysis_data %>% filter(!is.na(pc1_cafi)),
                                  aes(x = pc1_cafi, y = condition_score)) +
-    geom_point(aes(color = site), alpha = 0.7, size = 2.5) +
+    geom_point(aes(fill = site), shape = 21, color = "gray30", stroke = 0.4, alpha = 0.7, size = 2.5) +
     geom_smooth(method = "lm", color = "black", se = TRUE, linewidth = 1) +
-    scale_color_manual(values = SITE_COLORS, name = "Site") +
+    scale_fill_manual(values = SITE_COLORS, name = "Site") +
     labs(title = "A. PC1_CAFI → Condition",
-         x = "PC1_CAFI", y = "Coral condition") +
-    theme_publication()
+         x = expression(PC1[CAFI]), y = expression(Coral~condition~(PC1[Coral]))) +
+    theme_multipanel()
 }
 
-# --- Panel Aa: Trapezia (defenders) vs Condition ---
+# --- Panel A: Raw richness vs Condition (confounded by abundance) ---
+p_raw_richness <- ggplot(analysis_data %>% filter(!is.na(otu_richness), !is.na(condition_score)),
+                         aes(x = otu_richness, y = condition_score)) +
+  geom_point(aes(fill = site), shape = 21, color = "gray30", stroke = 0.4, alpha = 0.6, size = 2) +
+  geom_smooth(method = "lm", color = "black", se = TRUE, alpha = 0.2) +
+  scale_fill_manual(values = SITE_COLORS, name = "Site") +
+  labs(title = "A", subtitle = "Raw richness (confounded by abundance)",
+       x = "Species richness (raw)", y = expression(Condition~score~(PC1[Coral]))) +
+  annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 1.5,
+           label = sprintf("r(richness, abundance) = %.2f",
+                           cor(analysis_data$otu_richness, analysis_data$total_cafi, use = "complete")),
+           size = 3, color = "gray40") +
+  theme_multipanel() +
+  guides(fill = guide_legend(override.aes = list(alpha = 1, size = 3)))
+
+# --- Panel B: Rarefied richness vs Condition (abundance-controlled) ---
+# Load rarefied data saved in Part A2
+analysis_data_rare_plot <- tryCatch(
+  load_object("analysis_data_rarefied"),
+  error = function(e) analysis_data_rare  # fallback to in-memory object
+)
+
+cor_rare_abund_plot <- cor(analysis_data_rare_plot$rarefied_richness,
+                           analysis_data_rare_plot$total_cafi, use = "complete")
+
+p_rare_richness <- ggplot(analysis_data_rare_plot %>%
+                             filter(!is.na(rarefied_richness), !is.na(condition_score)),
+                          aes(x = rarefied_richness, y = condition_score)) +
+  geom_point(aes(fill = site), shape = 21, color = "gray30", stroke = 0.4, alpha = 0.6, size = 2) +
+  geom_smooth(method = "lm", color = "black", se = TRUE, alpha = 0.2) +
+  scale_fill_manual(values = SITE_COLORS, guide = "none") +
+  labs(title = "B", subtitle = "Rarefied richness (abundance-controlled)",
+       x = "Expected species richness (rarefied)", y = expression(Condition~score~(PC1[Coral]))) +
+  annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 1.5,
+           label = sprintf("r(richness, abundance) = %.2f", cor_rare_abund_plot),
+           size = 3, color = "gray40") +
+  theme_multipanel()
+
+# --- Panel C: Trapezia (defenders) vs Condition ---
 p_trapezia <- ggplot(analysis_data, aes(x = n_trapezia, y = condition_score)) +
-  geom_jitter(aes(color = site), alpha = 0.6, width = 0.15, size = 2.5) +
+  geom_jitter(aes(fill = site), shape = 21, color = "gray30", stroke = 0.4, alpha = 0.6, width = 0.15, size = 2.5) +
   geom_smooth(method = "lm", color = "gray30", se = TRUE, linewidth = 1.2, alpha = 0.3) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", alpha = 0.5) +
-  scale_color_manual(values = SITE_COLORS, name = "Site") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
+  scale_fill_manual(values = SITE_COLORS, name = "Site") +
   labs(
     title = "B. Trapezia (Defenders)",
     subtitle = "Expected: positive (predator defense)",
     x = "Trapezia abundance",
-    y = "Coral condition score"
+    y = expression(Coral~condition~(PC1[Coral]))
   ) +
-  theme_publication() +
+  theme_multipanel() +
   theme(legend.position = "none")
 
-# --- Panel C: Galeropsis vs Condition ---
+# --- Panel D: Galeropsis vs Condition ---
 p_galeropsis <- ggplot(analysis_data, aes(x = n_galeropsis, y = condition_score)) +
-  geom_jitter(aes(color = site), alpha = 0.6, width = 0.15, size = 2.5) +
+  geom_jitter(aes(fill = site), shape = 21, color = "gray30", stroke = 0.4, alpha = 0.6, width = 0.15, size = 2.5) +
   geom_smooth(method = "lm", color = "gray30", se = TRUE, linewidth = 1.2, alpha = 0.3) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", alpha = 0.5) +
-  scale_color_manual(values = SITE_COLORS, name = "Site") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
+  scale_fill_manual(values = SITE_COLORS, name = "Site") +
   labs(
     title = "C. Galeropsis (Tissue Consumer)",
     subtitle = "Expected: negative (Coralliophilinae)",
     x = "Galeropsis abundance",
-    y = "Coral condition score"
+    y = expression(Coral~condition~(PC1[Coral]))
   ) +
-  theme_publication() +
+  theme_multipanel() +
   theme(legend.position = "none")
 
-# --- Panel C: Forest plot of functional group effects ---
+# --- Panel E: Forest plot of functional group effects ---
 forest_data <- functional_effects %>%
   mutate(
     functional_group = factor(functional_group,
@@ -2478,20 +3133,22 @@ forest_data$expected_color <- ifelse(forest_data$expected_sign == "positive",
                                       "#009E73", "#D55E00")
 
 p_forest <- ggplot(forest_data, aes(x = functional_group, y = estimate)) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.8) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
   geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper),
-                  color = "#757575", size = 1.2, linewidth = 1.2) +
-  geom_text(aes(y = ci_upper, label = sprintf("  p = %.3f", p_value)),
+                  color = "#757575", size = 1.5, linewidth = 1.2) +
+  geom_text(aes(y = ci_upper, label = sprintf("  p_FDR = %.3f", p_fdr)),
             hjust = 0, size = 3, color = "gray20") +
   coord_flip(clip = "off") +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.3))) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15)),
+                     limits = c(min(forest_data$ci_lower, 0) - 0.05,
+                                max(forest_data$ci_upper) + 0.15)) +
   labs(
-    title = "D. Functional Group Effects on Condition",
-    subtitle = "Effect sizes with 95% CI (all NS)",
+    title = "C",
+    subtitle = "Functional group effects on condition (all NS)",
     x = "",
-    y = "Effect on condition score (standardized)"
+    y = "Effect on condition score (unstandardized)"
   ) +
-  theme_publication() +
+  theme_multipanel() +
   theme(legend.position = "none",
         plot.margin = margin(5, 18, 5, 5, "mm"))
 
@@ -2510,13 +3167,18 @@ bidirectional_data <- bind_rows(
            label = "Condition predicts\nCAFI")
 )
 
-# Add global FDR p-values for annotation
+# Add global FDR p-values for annotation (join by label, not float equality)
 bidirectional_data <- bidirectional_data %>%
   mutate(
-    p_fdr_global = sapply(p_value, function(p) {
-      idx <- which(abs(all_raw_pvalues - p) < 1e-10)
-      if (length(idx) > 0) all_fdr_global[idx[1]] else NA_real_
-    }),
+    test_label = case_when(
+      direction == "CAFI -> Condition" ~ paste0("CAFI->Cond: ", predictor),
+      direction == "Condition -> CAFI" ~ paste0("Cond->CAFI: ", predictor),
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  left_join(global_fdr_results %>% dplyr::select(test_label, p_fdr_global),
+            by = "test_label") %>%
+  mutate(
     # Show both raw and FDR p-values if raw < 0.05 but FDR >= 0.05
     p_label = case_when(
       p_value < 0.05 & !is.na(p_fdr_global) & p_fdr_global >= 0.05 ~
@@ -2529,44 +3191,92 @@ bidirectional_data <- bidirectional_data %>%
 
 p_bidirectional <- ggplot(bidirectional_data,
                            aes(x = label, y = estimate)) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.8) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
   geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper, color = significant),
-                  size = 1.2, linewidth = 1.2) +
+                  size = 1.5, linewidth = 1.2) +
   scale_color_manual(values = c("TRUE" = "#2e7d32", "FALSE" = "#757575"),
                      guide = "none") +
   geom_text(aes(y = ci_upper, label = paste0("  ", p_label)),
             hjust = 0, size = 2.8, lineheight = 0.9, color = "gray20") +
   coord_flip(clip = "off") +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.55))) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.35)),
+                     limits = c(min(bidirectional_data$ci_lower, 0) - 0.05,
+                                max(bidirectional_data$ci_upper) + 0.15)) +
   labs(
-    title = "E. Bidirectional Effects",
-    subtitle = "Testing both directions of causation",
+    title = "D",
+    subtitle = "Bidirectional causation tests",
     x = "",
     y = "Standardized effect size"
   ) +
-  theme_publication() +
+  theme_multipanel() +
   theme(legend.position = "none",
         plot.margin = margin(5, 30, 5, 5, "mm"))
 
-# --- Combine into manuscript figure ---
-# Updated to show richness-abundance artifact as key finding
-fig6_feedbacks <- (p_richness_artifact) /
-                   (p_trapezia | p_galeropsis) /
+# --- Panel H: Full bidirectional feedback panel (both directions, all predictors) ---
+# Construct bidirectional data from both directions
+bidir_all_data <- bind_rows(
+  cafi_to_condition_df %>%
+    dplyr::select(predictor, estimate, ci_lower, ci_upper, p_value, p_fdr) %>%
+    mutate(direction = "CAFI \u2192 Condition"),
+  condition_to_cafi_df %>%
+    dplyr::select(predictor = response, estimate, ci_lower, ci_upper, p_value, p_fdr) %>%
+    mutate(direction = "Condition \u2192 CAFI")
+)
+
+p_bidir_full <- ggplot(bidir_all_data, aes(x = estimate, y = predictor)) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
+  geom_pointrange(aes(xmin = ci_lower, xmax = ci_upper, color = direction)) +
+  scale_color_manual(values = c("CAFI \u2192 Condition" = "#0072B2",
+                                "Condition \u2192 CAFI" = "#D55E00"),
+                     name = "Direction") +
+  labs(title = "D. Full Bidirectional Feedback", subtitle = "All predictors in both directions",
+       x = "Effect size (coefficient)", y = "") +
+  theme_multipanel() + theme(legend.position = "bottom")
+
+# ---- Manuscript Figure 4: 4-panel (was 8) ----
+# Layout: Row 1 = raw vs rarefied richness (A, B)
+#         Row 2 = Forest (C) + Bidirectional total (D)
+fig4_feedbacks <- (p_raw_richness | p_rare_richness) /
                    (p_forest | p_bidirectional) +
-  plot_layout(heights = c(0.8, 1, 0.9))
+  plot_layout(heights = c(1, 1), guides = "collect") &
+  theme(legend.position = "bottom")
 
 # Save manuscript figure (to both manuscript and analysis dirs)
-ggsave(file.path(PATHS$fig_manuscript, "fig6_feedbacks.png"),
-       fig6_feedbacks, width = 13, height = 11, dpi = 300, bg = "white")
-ggsave(file.path(fig_dir, "fig6_feedbacks.png"),
-       fig6_feedbacks, width = 13, height = 11, dpi = 300, bg = "white")
-cat("   Saved: fig6_feedbacks.png (manuscript + analysis)\n")
+save_figure(fig4_feedbacks,
+           file.path(PATHS$fig_manuscript, "fig4_feedbacks.png"),
+           width = 250, height = 250, units = "mm")
+save_figure(fig4_feedbacks,
+           file.path(fig_dir, "fig4_feedbacks.png"),
+           width = 250, height = 250, units = "mm")
+cat("   Saved: fig4_feedbacks.png (manuscript + analysis)\n")
+
+# ---- Supplement Figure S12: Additional CAFI-condition panels ----
+cat("\nAssembling supplement Figure S12 (additional panels)...\n")
+figS12 <- (p_richness_artifact) /
+           (p_trapezia | p_galeropsis) /
+           (p_bidir_full) +
+  plot_layout(heights = c(0.7, 1, 1)) +
+  plot_annotation(
+    title = "Figure S12: Additional CAFI-Condition Panels",
+    theme = theme(
+      plot.title = element_text(size = 14, face = "bold"),
+      plot.background = element_rect(fill = "white", color = NA)
+    )
+  )
+
+save_figure(figS12,
+           file.path(PATHS$fig_supplement, "figS12_condition_details.png"),
+           width = 11, height = 14)
+save_figure(figS12,
+           file.path(fig_dir, "figS12_condition_details.png"),
+           width = 11, height = 14)
+cat("   Saved: figS12_condition_details.png (supplement + analysis)\n")
 
 # ============================================================================
-# FIGURE 6 LEGEND & RESULTS TEXT FILE
+# FIGURE 4 LEGEND & RESULTS TEXT FILE
 # ============================================================================
 
-cat("Generating fig6_legend_results.txt...\n")
+cat("Generating fig4_legend_results.txt...\n")
 
 # Build CAFI → condition results lines
 cafi_cond_lines <- paste0(
@@ -2584,28 +3294,30 @@ cond_cafi_lines <- paste0(
   ", p_FDR = ", round(condition_to_cafi_df$p_fdr, 4),
   ifelse(condition_to_cafi_df$p_fdr < 0.05, " *", ""))
 
-fig6_legend <- paste0(
-'FIGURE 6: CAFI-CONDITION FEEDBACKS
+fig4_legend <- paste0(
+'FIGURE 4: CAFI-CONDITION FEEDBACKS
 ================================================================================
 
 FIGURE LEGEND
 -------------
-Figure 6. No CAFI community metric reliably predicts coral physiological
-condition. (A) The apparent relationship between species richness and coral
-condition (left: raw richness, p = 0.018) is an abundance artifact: rarefied
-richness (expected species at n = 20 individuals, right) shows no relationship
-(p = 0.45). Raw richness correlates with total abundance (r = 0.84); rarefied
-richness does not (r = -0.05). (B-C) Key species effects: Trapezia crab
-abundance shows a positive but non-significant trend with condition; Galeropsis
-monodonta (corallivorous snail) shows a weakly positive, non-significant effect.
-(D) Forest plot of standardized effect sizes for all CAFI predictors on
-condition (FDR-corrected). No predictor survives multiple testing correction.
-(E) Bidirectional test: neither CAFI-to-condition nor condition-to-CAFI
-directions show significant effects after FDR correction.
+Figure 4. No CAFI community metric reliably predicts coral physiological
+condition. (A-B) The apparent relationship between species richness and coral
+condition is an abundance artifact: raw richness (A, p = ', sprintf("%.3f", p_raw_full), ') correlates with
+total abundance (r = ', sprintf("%.2f", cor_raw_abund), '), but rarefied richness (B, expected species at n = 20
+individuals) shows no relationship (p = ', sprintf("%.3f", p_rare), ') and is uncorrelated with abundance
+(r = ', sprintf("%.2f", cor_rare_abund), '). (C) Forest plot of effect sizes for functional group CAFI
+predictors on condition (FDR-corrected). No predictor survives multiple testing
+correction. (D) Bidirectional test for total CAFI: neither CAFI-to-condition nor
+condition-to-CAFI directions show significant effects after FDR correction.
+See Figure S12 for richness artifact summary, individual species scatters
+(Trapezia, Galeropsis), and full bidirectional analysis across all predictors.
 
 All models: condition_PC1 ~ predictor + log(volume) + site (fixed effect).
-HC3 robust standard errors. FDR correction (Benjamini-Hochberg) across
-predictor families.
+Regression lines in panels A-B show marginal bivariate trends; p-values are
+from full models adjusted for coral volume and site with HC3 robust standard
+errors. Forward models (CAFI -> Condition) use HC3 robust standard errors.
+Reverse models (Condition -> CAFI, NB GLMs) use model-based standard errors.
+FDR correction (Benjamini-Hochberg) across predictor families.
 
 ================================================================================
 
@@ -2619,8 +3331,8 @@ STATISTICAL RESULTS
 ', paste(cond_cafi_lines, collapse = "\n"), '
 
 3. RICHNESS ARTIFACT TEST:
-   Raw richness: r(abundance) = 0.84, p_condition = 0.018
-   Rarefied richness: r(abundance) = -0.05, p_condition = 0.45
+   Raw richness: r(abundance) = ', sprintf("%.2f", cor_raw_abund), ', p_condition = ', sprintf("%.3f", p_raw_full), '
+   Rarefied richness: r(abundance) = ', sprintf("%.2f", cor_rare_abund), ', p_condition = ', sprintf("%.3f", p_rare), '
    Conclusion: Raw richness signal is an abundance artifact
 
 ================================================================================
@@ -2630,10 +3342,10 @@ RESULTS
 
 No CAFI community metric reliably predicted coral physiological condition after
 FDR correction for multiple testing. The strongest raw signal was species
-richness (p = 0.018), but this was revealed as an abundance artifact: rarefied
+richness (p = ', sprintf("%.3f", p_raw_full), '), but this was revealed as an abundance artifact: rarefied
 richness (expected species at n = 20 individuals) showed no relationship with
-condition (p = 0.45). Raw richness correlates strongly with total CAFI abundance
-(r = 0.84), while rarefied richness is uncorrelated (r = -0.05), confirming
+condition (p = ', sprintf("%.3f", p_rare), '). Raw richness correlates strongly with total CAFI abundance
+(r = ', sprintf("%.2f", cor_raw_abund), '), while rarefied richness is uncorrelated (r = ', sprintf("%.2f", cor_rare_abund), '), confirming
 that the apparent diversity effect is driven by abundance variation, not true
 species identity effects.
 
@@ -2669,13 +3381,20 @@ Reverse models (condition -> CAFI):
 Rarefied richness: expected species at n = 20 individuals per coral
 (vegan::rarefy), removing the abundance confound.
 
+Count-based CAFI predictors (total abundance, species counts) are
+sqrt-transformed before fitting. Key species tests use Hochberg (FWER)
+correction; all other test families use Benjamini-Hochberg (FDR).
+
 ================================================================================
 
 COLOR SCHEME
 ------------
-Effect significance:
-  Significant (p_FDR < 0.05):  #E69F00 (Okabe-Ito orange)
-  Non-significant:             gray50
+Effect significance (scatter and bidirectional panels):
+  Significant (p < 0.05):      #2e7d32 (dark green)
+  Non-significant:             #757575 (medium gray)
+
+Functional group forest plot (Panel C):
+  All bars:                    #757575 (all NS after FDR correction)
 
 Direction arrows (bidirectional panel):
   CAFI -> Condition:  #0072B2 (blue)
@@ -2686,13 +3405,13 @@ Generated: ', format(Sys.time(), "%Y-%m-%d %H:%M:%S"), '
 Source script: scripts/09_cafi_condition_feedbacks.R
 ')
 
-writeLines(fig6_legend, file.path(PATHS$fig_manuscript, "fig6_legend_results.txt"))
-cat("Saved: fig6_legend_results.txt\n\n")
+writeLines(fig4_legend, file.path(PATHS$fig_manuscript, "fig4_legend_results.txt"))
+cat("Saved: fig4_legend_results.txt\n\n")
 
 # --- Additional exploratory figure: All CAFI metrics ---
 p_cafi_effects <- ggplot(cafi_to_condition_df,
                           aes(x = reorder(predictor, estimate), y = estimate)) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
   geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper, color = significant),
                   size = 0.8, linewidth = 0.8) +
   geom_text(aes(label = sprintf("%.3f", p_value)),
@@ -2708,17 +3427,18 @@ p_cafi_effects <- ggplot(cafi_to_condition_df,
   ) +
   theme_publication()
 
-ggsave(file.path(fig_dir, "cafi_condition_effects.png"),
-       p_cafi_effects, width = 10, height = 6, dpi = 300, bg = "white")
+save_figure(p_cafi_effects,
+           file.path(fig_dir, "cafi_condition_effects.png"),
+           width = 10, height = 6)
 cat("   Saved: cafi_condition_effects.png\n")
 
 # --- Forest plot: All functional group effects ---
 p_functional_forest <- ggplot(functional_effects,
                                aes(x = reorder(predictor, estimate), y = estimate)) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
   geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper,
                        fill = matches_hypothesis),
-                  color = "black", shape = 21, size = 1, linewidth = 0.8) +
+                  color = "black", shape = 21, size = 1, stroke = 0.4, linewidth = 0.8) +
   geom_text(aes(label = paste0("p = ", format.pval(p_value, 2))),
             hjust = -0.2, vjust = 0.5, size = 3.5) +
   scale_fill_manual(values = c("TRUE" = "#4CAF50", "FALSE" = "#FF5722"),
@@ -2734,8 +3454,9 @@ p_functional_forest <- ggplot(functional_effects,
   theme_publication() +
   theme(legend.position = "bottom")
 
-ggsave(file.path(fig_dir, "functional_effects_forest.png"),
-       p_functional_forest, width = 9, height = 5, dpi = 300, bg = "white")
+save_figure(p_functional_forest,
+           file.path(fig_dir, "functional_effects_forest.png"),
+           width = 9, height = 5)
 cat("   Saved: functional_effects_forest.png\n\n")
 
 # ============================================================================
@@ -2925,6 +3646,36 @@ if (exists("key_species_df") && nrow(key_species_df) > 0) {
 }
 cat("\n")
 
+cat("PART F2: SPECIES x INDIVIDUAL TRAIT CORRELATIONS\n")
+cat("------------------------------------------------\n")
+if (exists("species_trait_corr") && nrow(species_trait_corr) > 0) {
+  cat("  Cross-study comparison table (cf. experimental Table S3):\n")
+  cat("  -", nrow(species_trait_corr), "species x",
+      length(available_labels), "traits\n")
+  if ("r_PC1_Coral" %in% names(species_trait_corr)) {
+    n_strong <- sum(abs(species_trait_corr$r_PC1_Coral) > 0.2, na.rm = TRUE)
+    cat("  - Species with |r| > 0.2 for PC1_Coral:", n_strong, "\n")
+  }
+} else {
+  cat("   Species-trait correlation analysis not run\n")
+}
+cat("\n")
+
+cat("PART F3: INDIVIDUAL PHYSIOLOGY RESPONSES\n")
+cat("-----------------------------------------\n")
+if (exists("individual_physio_results") && nrow(individual_physio_results) > 0) {
+  n_sig_physio <- sum(individual_physio_results$p_fdr < 0.05)
+  cat("  Individual trait ~ CAFI predictor tests:\n")
+  cat("  -", nrow(individual_physio_results), "tests run\n")
+  cat("  - Significant after FDR:", n_sig_physio, "\n")
+  if (n_sig_physio == 0) {
+    cat("  - Conclusion: PC1_Coral null holds at individual trait level\n")
+  }
+} else {
+  cat("   Individual physiology analysis not run\n")
+}
+cat("\n")
+
 cat("PART G: NEIGHBORHOOD EFFECTS (Experimental Analog)\n")
 cat("-------------------------------------------------\n")
 if (exists("neighborhood_results")) {
@@ -2988,22 +3739,30 @@ cat("5. Key species: Survey results compared to experimental predictions\n\n")
 
 cat("OUTPUT FILES:\n")
 cat("  Figures:\n")
-cat("    - output/figures/manuscript/fig6_feedbacks.png\n")
+cat("    - output/figures/manuscript/fig4_feedbacks.png\n")
 cat("    - output/figures/feedbacks/cafi_condition_effects.png\n")
 cat("    - output/figures/feedbacks/functional_effects_forest.png\n")
 cat("    - output/figures/feedbacks/key_species_effects.png\n")
 cat("    - output/figures/feedbacks/functional_vs_key_species.png\n")
 cat("    - output/figures/feedbacks/neighborhood_effects.png\n")
-cat("    - output/figures/feedbacks/landscape_condition_effects.png (NEW - Part H)\n")
+cat("    - output/figures/feedbacks/landscape_condition_effects.png\n")
+cat("    - output/figures/supplement/figS10_rarefaction_sensitivity.png\n")
+cat("    - output/figures/feedbacks/diagnostics_richness_model.png\n")
 cat("  Tables:\n")
 cat("    - output/tables/cafi_condition_models.csv\n")
 cat("    - output/tables/reverse_direction_models.csv\n")
 cat("    - output/tables/functional_effects.csv\n")
-cat("    - output/tables/landscape_condition_effects.csv (NEW - Part H)\n")
-cat("    - output/tables/landscape_model_comparison.csv (NEW - Part H)\n")
-cat("    - output/tables/site_condition_means.csv (NEW - Part H)\n")
+cat("    - output/tables/landscape_condition_effects.csv\n")
+cat("    - output/tables/landscape_model_comparison.csv\n")
+cat("    - output/tables/site_condition_means.csv\n")
 cat("    - output/tables/key_species_effects.csv\n")
-cat("    - output/tables/neighborhood_effects.csv (NEW)\n")
+cat("    - output/tables/species_trait_correlations.csv (cross-study comparison)\n")
+cat("    - output/tables/individual_physiology_cafi_responses.csv\n")
+cat("    - output/tables/cross_study_species_comparison.csv\n")
+cat("    - output/tables/richness_abundance_artifact.csv\n")
+cat("    - output/tables/neighborhood_effects.csv\n")
+cat("    - output/tables/community_transform_sensitivity.csv\n")
+cat("    - output/tables/09_cafi_condition_feedbacks_stats_summary.csv\n")
 if (requireNamespace("mediation", quietly = TRUE) && n_complete >= 50) {
   cat("    - output/tables/path_analysis.csv (mediation analysis)\n")
 }
