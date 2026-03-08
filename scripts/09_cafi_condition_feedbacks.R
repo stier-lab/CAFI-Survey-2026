@@ -4612,10 +4612,11 @@ CAFI) were non-significant.
 
 COLOR SCHEME
 ------------
-Significant (p < 0.05):      #2e7d32 (dark green)
-Non-significant:             #757575 (medium gray)
-A priori forest (Panel B):   green = significant, gray = non-significant
-Exploratory forest (Panel D): gray (all NS after BH-FDR)
+Site palette (Panels A-B, point fill):
+  HAU (Hauru):    #9B7EB8 (muted purple)
+  MAT (Maatea):   #7B9BAE (cool slate)
+  MRB (Maharepa): #7AAC6D (sage green)
+Regression line:  black with grey 95% CI shading
 
 ================================================================================
 Generated: ', format(Sys.time(), "%Y-%m-%d %H:%M:%S"), '

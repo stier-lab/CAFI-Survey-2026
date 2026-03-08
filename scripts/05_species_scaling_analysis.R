@@ -2555,14 +2555,14 @@ Source script: scripts/05_species_scaling_analysis.R
     labs(
       x = expression("Coral volume (cm"^3*")"),
       y = "Abundance",
-      title = expression(bold("A")~"Species scaling")
+      subtitle = "Species scaling"
     ) +
     theme_manuscript() +
     theme(
       axis.title = element_text(size = 9),
       legend.position = "none",  # 10 species — legend info in fig3_legend_results.txt
       panel.grid.minor = element_blank(),
-      plot.margin = margin(8, 8, 5, 8, "mm")
+      plot.margin = margin(5, 8, 5, 8, "mm")
     )
 
   # --- Panel B: Taxonomic group abundance vs volume (overlaid curves) ---
@@ -2614,14 +2614,14 @@ Source script: scripts/05_species_scaling_analysis.R
     labs(
       x = expression("Coral volume (cm"^3*")"),
       y = "Abundance",
-      title = expression(bold("B")~"Group scaling")
+      subtitle = "Group scaling"
     ) +
     theme_manuscript() +
     theme(
       axis.title = element_text(size = 9),
       legend.position = "none",  # Direct labels used instead; details in fig3_legend_results.txt
       panel.grid.minor = element_blank(),
-      plot.margin = margin(8, 14, 5, 8, "mm")  # Extra right margin for labels
+      plot.margin = margin(5, 14, 5, 8, "mm")  # Extra right margin for labels
     )
 
   # --- Panel C: Species scaling coefficient forest plot ---
@@ -2634,27 +2634,6 @@ Source script: scripts/05_species_scaling_analysis.R
         boot_ci_lower > 1 ~ "Super-linear",
         TRUE              ~ "Field of Dreams"
       )
-    )
-
-  panel_c_forest <- ggplot(sp_forest, aes(x = beta, y = species_label)) +
-    geom_vline(xintercept = 1, linetype = "dashed", color = "gray45", linewidth = 0.4) +
-    geom_segment(aes(x = boot_ci_lower, xend = boot_ci_upper,
-                     y = species_label, yend = species_label, color = scaling_class),
-                 linewidth = 0.5) +
-    geom_point(aes(color = scaling_class), size = 2) +
-    scale_color_manual(values = scaling_colors, name = NULL) +
-    labs(
-      x = expression("Scaling exponent (" * beta * ")"),
-      y = NULL,
-      title = expression(bold("C")~"Species" ~ beta ~ "estimates")
-    ) +
-    theme_manuscript() +
-    theme(
-      axis.title = element_text(size = 9),
-      axis.text.y = element_text(face = "italic", size = 7),
-      legend.position = "none",
-      panel.grid.minor = element_blank(),
-      plot.margin = margin(2, 2, 8, 8, "mm")
     )
 
   # --- Panel D: Taxonomic group scaling coefficient forest plot ---
@@ -2677,6 +2656,34 @@ Source script: scripts/05_species_scaling_analysis.R
       )
     )
 
+  # Compute shared x-axis range for both forest plots (must be after both data frames)
+  all_betas <- c(sp_forest$beta, sp_forest$boot_ci_lower, sp_forest$boot_ci_upper)
+  tax_betas_vals <- c(tax_forest$beta, tax_forest$ci_lower, tax_forest$ci_upper)
+  forest_xlim <- range(c(all_betas, tax_betas_vals), na.rm = TRUE)
+  forest_xlim <- forest_xlim + c(-0.1, 0.1) * diff(forest_xlim)  # 10% padding
+
+  panel_c_forest <- ggplot(sp_forest, aes(x = beta, y = species_label)) +
+    geom_vline(xintercept = 1, linetype = "dashed", color = "gray45", linewidth = 0.4) +
+    geom_segment(aes(x = boot_ci_lower, xend = boot_ci_upper,
+                     y = species_label, yend = species_label, color = scaling_class),
+                 linewidth = 0.5) +
+    geom_point(aes(color = scaling_class), size = 2) +
+    scale_color_manual(values = scaling_colors, name = NULL) +
+    scale_x_continuous(limits = forest_xlim) +
+    labs(
+      x = expression("Scaling exponent (" * beta * ")"),
+      y = NULL,
+      subtitle = expression("Species" ~ beta ~ "estimates")
+    ) +
+    theme_manuscript() +
+    theme(
+      axis.title = element_text(size = 9),
+      axis.text.y = element_text(face = "italic", size = 7),
+      legend.position = "none",
+      panel.grid.minor = element_blank(),
+      plot.margin = margin(2, 8, 5, 8, "mm")
+    )
+
   panel_d_forest <- ggplot(tax_forest, aes(x = beta, y = group)) +
     geom_vline(xintercept = 1, linetype = "dashed", color = "gray45", linewidth = 0.4) +
     geom_segment(aes(x = ci_lower, xend = ci_upper,
@@ -2684,10 +2691,11 @@ Source script: scripts/05_species_scaling_analysis.R
                  linewidth = 0.5) +
     geom_point(aes(color = scaling_class), size = 2.5) +
     scale_color_manual(values = scaling_colors, name = NULL) +
+    scale_x_continuous(limits = forest_xlim) +
     labs(
       x = expression("Scaling exponent (" * beta * ")"),
       y = NULL,
-      title = expression(bold("D")~"Group" ~ beta ~ "estimates")
+      subtitle = expression("Group" ~ beta ~ "estimates")
     ) +
     theme_manuscript() +
     theme(
@@ -2695,15 +2703,17 @@ Source script: scripts/05_species_scaling_analysis.R
       axis.text.y = element_text(size = 8),
       legend.position = "none",
       panel.grid.minor = element_blank(),
-      plot.margin = margin(2, 8, 8, 2, "mm")
+      plot.margin = margin(2, 8, 5, 8, "mm")
     )
 
-  # --- Compose 2x2 (no guide collection — legends stay with their panels) ---
+  # --- Compose 2x2 with aligned axes ---
   fig3 <- (panel_a_sp | panel_b_tax) / (panel_c_forest | panel_d_forest) +
-    plot_layout(heights = c(1, 1)) +
+    plot_layout(heights = c(1, 0.9), axes = "collect") +
     plot_annotation(
+      tag_levels = "A",
       caption = sprintf("Top: NB GLM fits. Bottom: scaling exponents with 95%% bootstrap CI.\nDashed line: \u03b2 = 1 (proportional). n = %d corals, 3 sites.", nrow(scaling_data)),
       theme = theme(
+        plot.tag = element_text(face = "bold", size = 12),
         plot.caption = element_text(size = 6.5, color = "gray45", hjust = 0,
                                     margin = margin(t = 4, b = 2), lineheight = 1.2)
       )
