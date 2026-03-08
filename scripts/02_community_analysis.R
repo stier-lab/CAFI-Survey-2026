@@ -351,7 +351,7 @@ if (aov_summary$`Pr(>F)`[1] < 0.05) {
 cat("3.3 Diversity vs Coral Size:\n")
 
 # Richness vs volume
-m_rich_vol <- glm(otu_richness ~ log(volume), family = poisson, data = coral_master)
+m_rich_vol <- glm(otu_richness ~ log(volume) + site, family = poisson, data = coral_master)
 m_rich_summary <- summary(m_rich_vol)
 
 cat("    Richness ~ log(Volume) [Poisson GLM]:\n")
@@ -1977,6 +1977,7 @@ panel_a <- ggplot() +
     axis.text = element_text(size = 8, color = "black"),
     axis.title = element_text(size = 9, face = "bold"),
     axis.ticks = element_line(color = "black", linewidth = 0.5),
+    # In-plot legend retained for NMDS readability (exception to no-legend policy)
     legend.position = "top",
     legend.justification = "left",
     legend.box = "horizontal",

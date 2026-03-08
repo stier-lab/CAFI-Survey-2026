@@ -79,7 +79,7 @@ This **observational survey** complements a parallel **experimental study** that
 - Size-dependent co-occurrence: null model run separately for 3 size classes
 
 **Key findings:**
-- Strong site effects on composition (PERMANOVA R² ~ 0.04-0.08, p < 0.01; varies by permutation run)
+- Strong site effects on composition (PERMANOVA site R² ≈ 0.06, volume R² ≈ 0.08, p < 0.01; varies by permutation run)
 - db-RDA: volume explains 7.8% of composition (F=9.74, p=0.001); survives rarefaction (2.6%, p=0.001); *T. punctimanus* loads most strongly toward larger corals
 - Size-divergence (categorical) NOT significant after rarefaction (p=0.61; Fig. S5) — abundance artifact
 - Nestedness (NODF): 18.37, z=−1.09, p=0.277 — **not nested**; small-coral faunas are not subsets of large-coral faunas

@@ -150,6 +150,7 @@ EXPECTED_OUTPUTS <- list(
     "output/tables/intraspecific_density.csv",
     "output/tables/size_dependent_cooccurrence.csv",
     "output/tables/network_metrics.csv",
+    "output/tables/hub_species.csv",
     "output/figures/supplement/figS11_cooccurrence.png"
   ),
   "07_spatial_autocorrelation.R" = c(

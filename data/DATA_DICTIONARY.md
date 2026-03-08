@@ -252,7 +252,7 @@ Sampling position (stump_length) correlates with colony size (r = 0.565), creati
 ### Known Limitations
 
 - **Taxonomic resolution**: Morphological identification only; cryptic species possible
-- **Physiology subset**: Only 108/112 corals have physiological data
+- **Physiology subset**: Only 108/114 corals have physiological data
 - **GPS precision**: ±3 m accuracy may affect fine-scale neighborhood metrics
 - **Temporal snapshot**: Single summer survey; seasonal variation not captured
 
@@ -289,4 +289,4 @@ Data archived at: [Dryad DOI to be assigned]
 
 ---
 
-*Data Dictionary v1.1 - December 2025*
+*Data Dictionary v1.2 - March 2026*

@@ -141,8 +141,8 @@ theme_publication <- function(base_size = 13, grid = FALSE) {
       axis.ticks        = element_line(color = "black", linewidth = 0.5),
       axis.ticks.length = unit(0.15, "cm"),
 
-      # Legend
-      legend.position    = "bottom",
+      # Legend — default "none" per no-legend policy; override explicitly when needed
+      legend.position    = "none",
       legend.direction   = "horizontal",
       legend.title       = element_text(size = base_size - 1, face = "bold"),
       legend.text        = element_text(size = base_size - 2),
@@ -174,7 +174,7 @@ theme_multipanel <- function(base_size = 11) {
       axis.title  = element_text(size = base_size),
       axis.text   = element_text(size = base_size - 1),
       strip.text  = element_text(size = base_size),
-      legend.position = "bottom",
+      legend.position = "none",
       legend.box      = "horizontal"
     )
 }

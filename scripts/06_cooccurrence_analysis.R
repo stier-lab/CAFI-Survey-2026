@@ -774,7 +774,9 @@ if (nrow(size_dep_table) > 0) {
                color = "grey70", linewidth = 0.4) +
     geom_line(linewidth = 0.8, alpha = 0.8) +
     geom_point(size = 2.5) +
-    scale_color_brewer(palette = "Dark2", name = "Species pair") +
+    scale_color_manual(values = c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+                                  "#0072B2", "#D55E00", "#CC79A7", "#000000"),
+                       name = "Species pair") +
     labs(x = "Coral size class", y = "SES") +
     theme_publication(base_size = 10) +
     theme(

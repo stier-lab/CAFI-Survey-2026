@@ -635,7 +635,7 @@ cat("Sensitivity power analysis (CAFI -> Condition):\n")
 cat("(What effect could this study detect at 80% power?)\n")
 
 n_condition <- nrow(analysis_data)
-n_predictors_cond <- 3  # CAFI_metric + log_volume + 2 site dummies = 3 non-intercept (testing 1)
+n_predictors_cond <- 4  # CAFI_metric + log_volume + 2 site dummies = 4 non-intercept (testing 1)
 
 if (requireNamespace("pwr", quietly = TRUE)) {
   # Minimum detectable f2 at alpha=0.05, power=0.80
