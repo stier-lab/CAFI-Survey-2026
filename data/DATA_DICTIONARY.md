@@ -10,7 +10,7 @@
 
 ## Overview
 
-This data dictionary describes all data files associated with the manuscript "Landscape characteristics structure coral-associated fauna communities and their effects on coral condition."
+This data dictionary describes all data files associated with the manuscript "Sublinear scaling of coral-associated fauna reveals propagule limitation in established reef communities."
 
 **Study Location**: Mo'orea, French Polynesia (17°30'S, 149°50'W)
 **Survey Period**: June–August 2019
@@ -271,8 +271,8 @@ Sampling position (stump_length) correlates with colony size (r = 0.565), creati
 If using these data, please cite:
 
 ```
-Stier AC, et al. (2026). Landscape characteristics structure coral-associated
-fauna communities and their effects on coral condition in Mo'orea, French Polynesia.
+Stier AC, et al. (2026). Sublinear scaling of coral-associated fauna reveals
+propagule limitation in established reef communities.
 Marine Ecology Progress Series [submitted].
 ```
 

@@ -106,7 +106,7 @@ This **observational survey** complements a parallel **experimental study** that
 - **OLS standard errors** (primary; Breusch-Pagan confirms homoscedasticity, BP p > 0.5)
 - **HC3 robust SEs** reported as supplement sensitivity (conservative at n < 100; Long & Ervin 2000)
 - **BEF analysis (Part A4)**: Partial regression, variance partitioning, path model (piecewiseSEM)
-- Key species models: condition ~ species abundance + log(volume) + site (Hochberg-corrected, 10 species)
+- Key species models: condition ~ species abundance + log(volume) + site (Hochberg-corrected, up to 10 species; those with n_present < 5 excluded at runtime)
 - Note: 3 sites insufficient for random intercepts (Bolker et al. 2009)
 
 **Key findings:**
@@ -240,7 +240,7 @@ Each manuscript figure is created by its source analysis script with **dual save
 | **S13** | `09_cafi_condition_feedbacks.R` | A priori forest + rarefied richness + exploratory forest + Trapezia/Galeropsis scatter + bidirectional (6-panel) |
 | **S14** | `13_taxonomy_sensitivity.R` | Network sensitivity to taxonomic resolution |
 | **S15** | `05_species_scaling_analysis.R` | Species occurrence probability vs. coral size (logistic GLM, 24 species) |
-| **S16** | `09_cafi_condition_feedbacks.R` | Species × trait heatmap: 25 species × 5 condition metrics (β values + FDR p-values) |
+| **S16** | `09_cafi_condition_feedbacks.R` | Species × trait heatmap: top 20 species (≥5 corals) × 5 condition metrics (β values + FDR p-values) |
 | **S17** | `09_cafi_condition_feedbacks.R` | Species × trait biplots: 9 strongest associations (scatter + regression) |
 
 **Note**: All archived/exploratory scripts are in `scripts/archive/` — they are NOT part of the manuscript or pipeline.
@@ -346,7 +346,7 @@ output/
 ├── tables/                  # ~66 CSV statistical results
 │   ├── scaling_results_all.csv         # All scaling coefficients
 │   ├── cafi_condition_models.csv       # Feedback model results
-│   ├── key_species_effects.csv         # Key species condition effects (10 species)
+│   ├── key_species_effects.csv         # Key species condition effects (up to 10 species)
 │   ├── species_trait_correlations.csv  # Species × trait Pearson r (cf. expt Table S3)
 │   ├── individual_physiology_cafi_responses.csv # Individual traits ~ CAFI predictors
 │   ├── cross_study_species_comparison.csv # Survey vs experimental paper comparison

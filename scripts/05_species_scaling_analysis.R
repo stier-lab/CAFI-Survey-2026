@@ -238,10 +238,11 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 10
         }
       })
 
-      # Warn if bootstrap failure rate exceeds 10%
-      if (n_failed > 0.1 * n_boot) {
+      # Warn if bootstrap failure rate exceeds 10% (redundant safety check)
+      n_failed_check <- n_total_boot - n_succeeded
+      if (n_failed_check > 0.1 * n_boot) {
         warning(sprintf("Bootstrap for %s: %d/%d iterations failed (%.1f%%)",
-                        response_name, n_failed, n_boot, 100 * n_failed / n_boot))
+                        response_name, n_failed_check, n_boot, 100 * n_failed_check / n_boot))
       }
     }
 
@@ -1164,7 +1165,7 @@ key_species_summary <- key_species_summary %>%
   mutate(
     scaling_pattern = case_when(
       is.na(beta) ~ "Insufficient data",
-      interpretation == "Field of Dreams" ~ "Field of Dreams (β ≈ 1)",
+      grepl("Field of Dreams", interpretation) ~ "Field of Dreams (β ≈ 1)",
       grepl("Redirection", interpretation) ~ "Propagule Redirection (β < 1)",
       TRUE ~ interpretation
     ),
@@ -1318,7 +1319,7 @@ if (nrow(key_plot_data) > 0) {
 cat("\n--- INTERPRETATION: HETEROGENEITY IN KEY SPECIES SCALING ---\n\n")
 
 n_analyzed <- sum(!is.na(key_species_summary$beta))
-n_fod <- sum(key_species_summary$interpretation == "Field of Dreams", na.rm = TRUE)
+n_fod <- sum(grepl("Field of Dreams", key_species_summary$interpretation), na.rm = TRUE)
 n_redist <- sum(grepl("Redirection", key_species_summary$interpretation), na.rm = TRUE)
 
 cat("Of", n_analyzed, "key species/groups analyzed:\n")

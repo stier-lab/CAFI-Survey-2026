@@ -312,7 +312,7 @@ coral_master <- readRDS("output/objects/coral_master.rds")
 | S13 | A priori forest + rarefied richness + exploratory forest + species scatters + bidirectional | `09_cafi_condition_feedbacks.R` |
 | S14 | Network sensitivity to taxonomic resolution | `13_taxonomy_sensitivity.R` |
 | S15 | Species occurrence probability vs. coral size | `05_species_scaling_analysis.R` |
-| S16 | Species × trait heatmap: 25 species × 5 condition metrics | `09_cafi_condition_feedbacks.R` |
+| S16 | Species × trait heatmap: top 20 species (≥5 corals) × 5 condition metrics | `09_cafi_condition_feedbacks.R` |
 | S17 | Species × trait biplots: strongest associations | `09_cafi_condition_feedbacks.R` |
 
 ### Statistical Tables (`output/tables/`)
@@ -345,7 +345,7 @@ Key RDS files:
 | Issue | Fix | Script |
 |-------|-----|--------|
 | Multiple testing (feedbacks) | Three-tier: Hochberg FWER (a priori BEF, k=2), BH-FDR (exploratory, k=4) | `09` |
-| Multiple testing (key species) | Hochberg FWER across 10 species tests | `09` |
+| Multiple testing (key species) | Hochberg FWER across up to 10 species tests | `09` |
 | Multiple testing (scaling) | FDR within category (species/group) | `05` |
 | Multiple testing (co-occurrence) | FDR across pairwise SES tests | `06` |
 | Abundance confound (composition) | Iterated rarefaction (100 draws) | `02` |

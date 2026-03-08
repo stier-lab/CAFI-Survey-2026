@@ -40,7 +40,7 @@
 #   - output/figures/supplement/figS10_rarefaction_sensitivity.png (rarefaction depth)
 #   - output/figures/supplement/figS12_bef_variance_partitioning.png (BEF variance partitioning + path)
 #   - output/figures/supplement/figS13_condition_details.png    (a priori forest + rarefied + exploratory + scatters + bidirectional)
-#   - output/figures/supplement/figS16_species_trait_heatmap.png (25 species × 5 traits)
+#   - output/figures/supplement/figS16_species_trait_heatmap.png (top 20 species × 5 traits)
 #   - output/figures/supplement/figS17_species_trait_biplots.png (strongest associations)
 #   - output/figures/feedbacks/cafi_condition_effects.png       (all CAFI predictors forest)
 #   - output/figures/feedbacks/functional_effects_forest.png    (functional group forest)
