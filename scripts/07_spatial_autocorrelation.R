@@ -223,6 +223,7 @@ moran_results <- data.frame(
   stringsAsFactors = FALSE
 )
 
+set.seed(42)  # Reproducibility for moran.mc permutation tests
 for (i in seq_along(test_vars)) {
   var <- test_vars[i]
   label <- var_labels[i]
@@ -380,6 +381,7 @@ p_spatial_overview <- ggplot(spatial_data, aes(x = long, y = lat)) +
     x = "Longitude",
     y = "Latitude"
   ) +
+  scale_x_continuous(labels = function(x) format(x, digits = 6), n.breaks = 4) +
   coord_quickmap() +
   theme_publication() +
   theme(
@@ -555,6 +557,7 @@ cat("Analyzing site-specific spatial patterns...\n\n")
 sites <- unique(spatial_data$site)
 site_moran_results <- data.frame()
 
+set.seed(42)  # Reproducibility for site-specific moran.mc permutation tests
 for (site_name in sites) {
   cat("  Site:", site_name, "\n")
 

@@ -28,8 +28,8 @@
 #   4. mean_neighbor_dist     - Spatial isolation
 #
 # OUTPUTS:
-#   - Figures: output/figures/landscape/
-#   - Tables: output/tables/
+#   - Figures: output/figures/04_effects/ (working), output/figures/supplement/figS7_neighborhood.png
+#   - Tables: output/tables/landscape_full_model_results.csv, landscape_power_analysis.csv
 #   - Statistical summaries with effect sizes, p-values, df
 #
 # Author: CAFI Survey Analysis Pipeline
@@ -112,6 +112,26 @@ cat("  2. n_neighbors            - Neighbor count\n")
 cat("  3. total_neighbor_volume  - Neighborhood habitat\n")
 cat("  4. mean_neighbor_dist     - Spatial isolation\n\n")
 
+# Helper to safely extract anova.negbin columns (names vary by R/MASS version)
+safe_lrt_extract <- function(lrt) {
+  tryCatch({
+    lr_col <- intersect(names(lrt), c("LR stat.", "LR.stat.", "Deviance", "Chisq"))
+    p_col <- intersect(names(lrt), c("Pr(Chi)", "Pr(>Chi)", "Pr..Chi.", "Pr(>Chisq)"))
+    if (length(lr_col) == 0 || length(p_col) == 0) {
+      ll <- lrt$`-2 Log L.` %||% lrt$`Resid. Dev`
+      if (!is.null(ll)) {
+        lr_stat <- abs(diff(ll))
+        return(list(lr = lr_stat, df = lrt$Df[2], p = NA_real_))
+      }
+      return(list(lr = NA_real_, df = NA_integer_, p = NA_real_))
+    }
+    list(lr = lrt[[lr_col[1]]][2], df = lrt$Df[2], p = lrt[[p_col[1]]][2])
+  }, error = function(e) {
+    cat("      WARNING: Could not extract LRT statistics:", e$message, "\n")
+    list(lr = NA_real_, df = NA_integer_, p = NA_real_)
+  })
+}
+
 # ============================================================================
 # POWER ANALYSIS (Q4: Neighborhood Effects)
 # ============================================================================
@@ -122,9 +142,11 @@ cat("  4. mean_neighbor_dist     - Spatial isolation\n\n")
 # - Null results should be interpreted as "no evidence" not "no effect"
 if (requireNamespace("pwr", quietly = TRUE)) {
   # Cohen's f² for NB GLM approximation
+  # Full model: log_volume + n_neighbors + log(neighbor_vol) + mean_dist + 2 site dummies = 6 params
+  # Testing u=3 neighborhood predictors jointly; denominator df = n - 6 - 1 = n - 7
   n_landscape <- sum(!is.na(coral_master$n_neighbors))
-  power_medium <- pwr::pwr.f2.test(u = 3, v = n_landscape - 4 - 1, f2 = 0.10/0.90, sig.level = 0.05)
-  power_small <- pwr::pwr.f2.test(u = 3, v = n_landscape - 4 - 1, f2 = 0.05/0.95, sig.level = 0.05)
+  power_medium <- pwr::pwr.f2.test(u = 3, v = n_landscape - 7, f2 = 0.10/0.90, sig.level = 0.05)
+  power_small <- pwr::pwr.f2.test(u = 3, v = n_landscape - 7, f2 = 0.05/0.95, sig.level = 0.05)
   cat(sprintf("Power analysis (n=%d):\n  Medium effect (R²=0.10): %.0f%%\n  Small effect (R²=0.05): %.0f%%\n\n",
               n_landscape, power_medium$power * 100, power_small$power * 100))
 }
@@ -263,8 +285,9 @@ cat("    β =", round(coef(m_neighbors)["n_neighbors"], 4),
 # Does adding neighbors improve model?
 m_size_only <- MASS::glm.nb(total_cafi ~ log(volume) + site, data = landscape_data)
 lrt <- anova(m_size_only, m_neighbors, test = "Chisq")
-cat("    LRT vs size-only: χ² =", round(lrt$`LR stat.`[2], 2),
-    ", p =", format.pval(lrt$`Pr(Chi)`[2], 3), "\n\n")
+lrt_vals <- safe_lrt_extract(lrt)
+cat("    LRT vs size-only: χ² =", round(lrt_vals$lr, 2),
+    ", p =", format.pval(lrt_vals$p, 3), "\n\n")
 
 # Figure
 p_neighbor_count <- ggplot(landscape_data, aes(x = n_neighbors, y = total_cafi, color = site)) +
@@ -380,10 +403,10 @@ m_abund_full_summary <- summary(m_abund_full)
 cat("\n    Coefficients:\n")
 coef_table <- data.frame(
   Predictor = c("log(volume)", "n_neighbors", "log(neighbor_vol)", "mean_neighbor_dist"),
-  Beta = round(coef(m_abund_full)[2:5], 4),
-  SE = round(m_abund_full_summary$coefficients[2:5, "Std. Error"], 4),
-  z = round(m_abund_full_summary$coefficients[2:5, "z value"], 2),
-  p = sapply(m_abund_full_summary$coefficients[2:5, "Pr(>|z|)"],
+  Beta = round(coef(m_abund_full)[c("log(volume)", "n_neighbors", "log(total_neighbor_volume + 1)", "mean_neighbor_dist")], 4),
+  SE = round(m_abund_full_summary$coefficients[c("log(volume)", "n_neighbors", "log(total_neighbor_volume + 1)", "mean_neighbor_dist"), "Std. Error"], 4),
+  z = round(m_abund_full_summary$coefficients[c("log(volume)", "n_neighbors", "log(total_neighbor_volume + 1)", "mean_neighbor_dist"), "z value"], 2),
+  p = sapply(m_abund_full_summary$coefficients[c("log(volume)", "n_neighbors", "log(total_neighbor_volume + 1)", "mean_neighbor_dist"), "Pr(>|z|)"],
              function(x) format.pval(x, 3))
 )
 print(coef_table, row.names = FALSE)
@@ -406,10 +429,10 @@ m_rich_full_summary <- summary(m_rich_full)
 cat("\n    Coefficients:\n")
 coef_table_rich <- data.frame(
   Predictor = c("log(volume)", "n_neighbors", "log(neighbor_vol)", "mean_neighbor_dist"),
-  Beta = round(coef(m_rich_full)[2:5], 4),
-  SE = round(m_rich_full_summary$coefficients[2:5, "Std. Error"], 4),
-  z = round(m_rich_full_summary$coefficients[2:5, "z value"], 2),
-  p = sapply(m_rich_full_summary$coefficients[2:5, "Pr(>|z|)"],
+  Beta = round(coef(m_rich_full)[c("log(volume)", "n_neighbors", "log(total_neighbor_volume + 1)", "mean_neighbor_dist")], 4),
+  SE = round(m_rich_full_summary$coefficients[c("log(volume)", "n_neighbors", "log(total_neighbor_volume + 1)", "mean_neighbor_dist"), "Std. Error"], 4),
+  z = round(m_rich_full_summary$coefficients[c("log(volume)", "n_neighbors", "log(total_neighbor_volume + 1)", "mean_neighbor_dist"), "z value"], 2),
+  p = sapply(m_rich_full_summary$coefficients[c("log(volume)", "n_neighbors", "log(total_neighbor_volume + 1)", "mean_neighbor_dist"), "Pr(>|z|)"],
              function(x) format.pval(x, 3))
 )
 print(coef_table_rich, row.names = FALSE)
@@ -430,10 +453,10 @@ m_shan_full_summary <- summary(m_shan_full)
 cat("\n    Coefficients:\n")
 coef_table_shan <- data.frame(
   Predictor = c("log(volume)", "n_neighbors", "log(neighbor_vol)", "mean_neighbor_dist"),
-  Beta = round(coef(m_shan_full)[2:5], 4),
-  SE = round(m_shan_full_summary$coefficients[2:5, "Std. Error"], 4),
-  t = round(m_shan_full_summary$coefficients[2:5, "t value"], 2),
-  p = sapply(m_shan_full_summary$coefficients[2:5, "Pr(>|t|)"],
+  Beta = round(coef(m_shan_full)[c("log(volume)", "n_neighbors", "log(total_neighbor_volume + 1)", "mean_neighbor_dist")], 4),
+  SE = round(m_shan_full_summary$coefficients[c("log(volume)", "n_neighbors", "log(total_neighbor_volume + 1)", "mean_neighbor_dist"), "Std. Error"], 4),
+  t = round(m_shan_full_summary$coefficients[c("log(volume)", "n_neighbors", "log(total_neighbor_volume + 1)", "mean_neighbor_dist"), "t value"], 2),
+  p = sapply(m_shan_full_summary$coefficients[c("log(volume)", "n_neighbors", "log(total_neighbor_volume + 1)", "mean_neighbor_dist"), "Pr(>|t|)"],
              function(x) format.pval(x, 3))
 )
 print(coef_table_shan, row.names = FALSE)
@@ -499,29 +522,34 @@ print(model_comparison, n = 10)
 cat("\n    Likelihood Ratio Tests:\n")
 
 lrt_size <- anova(m_null, m_size, test = "Chisq")
-cat("      Null vs Size: χ² =", round(lrt_size$`LR stat.`[2], 2),
-    ", df =", lrt_size$Df[2],
-    ", p =", format.pval(lrt_size$`Pr(Chi)`[2], 3), "\n")
+lrt_size_vals <- safe_lrt_extract(lrt_size)
+cat("      Null vs Size: χ² =", round(lrt_size_vals$lr, 2),
+    ", df =", lrt_size_vals$df,
+    ", p =", format.pval(lrt_size_vals$p, 3), "\n")
 
 lrt_neigh <- anova(m_size, m_size_neighbors, test = "Chisq")
-cat("      Size vs +Neighbors: χ² =", round(lrt_neigh$`LR stat.`[2], 2),
-    ", df =", lrt_neigh$Df[2],
-    ", p =", format.pval(lrt_neigh$`Pr(Chi)`[2], 3), "\n")
+lrt_neigh_vals <- safe_lrt_extract(lrt_neigh)
+cat("      Size vs +Neighbors: χ² =", round(lrt_neigh_vals$lr, 2),
+    ", df =", lrt_neigh_vals$df,
+    ", p =", format.pval(lrt_neigh_vals$p, 3), "\n")
 
 lrt_vol <- anova(m_size_neighbors, m_size_neigh_vol, test = "Chisq")
-cat("      +Neighbors vs +Volume: χ² =", round(lrt_vol$`LR stat.`[2], 2),
-    ", df =", lrt_vol$Df[2],
-    ", p =", format.pval(lrt_vol$`Pr(Chi)`[2], 3), "\n")
+lrt_vol_vals <- safe_lrt_extract(lrt_vol)
+cat("      +Neighbors vs +Volume: χ² =", round(lrt_vol_vals$lr, 2),
+    ", df =", lrt_vol_vals$df,
+    ", p =", format.pval(lrt_vol_vals$p, 3), "\n")
 
 lrt_dist <- anova(m_size_neigh_vol, m_full, test = "Chisq")
-cat("      +Volume vs +Distance: χ² =", round(lrt_dist$`LR stat.`[2], 2),
-    ", df =", lrt_dist$Df[2],
-    ", p =", format.pval(lrt_dist$`Pr(Chi)`[2], 3), "\n")
+lrt_dist_vals <- safe_lrt_extract(lrt_dist)
+cat("      +Volume vs +Distance: χ² =", round(lrt_dist_vals$lr, 2),
+    ", df =", lrt_dist_vals$df,
+    ", p =", format.pval(lrt_dist_vals$p, 3), "\n")
 
 lrt_full <- anova(m_size, m_full, test = "Chisq")
-cat("      Size vs Full: χ² =", round(lrt_full$`LR stat.`[2], 2),
-    ", df =", lrt_full$Df[2],
-    ", p =", format.pval(lrt_full$`Pr(Chi)`[2], 3), "\n")
+lrt_full_vals <- safe_lrt_extract(lrt_full)
+cat("      Size vs Full: χ² =", round(lrt_full_vals$lr, 2),
+    ", df =", lrt_full_vals$df,
+    ", p =", format.pval(lrt_full_vals$p, 3), "\n")
 
 delta_r2 <- calc_r2(m_full, m_null) - calc_r2(m_size, m_null)
 cat("\n    Size R² =", round(calc_r2(m_size, m_null) * 100, 1), "%\n")
@@ -655,6 +683,7 @@ cat("PART 8: FUNCTIONAL GROUP RESPONSES TO LANDSCAPE\n")
 cat("------------------------------------------------------------\n\n")
 
 # Test if different functional groups respond differently
+# NOTE: These 4 functional group tests are exploratory and not corrected for multiple testing.
 functional_groups <- c("n_trapezia", "n_resident_fish", "n_corallivore", "n_shrimp")
 
 for (fg in functional_groups) {
@@ -860,13 +889,17 @@ extract_glmm_coefs <- function(model, response) {
   display_names <- c("Coral Volume (log)", "Neighbor Count",
                      "Neighbor Volume (log)", "Mean Neighbor Distance")
 
+  # Handle both "z value" (Poisson/NB) and "t value" (quasipoisson) column names
+  stat_col <- if ("z value" %in% colnames(coefs)) "z value" else "t value"
+  p_col <- if ("Pr(>|z|)" %in% colnames(coefs)) "Pr(>|z|)" else "Pr(>|t|)"
+
   results <- tibble(
     Response = response,
     Predictor = display_names,
     Beta = coefs[pred_names, "Estimate"],
     SE = coefs[pred_names, "Std. Error"],
-    z_value = coefs[pred_names, "z value"],
-    p_value = coefs[pred_names, "Pr(>|z|)"]
+    z_value = coefs[pred_names, stat_col],
+    p_value = coefs[pred_names, p_col]
   )
 
   return(results)
@@ -2111,6 +2144,97 @@ cat("  Size × Volume: p =", format.pval(int_p_vol, 3),
 cat("  Size × Distance: p =", format.pval(int_p_dist, 3),
     ifelse(int_p_dist < 0.05, " *", ""), "\n\n")
 
+# ============================================================================
+# PART 8: NEIGHBORHOOD COMPOSITION DIVERGENCE
+# ============================================================================
+# Parallel to the experiment's finding that composition diverged with coral
+# number: do corals in denser neighborhoods have more variable CAFI composition?
+# Uses betadisper to test whether compositional variability differs among
+# neighborhood density categories.
+# ============================================================================
+
+cat("------------------------------------------------------------\n")
+cat("PART 8: NEIGHBORHOOD COMPOSITION DIVERGENCE\n")
+cat("------------------------------------------------------------\n\n")
+
+cat("Testing whether corals with more neighbors have more variable CAFI composition.\n")
+cat("(Parallel to experiment's divergence finding with manipulated coral number.)\n\n")
+
+if (exists("community_matrix")) {
+  # Get community data for neighborhood-surveyed corals
+  neighbor_ids <- landscape_data$coral_id
+  comm_neighbor <- community_matrix[rownames(community_matrix) %in% neighbor_ids, ]
+
+  # Align and filter
+  shared_ids <- intersect(rownames(comm_neighbor), landscape_data$coral_id)
+  if (length(shared_ids) >= 20) {
+    comm_neighbor <- comm_neighbor[shared_ids, ]
+    land_aligned <- landscape_data %>% filter(coral_id %in% shared_ids) %>%
+      arrange(match(coral_id, shared_ids))
+
+    # Remove empty species columns
+    comm_neighbor <- comm_neighbor[, colSums(comm_neighbor) > 0]
+
+    # Create neighbor density categories (analogous to 1/3/6 corals in experiment)
+    land_aligned <- land_aligned %>%
+      mutate(neighbor_cat_simple = case_when(
+        n_neighbors <= 1 ~ "Low (0-1)",
+        n_neighbors <= 3 ~ "Medium (2-3)",
+        TRUE ~ "High (4+)"
+      ) %>% factor(levels = c("Low (0-1)", "Medium (2-3)", "High (4+)")))
+
+    cat("  Neighbor density categories:\n")
+    print(table(land_aligned$neighbor_cat_simple))
+    cat("\n")
+
+    # Bray-Curtis on Hellinger-transformed data
+    comm_hell_neighbor <- vegan::decostand(comm_neighbor, method = "hellinger")
+    dist_neighbor <- vegan::vegdist(comm_hell_neighbor, method = "bray")
+
+    # Betadisper by neighbor density
+    disp_neighbor <- vegan::betadisper(dist_neighbor, land_aligned$neighbor_cat_simple)
+    disp_neighbor_test <- permutest(disp_neighbor, permutations = 999)
+    disp_f <- disp_neighbor_test$tab$F[1]
+    disp_p <- disp_neighbor_test$tab$`Pr(>F)`[1]
+
+    cat("  Betadisper (compositional variability ~ neighbor density):\n")
+    cat("    F =", round(disp_f, 2), ", p =", format.pval(disp_p, 3), "\n")
+
+    # Linear trend: distance-to-centroid vs n_neighbors (continuous)
+    trend_df <- data.frame(
+      dist_centroid = disp_neighbor$distances,
+      n_neighbors = land_aligned$n_neighbors,
+      log_volume = land_aligned$log_volume
+    )
+    trend_lm <- lm(dist_centroid ~ n_neighbors + log_volume, data = trend_df)
+    trend_s <- summary(trend_lm)
+    neigh_beta <- coef(trend_lm)["n_neighbors"]
+    neigh_p <- trend_s$coefficients["n_neighbors", "Pr(>|t|)"]
+
+    cat("    Linear trend (dist_to_centroid ~ n_neighbors + log_volume):\n")
+    cat("      Neighbor β =", round(neigh_beta, 4), ", p =", format.pval(neigh_p, 3), "\n")
+
+    if (disp_p < 0.05 || neigh_p < 0.05) {
+      cat("    → Compositional variability differs with neighborhood density\n\n")
+    } else {
+      cat("    → No evidence that neighborhood density affects compositional variability\n")
+      cat("    → Contrasts with experiment's composition divergence finding\n\n")
+    }
+
+    # Save result
+    neighbor_disp_result <- tibble(
+      test = c("betadisper_F", "betadisper_p", "trend_beta", "trend_p"),
+      value = c(disp_f, disp_p, neigh_beta, neigh_p)
+    )
+    save_table(neighbor_disp_result, "neighborhood_composition_divergence")
+    cat("  Saved: neighborhood_composition_divergence.csv\n\n")
+  } else {
+    cat("  Insufficient overlap between community matrix and neighborhood data (n < 20)\n\n")
+  }
+} else {
+  cat("  Community matrix not available (run 01_load_data.R first)\n\n")
+}
+
 cat("CONCLUSION:\n")
 cat("  Coral size is the dominant predictor of CAFI abundance.\n")
 cat("  No evidence that neighborhood context at 5m scale affects CAFI abundance or richness.\n")
@@ -2134,5 +2258,6 @@ cat("    - landscape_univariate_results.csv\n")
 cat("    - landscape_full_model_results.csv\n")
 cat("    - landscape_model_comparison.csv\n")
 cat("    - landscape_interaction_results.csv\n")
+cat("    - neighborhood_composition_divergence.csv\n")
 cat("  Objects: ", PATHS$objects, "\n")
 cat("    - landscape_analysis_results.rds\n\n")

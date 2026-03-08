@@ -32,7 +32,7 @@
 #   - output/tables/network_edge_overlap.csv
 #   - output/tables/network_hub_stability.csv
 #   - output/figures/supplement/figS8_taxonomy_sensitivity.png
-#   - output/figures/supplement/figS13_network_sensitivity.png
+#   - output/figures/supplement/figS14_network_sensitivity.png
 #
 # Author: CAFI Survey Analysis Pipeline
 # Last Updated: 2026-03-04
@@ -96,9 +96,13 @@ fit_abundance_scaling <- function(metrics_df) {
     se <- coefs["log(volume)", "Std. Error"]
     p <- coefs["log(volume)", "Pr(>|z|)"]
     ci <- tryCatch(confint(model, "log(volume)"),
-                   error = function(e) beta + c(-1.96, 1.96) * se)
+                   error = function(e) {
+                     cat("    NOTE: confint() failed for abundance scaling, using Wald CI\n")
+                     beta + c(-1.96, 1.96) * se
+                   })
     list(beta = beta, se = se, ci_lower = ci[1], ci_upper = ci[2], p = p)
   }, error = function(e) {
+    cat("    Abundance scaling error:", e$message, "\n")
     list(beta = NA, se = NA, ci_lower = NA, ci_upper = NA, p = NA)
   })
 }
@@ -109,22 +113,23 @@ fit_richness_scaling <- function(metrics_df) {
     model <- glm(otu_richness ~ log(volume) + site, family = poisson, data = metrics_df)
 
     # Check overdispersion
+    # Overdispersion threshold matches main analysis (script 05)
     overdispersion <- sum(residuals(model, type = "pearson")^2) / model$df.residual
-    if (overdispersion > 2) {
+    if (overdispersion > 1.5) {
       model <- glm(otu_richness ~ log(volume) + site, family = quasipoisson, data = metrics_df)
     }
 
     coefs <- summary(model)$coefficients
-    z <- coefs["log(volume)", "Estimate"]
+    beta <- coefs["log(volume)", "Estimate"]
     se <- coefs["log(volume)", "Std. Error"]
     p_col <- intersect(colnames(coefs), c("Pr(>|z|)", "Pr(>|t|)"))
     p <- if (length(p_col) > 0) coefs["log(volume)", p_col[1]] else NA_real_
-    ci <- z + c(-1.96, 1.96) * se
-    list(z = z, se = se, ci_lower = ci[1], ci_upper = ci[2], p = p,
+    ci <- beta + c(-1.96, 1.96) * se
+    list(beta = beta, se = se, ci_lower = ci[1], ci_upper = ci[2], p = p,
          overdispersion = overdispersion)
   }, error = function(e) {
     cat("    Richness scaling error:", e$message, "\n")
-    list(z = NA, se = NA, ci_lower = NA, ci_upper = NA, p = NA,
+    list(beta = NA, se = NA, ci_lower = NA, ci_upper = NA, p = NA,
          overdispersion = NA)
   })
 }
@@ -141,6 +146,7 @@ fit_shannon_scaling <- function(metrics_df) {
     r2 <- summary(model)$adj.r.squared
     list(beta = beta, se = se, ci_lower = ci[1], ci_upper = ci[2], p = p, r2 = r2)
   }, error = function(e) {
+    cat("    Shannon scaling error:", e$message, "\n")
     list(beta = NA, se = NA, ci_lower = NA, ci_upper = NA, p = NA, r2 = NA)
   })
 }
@@ -215,6 +221,8 @@ fit_network <- function(comm_mat, coral_master_df, cafi_df, return_full = FALSE)
 
     volume_vec <- coral_master_df$volume[match(rownames(comm_filt), coral_master_df$coral_id)]
     log_vol <- log(volume_vec)
+    # Include site as covariate (consistent with main co-occurrence analysis in script 06)
+    site_fac <- factor(coral_master_df$site[match(rownames(comm_filt), coral_master_df$coral_id)])
 
     resid_mat <- matrix(NA, nrow = nrow(comm_filt), ncol = ncol(comm_filt))
     colnames(resid_mat) <- colnames(comm_filt)
@@ -222,11 +230,20 @@ fit_network <- function(comm_mat, coral_master_df, cafi_df, return_full = FALSE)
 
     for (sp in seq_len(ncol(comm_filt))) {
       y <- comm_filt[, sp]
+      # Try volume + site first; fall back to volume-only if site causes separation
       fit <- tryCatch(
-        glm(y ~ log_vol, family = binomial(link = "logit")),
-        warning = function(w) glm(y ~ log_vol, family = binomial(link = "logit")),
+        glm(y ~ log_vol + site_fac, family = binomial(link = "logit")),
+        warning = function(w) suppressWarnings(glm(y ~ log_vol + site_fac, family = binomial(link = "logit"))),
         error = function(e) NULL
       )
+      if (!is.null(fit) && any(!is.finite(coef(fit)))) fit <- NULL
+      if (is.null(fit)) {
+        fit <- tryCatch(
+          glm(y ~ log_vol, family = binomial(link = "logit")),
+          warning = function(w) glm(y ~ log_vol, family = binomial(link = "logit")),
+          error = function(e) NULL
+        )
+      }
       if (!is.null(fit)) {
         resid_mat[, sp] <- residuals(fit, type = "deviance")
       } else {
@@ -415,7 +432,10 @@ fit_species_scaling <- function(comm_mat, coral_master_df) {
       se <- coefs["log(volume)", "Std. Error"]
       p <- coefs["log(volume)", "Pr(>|z|)"]
       ci <- tryCatch(confint(model, "log(volume)"),
-                     error = function(e) beta + c(-1.96, 1.96) * se)
+                     error = function(e) {
+                       cat("      NOTE: confint() failed for", sp, ", using Wald CI\n")
+                       beta + c(-1.96, 1.96) * se
+                     })
 
       results[[sp]] <- tibble(
         species = sp, beta = beta, se = se, ci_lower = ci[1], ci_upper = ci[2],
@@ -457,19 +477,19 @@ all_species_scaling <- list()
 network_objects <- list()
 
 for (scenario_name in scenario_names) {
-  sd <- scenario_data[[scenario_name]]
+  scen_data <- scenario_data[[scenario_name]]
 
   cat("------------------------------------------------------------\n")
   cat("SCENARIO:", scenario_name,
-      "| Records:", sd$n_records,
-      "| OTUs:", sd$n_otus,
-      "| Matrix:", nrow(sd$community_matrix), "x", ncol(sd$community_matrix), "\n")
+      "| Records:", scen_data$n_records,
+      "| OTUs:", scen_data$n_otus,
+      "| Matrix:", nrow(scen_data$community_matrix), "x", ncol(scen_data$community_matrix), "\n")
   cat("------------------------------------------------------------\n\n")
 
   # Use pre-built objects
-  comm_mat     <- sd$community_matrix
-  metrics      <- sd$metrics
-  cafi_modified <- sd$cafi_modified
+  comm_mat     <- scen_data$community_matrix
+  metrics      <- scen_data$metrics
+  cafi_modified <- scen_data$cafi_modified
 
   cat("  Running analyses...\n")
 
@@ -481,7 +501,7 @@ for (scenario_name in scenario_names) {
   # B. Richness scaling
   cat("    [B] Richness scaling (Poisson GLM)... ")
   rich_result <- fit_richness_scaling(metrics)
-  cat("z =", round(rich_result$z, 3), "\n")
+  cat("z =", round(rich_result$beta, 3), "\n")
 
   # C. Shannon scaling
   cat("    [C] Shannon scaling... ")
@@ -514,8 +534,8 @@ for (scenario_name in scenario_names) {
   # Compile results
   all_results[[scenario_name]] <- tibble(
     scenario = scenario_name,
-    n_records = sd$n_records,
-    n_otus = sd$n_otus,
+    n_records = scen_data$n_records,
+    n_otus = scen_data$n_otus,
     n_corals_with_cafi = n_distinct(cafi_modified$coral_id),
     n_comm_species = ncol(comm_mat),
 
@@ -525,7 +545,7 @@ for (scenario_name in scenario_names) {
     abundance_ci_upper = abund_result$ci_upper,
     abundance_p = abund_result$p,
 
-    richness_z = rich_result$z,
+    richness_z = rich_result$beta,
     richness_se = rich_result$se,
     richness_ci_lower = rich_result$ci_lower,
     richness_ci_upper = rich_result$ci_upper,
@@ -635,7 +655,7 @@ for (i in seq_len(nrow(results_df))) {
 }
 
 # ============================================================================
-# NETWORK SENSITIVITY DEEP ANALYSIS (Fig S13)
+# NETWORK SENSITIVITY DEEP ANALYSIS (Fig S14)
 # ============================================================================
 # Detailed comparison of co-occurrence networks across taxonomy scenarios:
 #   A. Topology comparison (density, transitivity, etc.)
@@ -804,11 +824,11 @@ if (length(degree_list) > 0) {
 }
 
 # ============================================================================
-# FIGURE S13: Network Sensitivity (4-panel)
+# FIGURE S14: Network Sensitivity (4-panel)
 # ============================================================================
 
 cat("============================================================\n")
-cat("GENERATING NETWORK SENSITIVITY FIGURE (S13)\n")
+cat("GENERATING NETWORK SENSITIVITY FIGURE (S14)\n")
 cat("============================================================\n\n")
 
 scenario_colors <- c(
@@ -891,7 +911,7 @@ if (nrow(hub_all) > 0 && nrow(baseline_hubs) > 0) {
          title = "C. Hub species stability") +
     theme_publication(base_size = 10) +
     theme(
-      axis.text.y = element_text(size = 7, face = "italic"),
+      axis.text.y = element_text(size = 8, face = "italic"),
       legend.position = "right",
       legend.direction = "vertical",
       legend.title = element_text(size = 8),
@@ -932,11 +952,11 @@ if (nrow(degree_all) > 0) {
 }
 
 # --- Assemble Figure S13 ---
-figS13 <- (p_topo | p_jaccard) /
+figS14 <- (p_topo | p_jaccard) /
   (p_hubs | p_degree) +
   plot_layout(heights = c(1, 1.2)) +
   plot_annotation(
-    title = "Figure S13: Network Sensitivity to Taxonomic Resolution",
+    title = "Figure S14: Network Sensitivity to Taxonomic Resolution",
     subtitle = paste0("Co-occurrence networks reconstructed under ", length(scenario_names),
                       " taxonomy scenarios across ", nrow(coral_master), " corals"),
     theme = theme(
@@ -945,9 +965,9 @@ figS13 <- (p_topo | p_jaccard) /
     )
   )
 
-save_figure(figS13, file.path(fig_dir, "figS13_network_sensitivity.png"),
-            width = 12, height = 10)
-cat("  Saved: figS13_network_sensitivity.png\n\n")
+save_figure(figS14, file.path(fig_dir, "figS14_network_sensitivity.png"),
+            width = 14, height = 11)
+cat("  Saved: figS14_network_sensitivity.png\n\n")
 
 # ============================================================================
 # FIGURE: Forest-Plot Style Comparison (Fig S8)
@@ -978,13 +998,7 @@ panel_d_data <- results_df %>%
   mutate(ci_lower = NA_real_, ci_upper = NA_real_,
          scenario = factor(scenario, levels = rev(scenario_names)))
 
-scenario_colors <- c(
-  "Baseline" = "gray30",
-  "Species-only" = "#E69F00",
-  "Merge-up" = "#56B4E9",
-  "Lump-down" = "#009E73",
-  "Rare-excluded" = "#CC79A7"
-)
+# scenario_colors already defined above (line 814); reuse it here
 
 p_a <- ggplot(panel_a_data, aes(x = beta, y = scenario, color = scenario)) +
   geom_vline(xintercept = 1, linetype = "dashed", color = "gray45", linewidth = 0.4) +
@@ -1080,6 +1094,6 @@ cat("  Table: output/tables/network_topology_sensitivity.csv\n")
 cat("  Table: output/tables/network_edge_overlap.csv\n")
 cat("  Table: output/tables/network_hub_stability.csv\n")
 cat("  Figure: output/figures/supplement/figS8_taxonomy_sensitivity.png\n")
-cat("  Figure: output/figures/supplement/figS13_network_sensitivity.png\n\n")
+cat("  Figure: output/figures/supplement/figS14_network_sensitivity.png\n\n")
 
 cat("Script 13 complete.\n\n")

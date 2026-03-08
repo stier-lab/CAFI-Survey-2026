@@ -109,9 +109,19 @@ fit_functional_scaling <- function(data, response_name, min_nonzero = 15) {
     z_val <- coefs["log(volume)", "z value"]
     p_val <- coefs["log(volume)", "Pr(>|z|)"]
 
-    ci <- confint(model, "log(volume)", level = 0.95)
+    ci <- tryCatch(
+      confint(model, "log(volume)", level = 0.95),
+      error = function(e) { warning("confint failed for ", response_name, ": ", conditionMessage(e)); c(NA_real_, NA_real_) }
+    )
     ci_lower <- ci[1]
     ci_upper <- ci[2]
+
+    # If confint returned NA (convergence failure), warn and use Wald-based CIs as fallback
+    if (is.na(ci_lower) || is.na(ci_upper)) {
+      warning("confint returned NA for ", response_name, "; using Wald-based CI as fallback")
+      ci_lower <- beta - 1.96 * se
+      ci_upper <- beta + 1.96 * se
+    }
 
     # Test vs Field of Dreams (beta = 1)
     z_vs_1 <- (beta - 1) / se
@@ -193,6 +203,9 @@ if ("genus" %in% names(cafi_clean)) {
 
 cat("  Total Trapezia individuals:", nrow(trapezia), "\n")
 
+# Total surveyed corals (including zero-CAFI corals) for prevalence denominator
+n_total_corals <- nrow(coral_master)  # 114
+
 if (nrow(trapezia) > 0) {
 
   # Species breakdown
@@ -201,7 +214,7 @@ if (nrow(trapezia) > 0) {
     summarise(
       n_individuals = n(),
       n_corals = n_distinct(coral_id),
-      prevalence = n_distinct(coral_id) / n_distinct(cafi_clean$coral_id) * 100,
+      prevalence = n_distinct(coral_id) / n_total_corals * 100,
       mean_size_mm = mean(size_mm, na.rm = TRUE),
       sd_size_mm = sd(size_mm, na.rm = TRUE),
       min_size_mm = min(size_mm, na.rm = TRUE),
@@ -310,6 +323,7 @@ if (nrow(trapezia) > 0) {
         else "Model fit failed"
     ) +
     theme_publication() +
+    # Note: In-plot legend retained for diagnostic/non-manuscript figure
     theme(legend.position = c(0.15, 0.85))
 
   save_figure(p_trap_scaling, file.path(FIG_DIR, "trapezia_scaling.png"),
@@ -447,11 +461,17 @@ cat("Analyzing resident fish (Paragobiodon, Caracanthus)...\n")
 cat("These fish provide nutrients to corals via waste excretion\n\n")
 
 # Identify resident fish: gobies (Paragobiodon, Gobiodon) and velvetfish (Caracanthus)
-resident_fish <- cafi_clean %>%
-  filter(
-    str_detect(tolower(otu), "paragobiodon|gobiodon|caracanthus") |
-    functional_group == "Resident Fish"
-  )
+if (!"functional_group" %in% names(cafi_clean)) {
+  warning("functional_group column not found in cafi_clean; using OTU name matching only")
+  resident_fish <- cafi_clean %>%
+    filter(str_detect(tolower(otu), "paragobiodon|gobiodon|caracanthus"))
+} else {
+  resident_fish <- cafi_clean %>%
+    filter(
+      str_detect(tolower(otu), "paragobiodon|gobiodon|caracanthus") |
+      functional_group == "Resident Fish"
+    )
+}
 
 cat("  Total resident fish individuals:", nrow(resident_fish), "\n")
 
@@ -463,7 +483,7 @@ if (nrow(resident_fish) > 0) {
     summarise(
       n_individuals = n(),
       n_corals = n_distinct(coral_id),
-      prevalence = n_distinct(coral_id) / n_distinct(cafi_clean$coral_id) * 100,
+      prevalence = n_distinct(coral_id) / n_total_corals * 100,
       mean_size_mm = mean(size_mm, na.rm = TRUE),
       .groups = "drop"
     ) %>%
@@ -653,7 +673,7 @@ if (nrow(coral_eating_snails) > 0) {
     summarise(
       n_individuals = n(),
       n_corals = n_distinct(coral_id),
-      prevalence = n_distinct(coral_id) / n_distinct(cafi_clean$coral_id) * 100,
+      prevalence = n_distinct(coral_id) / n_total_corals * 100,
       mean_size_mm = mean(size_mm, na.rm = TRUE),
       .groups = "drop"
     ) %>%
@@ -673,17 +693,17 @@ if (nrow(coral_eating_snails) > 0) {
     )
 
   # Use existing n_corallivore from coral_master, add richness
-  coral_data <- coral_master %>%
+  gastropod_data <- coral_master %>%
     filter(!is.na(volume), volume > 0) %>%
     left_join(snail_by_coral %>% dplyr::select(coral_id, snail_richness), by = "coral_id")
 
   # n_corallivore already exists in coral_master
-  coral_data$n_corallivore[is.na(coral_data$n_corallivore)] <- 0
-  coral_data$snail_richness[is.na(coral_data$snail_richness)] <- 0
-  coral_data$has_corallivore <- coral_data$n_corallivore > 0
+  gastropod_data$n_corallivore[is.na(gastropod_data$n_corallivore)] <- 0
+  gastropod_data$snail_richness[is.na(gastropod_data$snail_richness)] <- 0
+  gastropod_data$has_corallivore <- gastropod_data$n_corallivore > 0
 
-  cat("  Corals with gastropods:", sum(coral_data$has_corallivore), "of", nrow(coral_data),
-      sprintf("(%.1f%%)\n\n", sum(coral_data$has_corallivore) / nrow(coral_data) * 100))
+  cat("  Corals with gastropods:", sum(gastropod_data$has_corallivore), "of", nrow(gastropod_data),
+      sprintf("(%.1f%%)\n\n", sum(gastropod_data$has_corallivore) / nrow(gastropod_data) * 100))
 
   # ----------------------------------------------------------------------------
   # C1. Prevalence by site and coral size
@@ -692,7 +712,7 @@ if (nrow(coral_eating_snails) > 0) {
   cat("Analyzing gastropod prevalence patterns...\n")
 
   # By site
-  snail_by_site <- coral_data %>%
+  snail_by_site <- gastropod_data %>%
     group_by(site) %>%
     summarise(
       n_corals = n(),
@@ -711,7 +731,7 @@ if (nrow(coral_eating_snails) > 0) {
   cat("\n  Saved: gastropod_prevalence.csv\n\n")
 
   # By size class
-  coral_data <- coral_data %>%
+  gastropod_data <- gastropod_data %>%
     mutate(
       size_class = cut(volume,
                        breaks = quantile(volume, c(0, 0.33, 0.67, 1), na.rm = TRUE),
@@ -719,7 +739,7 @@ if (nrow(coral_eating_snails) > 0) {
                        include.lowest = TRUE)
     )
 
-  snail_by_size <- coral_data %>%
+  snail_by_size <- gastropod_data %>%
     group_by(size_class) %>%
     summarise(
       n_corals = n(),
@@ -736,10 +756,10 @@ if (nrow(coral_eating_snails) > 0) {
   # C2. Association with coral condition (expected negative)
   # ----------------------------------------------------------------------------
 
-  if ("condition_score" %in% names(coral_data)) {
+  if ("condition_score" %in% names(gastropod_data)) {
     cat("Testing gastropod vs condition association...\n")
 
-    condition_data <- coral_data %>%
+    condition_data <- gastropod_data %>%
       filter(!is.na(condition_score))
 
     if (nrow(condition_data) > 20) {
@@ -784,7 +804,7 @@ if (nrow(coral_eating_snails) > 0) {
 
   # Does gastropod prevalence decrease with coral size?
   size_refuge_model <- glm(has_corallivore ~ log(volume) + site,
-                           data = coral_data, family = binomial)
+                           data = gastropod_data, family = binomial)
   size_refuge_summary <- summary(size_refuge_model)
 
   volume_coef <- size_refuge_summary$coefficients["log(volume)", ]
@@ -810,7 +830,7 @@ if (nrow(coral_eating_snails) > 0) {
 
   cat("Fitting gastropod scaling model...\n")
 
-  coral_scaling_data <- coral_data %>%
+  coral_scaling_data <- gastropod_data %>%
     dplyr::select(coral_id, site, volume, abundance = n_corallivore)
 
   snail_scaling_result <- fit_functional_scaling(coral_scaling_data, "Gastropods")
@@ -823,8 +843,8 @@ if (nrow(coral_eating_snails) > 0) {
   }
 
   # Create marginal prediction curve by averaging across all sites
-  vol_seq_snail <- seq(min(coral_data$volume), max(coral_data$volume), length.out = 100)
-  snail_pred_list <- lapply(levels(factor(coral_data$site)), function(s) {
+  vol_seq_snail <- seq(min(gastropod_data$volume), max(gastropod_data$volume), length.out = 100)
+  snail_pred_list <- lapply(levels(factor(gastropod_data$site)), function(s) {
     nd <- data.frame(volume = vol_seq_snail, site = s)
     nd$pred <- predict(snail_scaling_result$model, newdata = nd, type = "response")
     nd
@@ -835,7 +855,7 @@ if (nrow(coral_eating_snails) > 0) {
   )
 
   # Gastropod patterns figure
-  p_snails <- coral_data %>%
+  p_snails <- gastropod_data %>%
     ggplot(aes(x = volume, y = n_corallivore, color = site)) +
     geom_point(alpha = 0.7, size = 2.5) +
     geom_line(data = snail_pred_data, aes(x = volume, y = fit),
@@ -1249,13 +1269,11 @@ fig4 <- (panel_a | panel_b) / panel_c +
         legend.margin = margin(0, 0, 0, 0),
         legend.spacing.x = unit(2, "mm"))
 
-# Save to analysis dir + supplement (demoted from main text to S9)
-save_figure(fig4, file.path(FIG_DIR, "figS9_functional_groups.png"),
-            width = 180, height = 165, units = "mm")
-save_figure(fig4, file.path(PATHS$figures, "supplement", "figS9_functional_groups.png"),
+# Save to supplement (demoted from main text to S9)
+save_figure(fig4, file.path(PATHS$fig_supplement, "figS9_functional_groups.png"),
             width = 180, height = 165, units = "mm")
 
-cat("Saved: figS9_functional_groups.png (supplement + analysis)\n\n")
+cat("Saved: figS9_functional_groups.png (supplement)\n\n")
 
 # ############################################################################
 #                    SUMMARY AND SAVE RESULTS
@@ -1298,7 +1316,7 @@ cat("\nC. GASTROPODS:\n")
 if (exists("coral_eating_snails") && nrow(coral_eating_snails) > 0) {
   cat("   Total individuals:", nrow(coral_eating_snails), "\n")
   cat("   Species:", n_distinct(coral_eating_snails$otu), "\n")
-  cat("   Occupancy:", sprintf("%.1f%%", sum(coral_data$has_corallivore) / nrow(coral_data) * 100), "\n")
+  cat("   Occupancy:", sprintf("%.1f%%", sum(gastropod_data$has_corallivore) / nrow(gastropod_data) * 100), "\n")
   if (!is.null(snail_scaling_result) && !is.na(snail_scaling_result$beta)) {
     cat("   Scaling beta:", round(snail_scaling_result$beta, 3), "\n")
     cat("   Pattern:", snail_scaling_result$interpretation, "\n")

@@ -35,17 +35,20 @@
 #
 # OUTPUTS:
 #
-#   Figures (10):
-#   - output/figures/manuscript/fig4_feedbacks.png          (4-panel main text figure)
-#   - output/figures/supplement/figS12_condition_details.png (additional CAFI-condition panels)
-#   - output/figures/feedbacks/cafi_condition_effects.png   (all CAFI predictors forest)
-#   - output/figures/feedbacks/functional_effects_forest.png (functional group forest)
-#   - output/figures/feedbacks/key_species_effects.png      (key species forest plot)
-#   - output/figures/feedbacks/functional_vs_key_species.png (combined comparison)
-#   - output/figures/feedbacks/neighborhood_effects.png     (Part G neighborhood panels)
-#   - output/figures/feedbacks/landscape_condition_effects.png (Part H landscape)
+#   Figures (14):
+#   - output/figures/manuscript/fig5_feedbacks.png              (2-panel BEF main text figure)
 #   - output/figures/supplement/figS10_rarefaction_sensitivity.png (rarefaction depth)
-#   - output/figures/feedbacks/diagnostics_richness_model.png (richness model diagnostics)
+#   - output/figures/supplement/figS12_bef_variance_partitioning.png (BEF variance partitioning + path)
+#   - output/figures/supplement/figS13_condition_details.png    (a priori forest + rarefied + exploratory + scatters + bidirectional)
+#   - output/figures/supplement/figS16_species_trait_heatmap.png (25 species × 5 traits)
+#   - output/figures/supplement/figS17_species_trait_biplots.png (strongest associations)
+#   - output/figures/feedbacks/cafi_condition_effects.png       (all CAFI predictors forest)
+#   - output/figures/feedbacks/functional_effects_forest.png    (functional group forest)
+#   - output/figures/feedbacks/key_species_effects.png          (key species forest plot)
+#   - output/figures/feedbacks/functional_vs_key_species.png    (combined comparison)
+#   - output/figures/feedbacks/neighborhood_effects.png         (Part G neighborhood panels)
+#   - output/figures/feedbacks/landscape_condition_effects.png  (Part H landscape)
+#   - output/figures/feedbacks/diagnostics_richness_model.png   (richness model diagnostics)
 #
 #   Tables (14):
 #   - output/tables/cafi_condition_models.csv               (CAFI -> condition results)
@@ -68,7 +71,7 @@
 #   - output/objects/analysis_data_rarefied.rds             (rarefied analysis dataset)
 #
 #   Text (1):
-#   - output/figures/manuscript/fig4_legend_results.txt     (figure legend + results)
+#   - output/figures/manuscript/fig5_legend_results.txt     (figure legend + results)
 #
 # DEPENDENCIES: 00_setup.R, 01_load_data.R
 #
@@ -208,7 +211,7 @@ analysis_data <- condition_scores %>%
   dplyr::select(coral_id, site, condition_score, any_of(c("protein_corr", "carb_corr",
                                                      "zoox_corr", "afdw_corr"))) %>%
   left_join(functional_predictors, by = "coral_id") %>%
-  left_join(coral_master %>% dplyr::select(coral_id, volume, morphotype, depth_m, pc1_cafi, pc2_cafi),
+  left_join(coral_master %>% dplyr::select(coral_id, volume, morphotype, depth_m, any_of(c("pc1_cafi", "pc2_cafi"))),
             by = "coral_id") %>%
   filter(!is.na(condition_score), !is.na(total_cafi), !is.na(volume)) %>%
   mutate(
@@ -322,10 +325,33 @@ cat("\n")
 # - Adequate power for medium effects; null results for medium+ effects are credible
 if (requireNamespace("pwr", quietly = TRUE)) {
   n_physio <- sum(!is.na(coral_master$condition_score))
-  power_med <- pwr::pwr.f2.test(u = 2, v = n_physio - 3 - 1, f2 = 0.10/0.90, sig.level = 0.05)
-  power_sm <- pwr::pwr.f2.test(u = 2, v = n_physio - 3 - 1, f2 = 0.05/0.95, sig.level = 0.05)
+  power_med <- pwr::pwr.f2.test(u = 1, v = n_physio - 5, f2 = 0.10/0.90, sig.level = 0.05)
+  power_sm <- pwr::pwr.f2.test(u = 1, v = n_physio - 5, f2 = 0.05/0.95, sig.level = 0.05)
   cat(sprintf("Power analysis (n=%d physio corals):\n  Medium effect (R²=0.10): %.0f%%\n  Small effect (R²=0.05): %.0f%%\n\n",
               n_physio, power_med$power * 100, power_sm$power * 100))
+
+  # Cross-study power comparison: can the survey detect the experiment's effect sizes?
+  # Experiment (n=54) detected PC1_CAFI → PC1_Coral with R² ≈ 0.12-0.15
+  # What is our minimum detectable effect at 80% power?
+  mde <- pwr::pwr.f2.test(u = 1, v = n_physio - 5, power = 0.80, sig.level = 0.05)
+  mde_r2 <- mde$f2 / (1 + mde$f2)
+
+  # Can we detect the experiment's effect (R² ≈ 0.12)?
+  expt_r2 <- 0.12
+  power_expt <- pwr::pwr.f2.test(u = 1, v = n_physio - 5,
+                                   f2 = expt_r2 / (1 - expt_r2), sig.level = 0.05)
+
+  cat("Cross-study power comparison:\n")
+  cat(sprintf("  Minimum detectable R² at 80%% power: %.3f\n", mde_r2))
+  cat(sprintf("  Experiment's effect (R²≈%.2f): survey has %.0f%% power to detect it\n",
+              expt_r2, power_expt$power * 100))
+  if (power_expt$power >= 0.80) {
+    cat("  → Survey IS adequately powered to detect the experiment's effect size\n")
+    cat("  → Null results are credible: feedbacks may genuinely differ in established communities\n\n")
+  } else {
+    cat("  → Survey is UNDERPOWERED to detect the experiment's effect size\n")
+    cat("  → Null results should be interpreted cautiously\n\n")
+  }
 }
 
 # ============================================================================
@@ -344,9 +370,11 @@ cat("============================================================\n\n")
 
 # Function to run and summarize linear model with fixed-effect site
 # LM is appropriate here because the response (condition_score) is a continuous
-# PCA score (PC1 of physiology), not a count or proportion. Residual diagnostics
-# (Shapiro-Wilk, Breusch-Pagan) are checked downstream; HC3 robust SEs used
-# when heteroscedasticity is detected.
+# PCA score (PC1 of physiology), not a count or proportion.
+# PRIMARY INFERENCE: OLS standard errors (Breusch-Pagan test confirmed no
+# heteroscedasticity for richness model, BP p = 0.83; residual SD ratio = 1.56).
+# HC3 robust SEs reported as supplement sensitivity check (known to be overly
+# conservative at n < 100; Long & Ervin 2000).
 # Note: 3 sites is insufficient for random intercepts (Bolker et al. 2009 recommends >=5-6)
 run_condition_model <- function(data, predictor_name, predictor_col, transform = "none") {
   # Apply sqrt transform to count predictors (mirrors experimental companion paper)
@@ -361,14 +389,16 @@ run_condition_model <- function(data, predictor_name, predictor_col, transform =
     # Fit linear model with site as fixed effect
     model <- lm(as.formula(formula_str), data = data)
 
-    # Extract coefficient info
+    # Extract coefficient info (OLS — primary inference)
     model_summary <- summary(model)
     coef_table <- coef(model_summary)
 
     # Get the predictor coefficient
     pred_row <- which(rownames(coef_table) == predictor_col)
     if (length(pred_row) == 0) {
-      pred_row <- 2  # Fallback to second row
+      warning("Predictor '", predictor_col, "' not found in model coefficients: ",
+              paste(rownames(coef_table), collapse = ", "))
+      return(NULL)
     }
 
     estimate <- coef_table[pred_row, "Estimate"]
@@ -377,20 +407,24 @@ run_condition_model <- function(data, predictor_name, predictor_col, transform =
     df_val <- model$df.residual
     p_val <- coef_table[pred_row, "Pr(>|t|)"]
 
-    # Heteroscedasticity-robust SE (HC3 sandwich estimator)
+    # HC3 robust SE (supplement sensitivity only)
     se_robust <- se  # default
     p_val_robust <- p_val
+    bp_p <- NA_real_
     if (requireNamespace("sandwich", quietly = TRUE) &&
         requireNamespace("lmtest", quietly = TRUE)) {
       vcov_hc3 <- sandwich::vcovHC(model, type = "HC3")
       robust_coefs <- lmtest::coeftest(model, vcov. = vcov_hc3)
       se_robust <- robust_coefs[pred_row, "Std. Error"]
       p_val_robust <- robust_coefs[pred_row, "Pr(>|t|)"]
+      # Breusch-Pagan test
+      bp_test <- lmtest::bptest(model)
+      bp_p <- bp_test$p.value
     }
 
-    # 95% CI (using robust SE)
-    ci_lower <- estimate - qt(0.975, df_val) * se_robust
-    ci_upper <- estimate + qt(0.975, df_val) * se_robust
+    # 95% CI (using OLS SE — primary inference)
+    ci_lower <- estimate - qt(0.975, df_val) * se
+    ci_upper <- estimate + qt(0.975, df_val) * se
 
     # Partial standardized β: fit model on z-scored data
     data_std <- data
@@ -402,7 +436,7 @@ run_condition_model <- function(data, predictor_name, predictor_col, transform =
       error = function(e) NULL
     )
     beta_std <- if (!is.null(model_std)) {
-      coef(model_std)[pred_row]
+      coef(model_std)[predictor_col]
     } else {
       # Fallback: semi-standardized
       sd_predictor <- sd(data[[predictor_col]], na.rm = TRUE)
@@ -424,11 +458,12 @@ run_condition_model <- function(data, predictor_name, predictor_col, transform =
       df = df_val,
       p_value = p_val,
       p_value_robust = p_val_robust,
+      bp_p = bp_p,
       ci_lower = ci_lower,
       ci_upper = ci_upper,
       r2_adj = r2_adj,
       n = nrow(data),
-      significant = p_val_robust < 0.05  # Use robust p-value
+      significant = p_val < 0.05  # OLS p-value (primary)
     )
 
     return(list(model = model, result = result))
@@ -481,27 +516,81 @@ for (pred in cafi_predictors) {
 # Combine CAFI -> Condition results
 cafi_to_condition_df <- bind_rows(cafi_to_condition_results)
 
-# Apply FDR correction for multiple testing (7 CAFI metrics tested)
-# NOTE: Family-wise FDR is conservative (corrects within predictor family).
-# Global FDR (all tests pooled) is also computed below as sensitivity check.
-# Results reported as "nominal" must explicitly note global FDR threshold.
-# NOTE: FDR is applied within predictor families (CAFI→Condition, Condition→CAFI,
-# Key Species) rather than across all 20 tests. This assumes the three directions
-# represent distinct hypotheses. A more conservative approach would pool all tests.
+# Apply three-tier correction for multiple testing:
+#   A PRIORI BEF (k=2): Hochberg FWER — Species richness, Total CAFI
+#     (predicted by BEF theory: complementarity + abundance pathways)
+#   EXPLORATORY (k=4): BH-FDR — Shannon, Trapezia, Fish, Galeropsis
+#   SUPPLEMENT COMPOSITION (k=1): PC1_CAFI tested separately
+#     (community composition identity is a distinct question from BEF)
+# See Part A4 for full BEF analysis and Part I for global FDR sensitivity check.
+
+apriori_names <- c("Species richness", "Total CAFI")
+exploratory_names <- c("Shannon diversity", "Trapezia abundance",
+                       "Resident Fish abundance", "Galeropsis abundance")
+supplement_composition_names <- c("PC1_CAFI (community)")
+
 cafi_to_condition_df <- cafi_to_condition_df %>%
   mutate(
-    p_fdr = p.adjust(p_value_robust, method = "BH"),
-    significant_fdr = p_fdr < 0.05,
-    significant = p_value_robust < 0.05
+    hypothesis_type = case_when(
+      predictor %in% apriori_names ~ "a_priori",
+      predictor %in% supplement_composition_names ~ "supplement_composition",
+      TRUE ~ "exploratory"
+    ),
+    significant = p_value < 0.05  # OLS (primary)
   )
 
-cat("\nFDR-corrected significance (Benjamini-Hochberg, within CAFI→Condition family):\n")
-cat("(See Part I below for global FDR correction across all test families.)\n")
+# Hochberg for a priori BEF (k=2, using OLS p-values — primary inference)
+apriori_idx <- which(cafi_to_condition_df$hypothesis_type == "a_priori")
+cafi_to_condition_df$p_corrected <- NA_real_
+cafi_to_condition_df$p_corrected[apriori_idx] <-
+  p.adjust(cafi_to_condition_df$p_value[apriori_idx], method = "hochberg")
+
+# BH-FDR for exploratory (k=4)
+exploratory_idx <- which(cafi_to_condition_df$hypothesis_type == "exploratory")
+cafi_to_condition_df$p_corrected[exploratory_idx] <-
+  p.adjust(cafi_to_condition_df$p_value[exploratory_idx], method = "BH")
+
+# PC1_CAFI: no correction needed (k=1, separate question → supplement)
+supp_idx <- which(cafi_to_condition_df$hypothesis_type == "supplement_composition")
+cafi_to_condition_df$p_corrected[supp_idx] <-
+  cafi_to_condition_df$p_value[supp_idx]
+
+cafi_to_condition_df$significant_corrected <- cafi_to_condition_df$p_corrected < 0.05
+
+# HC3 sensitivity: same structure on robust p-values (supplement)
+cafi_to_condition_df$p_corrected_hc3 <- NA_real_
+cafi_to_condition_df$p_corrected_hc3[apriori_idx] <-
+  p.adjust(cafi_to_condition_df$p_value_robust[apriori_idx], method = "hochberg")
+cafi_to_condition_df$p_corrected_hc3[exploratory_idx] <-
+  p.adjust(cafi_to_condition_df$p_value_robust[exploratory_idx], method = "BH")
+cafi_to_condition_df$p_corrected_hc3[supp_idx] <-
+  cafi_to_condition_df$p_value_robust[supp_idx]
+
+# Also keep legacy BH-FDR across all 7 for backward compatibility / sensitivity
+cafi_to_condition_df$p_fdr <- p.adjust(cafi_to_condition_df$p_value, method = "BH")
+cafi_to_condition_df$significant_fdr <- cafi_to_condition_df$p_fdr < 0.05
+
+cat("\nBreusch-Pagan heteroscedasticity tests (justification for OLS as primary):\n")
 for (i in 1:nrow(cafi_to_condition_df)) {
   row <- cafi_to_condition_df[i, ]
-  fdr_star <- ifelse(row$significant_fdr, " *FDR-SIG*", "")
-  cat(sprintf("   %-30s p = %.4f, p_FDR = %.4f%s\n",
-              row$predictor, row$p_value, row$p_fdr, fdr_star))
+  if (!is.na(row$bp_p)) {
+    cat(sprintf("   %-30s BP p = %.4f %s\n", row$predictor, row$bp_p,
+                ifelse(row$bp_p < 0.05, "(heteroscedastic)", "(homoscedastic)")))
+  }
+}
+
+cat("\nThree-tier corrected significance (OLS primary; HC3 in supplement):\n")
+cat("  A priori BEF (Hochberg FWER, k=2): Species richness, Total CAFI\n")
+cat("  Exploratory (BH-FDR, k=4): Shannon, Trapezia, Fish, Galeropsis\n")
+cat("  Supplement composition (uncorrected, k=1): PC1_CAFI\n")
+cat("(See Part A4 for BEF rationale; Part I for global FDR sensitivity.)\n\n")
+for (i in 1:nrow(cafi_to_condition_df)) {
+  row <- cafi_to_condition_df[i, ]
+  method <- ifelse(row$hypothesis_type == "a_priori", "Hochberg", "BH-FDR")
+  sig_star <- ifelse(row$significant_corrected, " *SIG*", "")
+  cat(sprintf("   %-30s p_OLS = %.4f, p_%s = %.4f%s  (HC3: p = %.4f, p_%s = %.4f)\n",
+              row$predictor, row$p_value, method, row$p_corrected, sig_star,
+              row$p_value_robust, method, row$p_corrected_hc3))
 }
 cat("\n")
 
@@ -617,7 +706,7 @@ cat("Comparing raw vs rarefied richness effects on condition:\n")
 cat("------------------------------------------------------------\n\n")
 
 # Model 1: Raw richness (on full sample)
-m_raw_full <- lm(condition_score ~ otu_richness + site, data = analysis_data)
+m_raw_full <- lm(condition_score ~ otu_richness + log_volume + site, data = analysis_data)
 s_raw_full <- summary(m_raw_full)
 p_raw_full <- s_raw_full$coefficients["otu_richness", "Pr(>|t|)"]
 b_raw_full <- coef(m_raw_full)["otu_richness"]
@@ -630,7 +719,7 @@ cat(sprintf("  β = %.4f, SE = %.4f, p = %.4f %s\n\n",
     ifelse(p_raw_full < 0.05, "*", "")))
 
 # Model 2: Raw richness (on subset with n≥20)
-m_raw_sub <- lm(condition_score ~ otu_richness + site, data = analysis_data_rare)
+m_raw_sub <- lm(condition_score ~ otu_richness + log_volume + site, data = analysis_data_rare)
 s_raw_sub <- summary(m_raw_sub)
 p_raw_sub <- s_raw_sub$coefficients["otu_richness", "Pr(>|t|)"]
 b_raw_sub <- coef(m_raw_sub)["otu_richness"]
@@ -643,7 +732,7 @@ cat(sprintf("  β = %.4f, SE = %.4f, p = %.4f %s\n\n",
     ifelse(p_raw_sub < 0.05, "*", "")))
 
 # Model 3: Rarefied richness
-m_rare <- lm(condition_score ~ rarefied_richness + site, data = analysis_data_rare)
+m_rare <- lm(condition_score ~ rarefied_richness + log_volume + site, data = analysis_data_rare)
 s_rare <- summary(m_rare)
 p_rare <- s_rare$coefficients["rarefied_richness", "Pr(>|t|)"]
 b_rare <- coef(m_rare)["rarefied_richness"]
@@ -656,7 +745,7 @@ cat(sprintf("  β = %.4f, SE = %.4f, p = %.4f %s\n\n",
     ifelse(p_rare < 0.05, "*", "")))
 
 # Model 4: Abundance on subset
-m_abund_sub <- lm(condition_score ~ total_cafi + site, data = analysis_data_rare)
+m_abund_sub <- lm(condition_score ~ total_cafi + log_volume + site, data = analysis_data_rare)
 s_abund_sub <- summary(m_abund_sub)
 p_abund_sub <- s_abund_sub$coefficients["total_cafi", "Pr(>|t|)"]
 
@@ -733,7 +822,7 @@ richness_comparison_df <- tibble(
     type = factor(type, levels = type)
   )
 
-# Save for use in fig4
+# Save for use in fig5
 save_object(richness_comparison_df, "richness_comparison_results")
 save_object(analysis_data_rare, "analysis_data_rarefied")
 
@@ -848,8 +937,17 @@ transform_configs[[4]] <- list(
 transform_results <- list()
 
 for (tc in transform_configs) {
-  # PCA
-  pca_result <- prcomp(tc$mat, center = tc$center, scale. = tc$scale)
+  # PCA — guard against zero-variance columns when scale. = TRUE
+  mat_use <- tc$mat
+  if (isTRUE(tc$scale)) {
+    col_vars <- apply(mat_use, 2, var, na.rm = TRUE)
+    zero_var <- col_vars == 0 | is.na(col_vars)
+    if (any(zero_var)) {
+      mat_use <- mat_use[, !zero_var, drop = FALSE]
+      cat(sprintf("  %s: removed %d zero-variance columns before PCA\n", tc$name, sum(zero_var)))
+    }
+  }
+  pca_result <- prcomp(mat_use, center = tc$center, scale. = tc$scale)
   pc1_raw <- pca_result$x[, 1]
 
   # Align sign: flip if negatively correlated with total abundance
@@ -916,6 +1014,508 @@ if (nrow(transform_sensitivity_df) > 0) {
 } else {
   cat("  WARNING: No transformation results computed\n\n")
 }
+
+# ============================================================================
+# PART A4: BEF ANALYSIS — DIVERSITY vs ABUNDANCE EFFECTS ON CONDITION
+# ============================================================================
+# Tilman's BEF theory predicts diversity per se benefits ecosystem function
+# (complementarity/insurance), beyond simple abundance effects.
+#
+# The rarefaction test (Part A2) is ambiguous: it removes the abundance pathway
+# but that pathway might BE the mechanism (more species → fuller habitat use →
+# more total CAFI → better condition). Here we directly partition richness vs
+# abundance contributions using three complementary approaches:
+#
+# 1. Partial regression: richness + abundance in same model (VIF check)
+# 2. Variance partitioning: unique R² for richness, abundance, and shared
+# 3. Path model: volume → richness → condition vs volume → abundance → condition
+#
+# A PRIORI BEF HYPOTHESES (k=2):
+#   H1: Species richness → condition (complementarity)
+#   H2: Total abundance → condition (more bodies = more benefit)
+# Corrected with Hochberg (FWER) across these 2 a priori tests.
+# PC1_CAFI (community composition identity) is a separate question → supplement.
+# Remaining 4 predictors (Shannon, Trapezia, Fish, Galeropsis) are exploratory.
+# ============================================================================
+
+cat("============================================================\n")
+cat("PART A4: BEF ANALYSIS — DIVERSITY vs ABUNDANCE EFFECTS\n")
+cat("============================================================\n\n")
+
+cat("Tilman BEF framework: does diversity predict condition beyond abundance?\n")
+cat("Three complementary approaches: partial regression, variance partitioning, path model.\n\n")
+
+# --- Setup: prepare data with both richness and abundance ---
+bef_data <- analysis_data %>%
+  filter(!is.na(condition_score), !is.na(otu_richness), !is.na(total_cafi),
+         !is.na(log_volume), !is.na(site)) %>%
+  mutate(
+    richness_z = scale(otu_richness)[,1],
+    abundance_z = scale(sqrt(total_cafi))[,1],  # sqrt to match PART A transform
+    log_volume_z = scale(log_volume)[,1],
+    site = factor(site)
+  )
+
+cat("BEF analysis sample size: n =", nrow(bef_data), "\n")
+cat("Richness-abundance correlation: r =",
+    round(cor(bef_data$otu_richness, bef_data$total_cafi), 3), "\n")
+cat("Richness-abundance correlation (z-scored): r =",
+    round(cor(bef_data$richness_z, bef_data$abundance_z), 3), "\n\n")
+
+# ---- 1. PARTIAL REGRESSION: richness controlling for abundance ----
+cat("--- 1. PARTIAL REGRESSION ---\n")
+cat("Model: condition ~ richness + sqrt(abundance) + log(volume) + site\n\n")
+
+# Check VIF first
+m_both <- lm(condition_score ~ otu_richness + sqrt(total_cafi) + log_volume + site,
+             data = bef_data)
+
+if (requireNamespace("car", quietly = TRUE)) {
+  vif_both <- car::vif(m_both)
+  cat("VIF check (richness + abundance in same model):\n")
+  for (v in seq_along(vif_both)) {
+    cat(sprintf("  %-20s VIF = %.2f %s\n",
+                names(vif_both)[v], vif_both[v],
+                ifelse(vif_both[v] > 5, "WARNING: HIGH",
+                       ifelse(vif_both[v] > 2.5, "(moderate)", ""))))
+  }
+  cat("\n")
+}
+
+# Extract coefficients with HC3 robust SEs
+s_both <- summary(m_both)
+
+if (requireNamespace("sandwich", quietly = TRUE) &&
+    requireNamespace("lmtest", quietly = TRUE)) {
+  robust_both <- lmtest::coeftest(m_both, vcov. = sandwich::vcovHC(m_both, type = "HC3"))
+
+  richness_partial_b <- robust_both["otu_richness", "Estimate"]
+  richness_partial_se <- robust_both["otu_richness", "Std. Error"]
+  richness_partial_p <- robust_both["otu_richness", "Pr(>|t|)"]
+
+  abundance_partial_b <- robust_both["sqrt(total_cafi)", "Estimate"]
+  abundance_partial_se <- robust_both["sqrt(total_cafi)", "Std. Error"]
+  abundance_partial_p <- robust_both["sqrt(total_cafi)", "Pr(>|t|)"]
+
+  cat("Partial effects (HC3 robust SEs):\n")
+  cat(sprintf("  Richness  | abundance:  beta = %.4f, SE = %.4f, p = %.4f %s\n",
+      richness_partial_b, richness_partial_se, richness_partial_p,
+      ifelse(richness_partial_p < 0.05, "*", "")))
+  cat(sprintf("  Abundance | richness:   beta = %.4f, SE = %.4f, p = %.4f %s\n",
+      abundance_partial_b, abundance_partial_se, abundance_partial_p,
+      ifelse(abundance_partial_p < 0.05, "*", "")))
+} else {
+  # Fallback to OLS
+  richness_partial_b <- s_both$coefficients["otu_richness", "Estimate"]
+  richness_partial_se <- s_both$coefficients["otu_richness", "Std. Error"]
+  richness_partial_p <- s_both$coefficients["otu_richness", "Pr(>|t|)"]
+
+  abundance_partial_b <- s_both$coefficients["sqrt(total_cafi)", "Estimate"]
+  abundance_partial_se <- s_both$coefficients["sqrt(total_cafi)", "Std. Error"]
+  abundance_partial_p <- s_both$coefficients["sqrt(total_cafi)", "Pr(>|t|)"]
+
+  cat("Partial effects (OLS SEs):\n")
+  cat(sprintf("  Richness  | abundance:  beta = %.4f, SE = %.4f, p = %.4f %s\n",
+      richness_partial_b, richness_partial_se, richness_partial_p,
+      ifelse(richness_partial_p < 0.05, "*", "")))
+  cat(sprintf("  Abundance | richness:   beta = %.4f, SE = %.4f, p = %.4f %s\n",
+      abundance_partial_b, abundance_partial_se, abundance_partial_p,
+      ifelse(abundance_partial_p < 0.05, "*", "")))
+}
+
+cat(sprintf("\n  Model adj R² = %.4f (compared to richness-only adj R² = %.4f)\n",
+    s_both$adj.r.squared,
+    summary(lm(condition_score ~ otu_richness + log_volume + site, data = bef_data))$adj.r.squared))
+
+# Standardized betas for comparison
+m_both_std <- lm(condition_score ~ richness_z + abundance_z + log_volume_z + site,
+                 data = bef_data %>% mutate(condition_score = scale(condition_score)[,1]))
+s_both_std <- summary(m_both_std)
+cat(sprintf("  Standardized β (richness):  %.3f\n", coef(m_both_std)["richness_z"]))
+cat(sprintf("  Standardized β (abundance): %.3f\n\n", coef(m_both_std)["abundance_z"]))
+
+# ---- 2. VARIANCE PARTITIONING ----
+cat("--- 2. VARIANCE PARTITIONING ---\n")
+cat("Decomposing R² into unique and shared contributions.\n\n")
+
+# Three nested models for hierarchical R² decomposition
+m_null    <- lm(condition_score ~ log_volume + site, data = bef_data)
+m_rich    <- lm(condition_score ~ otu_richness + log_volume + site, data = bef_data)
+m_abund   <- lm(condition_score ~ sqrt(total_cafi) + log_volume + site, data = bef_data)
+m_full_vp <- lm(condition_score ~ otu_richness + sqrt(total_cafi) + log_volume + site,
+                data = bef_data)
+
+r2_null  <- summary(m_null)$r.squared
+r2_rich  <- summary(m_rich)$r.squared
+r2_abund <- summary(m_abund)$r.squared
+r2_full  <- summary(m_full_vp)$r.squared
+
+# Unique contributions (Type III-style)
+unique_richness  <- r2_full - r2_abund   # R² gained by adding richness to abundance model
+unique_abundance <- r2_full - r2_rich    # R² gained by adding abundance to richness model
+total_explained  <- r2_full - r2_null    # Total R² from both predictors
+shared           <- total_explained - unique_richness - unique_abundance
+
+cat(sprintf("  R² (null: volume + site only):       %.4f\n", r2_null))
+cat(sprintf("  R² (+ richness only):                %.4f  [Δ = %.4f]\n", r2_rich, r2_rich - r2_null))
+cat(sprintf("  R² (+ abundance only):               %.4f  [Δ = %.4f]\n", r2_abund, r2_abund - r2_null))
+cat(sprintf("  R² (+ richness + abundance):         %.4f  [Δ = %.4f]\n", r2_full, r2_full - r2_null))
+cat(sprintf("\n  Unique to richness:   %.4f (%.1f%% of total explained)\n",
+    unique_richness, 100 * unique_richness / max(total_explained, 1e-10)))
+cat(sprintf("  Unique to abundance:  %.4f (%.1f%% of total explained)\n",
+    unique_abundance, 100 * unique_abundance / max(total_explained, 1e-10)))
+cat(sprintf("  Shared (confounded):  %.4f (%.1f%% of total explained)\n",
+    shared, 100 * shared / max(total_explained, 1e-10)))
+cat(sprintf("  Total explained:      %.4f\n\n", total_explained))
+
+# F-test for unique contributions
+anova_rich_added <- anova(m_abund, m_full_vp)   # richness added to abundance model
+anova_abund_added <- anova(m_rich, m_full_vp)    # abundance added to richness model
+
+f_rich_unique  <- anova_rich_added$F[2]
+p_rich_unique  <- anova_rich_added$`Pr(>F)`[2]
+f_abund_unique <- anova_abund_added$F[2]
+p_abund_unique <- anova_abund_added$`Pr(>F)`[2]
+
+cat("F-tests for unique contributions (Type III):\n")
+cat(sprintf("  Richness  | abundance + volume + site:  F = %.3f, p = %.4f %s\n",
+    f_rich_unique, p_rich_unique, ifelse(p_rich_unique < 0.05, "*", "")))
+cat(sprintf("  Abundance | richness + volume + site:   F = %.3f, p = %.4f %s\n\n",
+    f_abund_unique, p_abund_unique, ifelse(p_abund_unique < 0.05, "*", "")))
+
+# ---- 3. PATH MODEL (piecewiseSEM) ----
+cat("--- 3. PATH MODEL (piecewiseSEM) ---\n")
+cat("DAG: Volume → Abundance → Condition\n")
+cat("     Volume → Richness  → Condition\n")
+cat("     (Richness ↔ Abundance correlated via Volume)\n\n")
+
+if (requireNamespace("piecewiseSEM", quietly = TRUE)) {
+
+  # Path models using z-scored predictors for standardized coefficients
+  # Model 1: Abundance ~ Volume + Site
+  path_abund <- lm(abundance_z ~ log_volume_z + site, data = bef_data)
+
+  # Model 2: Richness ~ Volume + Site
+  path_rich <- lm(richness_z ~ log_volume_z + site, data = bef_data)
+
+  # Model 3: Condition ~ Richness + Abundance + Volume + Site
+  path_cond <- lm(condition_score ~ richness_z + abundance_z + log_volume_z + site,
+                  data = bef_data)
+
+  psem_mod <- tryCatch(
+    piecewiseSEM::psem(path_abund, path_rich, path_cond),
+    error = function(e) {
+      cat("  piecewiseSEM::psem() failed:", e$message, "\n")
+      cat("  Falling back to manual path coefficient extraction.\n\n")
+      NULL
+    }
+  )
+
+  if (is.null(psem_mod)) {
+    # Manual fallback: extract standardized path coefficients from component models
+    cat("Manual path coefficients (standardized via z-scoring):\n")
+
+    s_abund <- summary(path_abund)
+    s_rich  <- summary(path_rich)
+    s_cond  <- summary(path_cond)
+
+    cat(sprintf("  log_volume → abundance:  β = %.4f, p = %.4f\n",
+        coef(path_abund)["log_volume_z"],
+        s_abund$coefficients["log_volume_z", "Pr(>|t|)"]))
+    cat(sprintf("  log_volume → richness:   β = %.4f, p = %.4f\n",
+        coef(path_rich)["log_volume_z"],
+        s_rich$coefficients["log_volume_z", "Pr(>|t|)"]))
+    cat(sprintf("  richness   → condition:  β = %.4f, p = %.4f\n",
+        coef(path_cond)["richness_z"],
+        s_cond$coefficients["richness_z", "Pr(>|t|)"]))
+    cat(sprintf("  abundance  → condition:  β = %.4f, p = %.4f\n",
+        coef(path_cond)["abundance_z"],
+        s_cond$coefficients["abundance_z", "Pr(>|t|)"]))
+    cat(sprintf("  log_volume → condition:  β = %.4f, p = %.4f\n",
+        coef(path_cond)["log_volume_z"],
+        s_cond$coefficients["log_volume_z", "Pr(>|t|)"]))
+
+    # Indirect effects
+    indirect_via_rich <- coef(path_rich)["log_volume_z"] * coef(path_cond)["richness_z"]
+    indirect_via_abund <- coef(path_abund)["log_volume_z"] * coef(path_cond)["abundance_z"]
+    cat(sprintf("\n  Indirect (Volume → Richness → Condition):  %.4f\n", indirect_via_rich))
+    cat(sprintf("  Indirect (Volume → Abundance → Condition): %.4f\n", indirect_via_abund))
+
+    # R² for endogenous
+    cat(sprintf("\n  R² (abundance model): %.4f\n", s_abund$r.squared))
+    cat(sprintf("  R² (richness model):  %.4f\n", s_rich$r.squared))
+    cat(sprintf("  R² (condition model): %.4f\n", s_cond$r.squared))
+
+    # Save manual path coefficients
+    psem_coefs <- tibble(
+      Predictor = c("log_volume_z", "log_volume_z", "richness_z", "abundance_z", "log_volume_z"),
+      Response = c("abundance_z", "richness_z", "condition_score", "condition_score", "condition_score"),
+      Std.Estimate = c(coef(path_abund)["log_volume_z"], coef(path_rich)["log_volume_z"],
+                       coef(path_cond)["richness_z"], coef(path_cond)["abundance_z"],
+                       coef(path_cond)["log_volume_z"]),
+      P.Value = c(s_abund$coefficients["log_volume_z", "Pr(>|t|)"],
+                  s_rich$coefficients["log_volume_z", "Pr(>|t|)"],
+                  s_cond$coefficients["richness_z", "Pr(>|t|)"],
+                  s_cond$coefficients["abundance_z", "Pr(>|t|)"],
+                  s_cond$coefficients["log_volume_z", "Pr(>|t|)"])
+    )
+    save_table(psem_coefs, "bef_path_coefficients")
+    cat("\nSaved: bef_path_coefficients.csv (manual extraction)\n")
+  }
+
+  if (!is.null(psem_mod)) {
+
+  # Capture summary
+  psem_summary <- tryCatch(
+    summary(psem_mod, .progressBar = FALSE),
+    error = function(e) {
+      cat("  piecewiseSEM summary failed:", e$message, "\n")
+      cat("  Falling back to manual path extraction.\n\n")
+
+      # Manual fallback (same as above but within psem_mod success path)
+      s_abund_fb <- summary(path_abund)
+      s_rich_fb  <- summary(path_rich)
+      s_cond_fb  <- summary(path_cond)
+
+      cat("Manual path coefficients (standardized via z-scoring):\n")
+      cat(sprintf("  log_volume → abundance:  β = %.4f, p = %.4f\n",
+          coef(path_abund)["log_volume_z"],
+          s_abund_fb$coefficients["log_volume_z", "Pr(>|t|)"]))
+      cat(sprintf("  log_volume → richness:   β = %.4f, p = %.4f\n",
+          coef(path_rich)["log_volume_z"],
+          s_rich_fb$coefficients["log_volume_z", "Pr(>|t|)"]))
+      cat(sprintf("  richness   → condition:  β = %.4f, p = %.4f\n",
+          coef(path_cond)["richness_z"],
+          s_cond_fb$coefficients["richness_z", "Pr(>|t|)"]))
+      cat(sprintf("  abundance  → condition:  β = %.4f, p = %.4f\n",
+          coef(path_cond)["abundance_z"],
+          s_cond_fb$coefficients["abundance_z", "Pr(>|t|)"]))
+      cat(sprintf("  log_volume → condition:  β = %.4f, p = %.4f\n",
+          coef(path_cond)["log_volume_z"],
+          s_cond_fb$coefficients["log_volume_z", "Pr(>|t|)"]))
+
+      indirect_r <- coef(path_rich)["log_volume_z"] * coef(path_cond)["richness_z"]
+      indirect_a <- coef(path_abund)["log_volume_z"] * coef(path_cond)["abundance_z"]
+      cat(sprintf("\n  Indirect (Volume → Richness → Condition):  %.4f\n", indirect_r))
+      cat(sprintf("  Indirect (Volume → Abundance → Condition): %.4f\n", indirect_a))
+
+      cat(sprintf("\n  R² (abundance model): %.4f\n", s_abund_fb$r.squared))
+      cat(sprintf("  R² (richness model):  %.4f\n", s_rich_fb$r.squared))
+      cat(sprintf("  R² (condition model): %.4f\n", s_cond_fb$r.squared))
+
+      psem_coefs_fb <- tibble(
+        Predictor = c("log_volume_z", "log_volume_z", "richness_z", "abundance_z", "log_volume_z"),
+        Response = c("abundance_z", "richness_z", "condition_score", "condition_score", "condition_score"),
+        Std.Estimate = c(coef(path_abund)["log_volume_z"], coef(path_rich)["log_volume_z"],
+                         coef(path_cond)["richness_z"], coef(path_cond)["abundance_z"],
+                         coef(path_cond)["log_volume_z"]),
+        P.Value = c(s_abund_fb$coefficients["log_volume_z", "Pr(>|t|)"],
+                    s_rich_fb$coefficients["log_volume_z", "Pr(>|t|)"],
+                    s_cond_fb$coefficients["richness_z", "Pr(>|t|)"],
+                    s_cond_fb$coefficients["abundance_z", "Pr(>|t|)"],
+                    s_cond_fb$coefficients["log_volume_z", "Pr(>|t|)"])
+      )
+      save_table(psem_coefs_fb, "bef_path_coefficients")
+      cat("\nSaved: bef_path_coefficients.csv (manual extraction)\n")
+
+      NULL
+    }
+  )
+
+  if (!is.null(psem_summary)) {
+
+  cat("Fisher's C =", round(psem_summary$Cstat$Fisher.C, 3),
+      ", df =", psem_summary$Cstat$df,
+      ", p =", round(psem_summary$Cstat$P.Value, 4),
+      ifelse(psem_summary$Cstat$P.Value > 0.05, " (good fit)", " (poor fit — missing paths)"), "\n\n")
+
+  # Extract standardized coefficients
+  psem_coefs <- piecewiseSEM::coefs(psem_mod, standardize = "scale")
+
+  cat("Standardized path coefficients:\n")
+  for (i in 1:nrow(psem_coefs)) {
+    row <- psem_coefs[i, ]
+    sig <- ""
+    if (!is.na(row$P.Value)) {
+      if (row$P.Value < 0.001) sig <- "***"
+      else if (row$P.Value < 0.01) sig <- "**"
+      else if (row$P.Value < 0.05) sig <- "*"
+      else if (row$P.Value < 0.1) sig <- "."
+    }
+    cat(sprintf("  %-15s → %-15s  β = %7.4f, p = %s %s\n",
+        row$Predictor, row$Response,
+        row$Std.Estimate,
+        ifelse(is.na(row$P.Value), "  NA  ", sprintf("%.4f", row$P.Value)),
+        sig))
+  }
+
+  # R² for each endogenous variable
+  cat("\nR² for endogenous variables:\n")
+  for (i in 1:nrow(psem_summary$R2)) {
+    cat(sprintf("  %-20s R² = %.4f\n",
+        psem_summary$R2$Response[i], psem_summary$R2$R.squared[i]))
+  }
+
+  # Extract the key path: richness → condition (direct BEF effect)
+  rich_to_cond_row <- psem_coefs[psem_coefs$Predictor == "richness_z" &
+                                   psem_coefs$Response == "condition_score", ]
+  abund_to_cond_row <- psem_coefs[psem_coefs$Predictor == "abundance_z" &
+                                    psem_coefs$Response == "condition_score", ]
+
+  if (nrow(rich_to_cond_row) > 0) {
+    cat(sprintf("\nKey BEF path (richness → condition): β = %.4f, p = %.4f\n",
+        rich_to_cond_row$Std.Estimate, rich_to_cond_row$P.Value))
+  }
+  if (nrow(abund_to_cond_row) > 0) {
+    cat(sprintf("Abundance path (abundance → condition): β = %.4f, p = %.4f\n",
+        abund_to_cond_row$Std.Estimate, abund_to_cond_row$P.Value))
+  }
+
+  # Indirect effects (manual calculation)
+  vol_to_rich <- psem_coefs[psem_coefs$Predictor == "log_volume_z" &
+                              psem_coefs$Response == "richness_z", ]
+  vol_to_abund <- psem_coefs[psem_coefs$Predictor == "log_volume_z" &
+                               psem_coefs$Response == "abundance_z", ]
+
+  if (nrow(vol_to_rich) > 0 && nrow(rich_to_cond_row) > 0) {
+    indirect_via_rich <- vol_to_rich$Std.Estimate * rich_to_cond_row$Std.Estimate
+    cat(sprintf("\nIndirect effect (Volume → Richness → Condition): %.4f\n", indirect_via_rich))
+  }
+  if (nrow(vol_to_abund) > 0 && nrow(abund_to_cond_row) > 0) {
+    indirect_via_abund <- vol_to_abund$Std.Estimate * abund_to_cond_row$Std.Estimate
+    cat(sprintf("Indirect effect (Volume → Abundance → Condition): %.4f\n", indirect_via_abund))
+  }
+
+  # Save path coefficients
+  save_table(psem_coefs, "bef_path_coefficients")
+  cat("\nSaved: bef_path_coefficients.csv\n")
+
+  }  # end if (!is.null(psem_summary))
+  }  # end if (!is.null(psem_mod))
+
+} else {
+  cat("piecewiseSEM not available. Install with: install.packages('piecewiseSEM')\n")
+  cat("Skipping path model analysis.\n")
+}
+
+# ---- 4. A PRIORI HYPOTHESIS CORRECTION (Hochberg) ----
+cat("\n--- 4. A PRIORI BEF HYPOTHESIS CORRECTION ---\n")
+cat("Two a priori hypotheses from BEF theory (Hochberg FWER, k=2):\n")
+cat("  H1: Species richness → condition (complementarity)\n")
+cat("  H2: Total abundance → condition (more bodies = more benefit)\n")
+cat("PC1_CAFI (community composition identity) is a separate question → supplement.\n\n")
+
+# Extract raw p-values for the 2 a priori BEF predictors from PART A results
+# Using OLS p-values (primary inference — BP test confirms no heteroscedasticity)
+apriori_predictors <- c("Species richness", "Total CAFI")
+apriori_rows <- cafi_to_condition_df %>%
+  filter(predictor %in% apriori_predictors)
+
+apriori_p_raw <- setNames(apriori_rows$p_value, apriori_rows$predictor)
+
+# Hochberg correction (step-up procedure, uniformly more powerful than Bonferroni)
+apriori_p_hochberg <- p.adjust(apriori_p_raw, method = "hochberg")
+
+# HC3 sensitivity (supplement)
+apriori_p_raw_hc3 <- setNames(apriori_rows$p_value_robust, apriori_rows$predictor)
+apriori_p_hochberg_hc3 <- p.adjust(apriori_p_raw_hc3, method = "hochberg")
+
+cat("A priori BEF predictors (Hochberg FWER, k=2):\n")
+for (nm in names(apriori_p_raw)) {
+  sig <- ifelse(apriori_p_hochberg[nm] < 0.05, " *SIGNIFICANT*", "")
+  cat(sprintf("  %-30s p_raw = %.4f, p_Hochberg = %.4f%s\n",
+      nm, apriori_p_raw[nm], apriori_p_hochberg[nm], sig))
+}
+
+# Supplement: PC1_CAFI composition test (separate question, no correction needed)
+pc1_row <- cafi_to_condition_df %>% filter(predictor == "PC1_CAFI (community)")
+cat(sprintf("\nSupplement composition test (uncorrected):\n  %-30s p = %.4f (NS)\n",
+    "PC1_CAFI (community)", pc1_row$p_value))
+
+# Exploratory predictors (BH-FDR, separate family)
+exploratory_predictors <- c("Shannon diversity", "Trapezia abundance",
+                            "Resident Fish abundance", "Galeropsis abundance")
+exploratory_rows <- cafi_to_condition_df %>%
+  filter(predictor %in% exploratory_predictors)
+
+exploratory_p_raw <- setNames(exploratory_rows$p_value, exploratory_rows$predictor)
+exploratory_p_fdr <- p.adjust(exploratory_p_raw, method = "BH")
+
+cat("\nExploratory predictors (BH-FDR, k=4):\n")
+for (nm in names(exploratory_p_raw)) {
+  sig <- ifelse(exploratory_p_fdr[nm] < 0.05, " *SIGNIFICANT*", "")
+  cat(sprintf("  %-30s p_raw = %.4f, p_FDR = %.4f%s\n",
+      nm, exploratory_p_raw[nm], exploratory_p_fdr[nm], sig))
+}
+cat("\n")
+
+# ---- Save BEF analysis results ----
+bef_results <- tibble(
+  analysis = c("Partial regression (richness | abundance)",
+               "Partial regression (abundance | richness)",
+               "Variance partition: unique richness",
+               "Variance partition: unique abundance",
+               "Variance partition: shared",
+               "F-test: richness unique",
+               "F-test: abundance unique"),
+  estimate = c(richness_partial_b, abundance_partial_b,
+               unique_richness, unique_abundance, shared,
+               f_rich_unique, f_abund_unique),
+  se = c(richness_partial_se, abundance_partial_se,
+         NA, NA, NA, NA, NA),
+  p_value = c(richness_partial_p, abundance_partial_p,
+              NA, NA, NA,
+              p_rich_unique, p_abund_unique),
+  notes = c("HC3 robust SE", "HC3 robust SE",
+            sprintf("%.1f%% of total", 100 * unique_richness / max(total_explained, 1e-10)),
+            sprintf("%.1f%% of total", 100 * unique_abundance / max(total_explained, 1e-10)),
+            sprintf("%.1f%% of total", 100 * shared / max(total_explained, 1e-10)),
+            "Type III F-test", "Type III F-test")
+)
+
+save_table(bef_results, "bef_diversity_abundance_partition")
+cat("Saved: bef_diversity_abundance_partition.csv\n")
+
+# Save a priori correction results
+apriori_correction <- tibble(
+  predictor = names(apriori_p_raw),
+  p_raw = apriori_p_raw,
+  p_hochberg = apriori_p_hochberg,
+  significant = apriori_p_hochberg < 0.05,
+  hypothesis_type = "a_priori"
+) %>%
+  bind_rows(tibble(
+    predictor = names(exploratory_p_raw),
+    p_raw = exploratory_p_raw,
+    p_hochberg = exploratory_p_fdr,  # FDR for exploratory
+    significant = exploratory_p_fdr < 0.05,
+    hypothesis_type = "exploratory"
+  ))
+
+save_table(apriori_correction, "bef_hypothesis_corrections")
+cat("Saved: bef_hypothesis_corrections.csv\n")
+
+# ---- Interpretation ----
+cat("\n=== BEF ANALYSIS INTERPRETATION ===\n")
+if (richness_partial_p < 0.05 && abundance_partial_p >= 0.05) {
+  cat("COMPLEMENTARITY: Richness predicts condition beyond abundance.\n")
+  cat("This supports Tilman's BEF hypothesis: species identity matters.\n")
+} else if (richness_partial_p >= 0.05 && abundance_partial_p < 0.05) {
+  cat("ABUNDANCE ONLY: Abundance predicts condition, richness does not.\n")
+  cat("The richness signal is mediated entirely through abundance.\n")
+} else if (richness_partial_p < 0.05 && abundance_partial_p < 0.05) {
+  cat("BOTH: Richness and abundance independently predict condition.\n")
+  cat("Both complementarity and abundance pathways are active.\n")
+} else {
+  cat("NEITHER: After mutual adjustment, neither richness nor abundance\n")
+  cat("independently predicts condition. The shared variance (collinearity)\n")
+  cat("prevents clean separation, but the a priori richness signal\n")
+  cat("(Hochberg p = ", round(apriori_p_hochberg["Species richness"], 4), ") ",
+      ifelse(apriori_p_hochberg["Species richness"] < 0.05,
+             "survives targeted correction.", "does not survive correction."),
+      "\n", sep = "")
+}
+cat("\n")
 
 # ============================================================================
 # PART B: CONDITION -> CAFI EFFECTS (REVERSE DIRECTION)
@@ -1416,9 +2016,10 @@ key_species_df <- bind_rows(key_species_results)
 if (nrow(key_species_df) > 0) {
   key_species_df <- key_species_df %>%
     mutate(
-      p_adj = p.adjust(p_value_robust, method = "hochberg"),
+      p_adj = p.adjust(p_value, method = "hochberg"),  # OLS primary
+      p_adj_hc3 = p.adjust(p_value_robust, method = "hochberg"),  # HC3 supplement
       significant_adj = p_adj < 0.05,
-      significant = p_value_robust < 0.05
+      significant = p_value < 0.05  # OLS primary
     )
 
   cat("\nHochberg-corrected key species p-values (Hochberg (FWER)):\n")
@@ -1733,13 +2334,16 @@ for (sp in species_names) {
     trait <- available_traits[j]
     label <- available_labels[j]
     complete_cases <- complete.cases(trait_corr_data[[sp]], trait_corr_data[[trait]])
+    # Spearman rank correlation (robust to zero-inflation in raw counts). See Fig S16 for regression-based analysis.
     if (sum(complete_cases) >= 10) {
       ct <- cor.test(trait_corr_data[[sp]][complete_cases],
                      trait_corr_data[[trait]][complete_cases],
-                     method = "pearson")
+                     method = "spearman", exact = FALSE)
       row[[paste0("r_", label)]] <- round(ct$estimate, 2)
+      row[[paste0("p_", label)]] <- ct$p.value
     } else {
       row[[paste0("r_", label)]] <- NA
+      row[[paste0("p_", label)]] <- NA
     }
   }
 
@@ -1752,11 +2356,23 @@ if (nrow(species_trait_corr) > 0 && "r_PC1_Coral" %in% names(species_trait_corr)
     arrange(taxon_group, desc(r_PC1_Coral))
 }
 
+# Apply BH-FDR correction across all p-values
+p_cols <- grep("^p_", names(species_trait_corr), value = TRUE)
+if (length(p_cols) > 0) {
+  all_pvals <- unlist(species_trait_corr[p_cols])
+  all_pvals_adj <- p.adjust(all_pvals, method = "BH")
+  # Write back adjusted p-values with _fdr suffix
+  fdr_matrix <- matrix(all_pvals_adj, nrow = nrow(species_trait_corr), ncol = length(p_cols))
+  colnames(fdr_matrix) <- gsub("^p_", "p_fdr_", p_cols)
+  species_trait_corr <- bind_cols(species_trait_corr, as.data.frame(fdr_matrix))
+}
+
 # Save table
 save_table(species_trait_corr, "species_trait_correlations")
 cat("   Saved: species_trait_correlations.csv\n")
 cat("   Species included:", nrow(species_trait_corr), "\n")
-cat("   Traits tested:", paste(available_labels, collapse = ", "), "\n\n")
+cat("   Traits tested:", paste(available_labels, collapse = ", "), "\n")
+cat("   Correlation method: Spearman rank (BH-FDR corrected)\n\n")
 
 # Print summary
 cat("   Species with |r| > 0.2 for PC1_Coral:\n")
@@ -1830,6 +2446,7 @@ for (i in seq_along(physio_traits)) {
       ct <- lmtest::coeftest(m, vcov. = vcov_hc)
       list(se = ct[pred, "Std. Error"], p = ct[pred, "Pr(>|t|)"])
     }, error = function(e) {
+      cat("    Note: Using OLS SEs for", pred, "(HC3 failed)\n")
       list(se = coefs[pred, "Std. Error"], p = coefs[pred, "Pr(>|t|)"])
     })
 
@@ -1883,7 +2500,8 @@ cat("============================================================\n")
 cat("PART F4: CROSS-STUDY SPECIES COMPARISON TABLE\n")
 cat("============================================================\n\n")
 
-# Experimental paper results (from Table S2, Hochberg-corrected)
+# Source: Stier, Primo, Curtis & Osenberg (companion experiment), Table S2.
+# Values last verified 2026-01-30. Update if companion paper revises.
 expt_species <- tribble(
   ~species,                  ~taxon_group,     ~expt_condition_beta, ~expt_condition_p, ~expt_condition_p_adj,
   "Caracanthus maculatus",   "Fishes",          1.424,  0.001,  0.017,
@@ -1950,6 +2568,37 @@ if ("direction_match" %in% names(cross_study)) {
   n_matched <- sum(cross_study$direction_match, na.rm = TRUE)
   n_testable <- sum(!is.na(cross_study$direction_match))
   cat("   Direction matches:", n_matched, "/", n_testable, "\n")
+
+  # Sign-concordance test: binomial test of whether survey effect directions
+
+  # match experimental directions more than expected by chance (50%)
+  if (n_testable >= 3) {
+    sign_test <- binom.test(n_matched, n_testable, p = 0.5, alternative = "greater")
+    cat("\n   SIGN CONCORDANCE TEST (binomial, H0: 50% match by chance):\n")
+    cat("     Concordant:", n_matched, "/", n_testable,
+        sprintf("(%.0f%%)\n", 100 * n_matched / n_testable))
+    cat("     p =", format.pval(sign_test$p.value, 3), "\n")
+    cat("     95% CI for concordance rate: [",
+        sprintf("%.1f%%", 100 * sign_test$conf.int[1]), ",",
+        sprintf("%.1f%%", 100 * sign_test$conf.int[2]), "]\n")
+    if (sign_test$p.value < 0.05) {
+      cat("     → Effect directions are significantly concordant across studies\n")
+    } else {
+      cat("     → No evidence of systematic concordance (directions may differ)\n")
+    }
+
+    # Save sign concordance result
+    sign_concordance_df <- tibble(
+      n_concordant = n_matched,
+      n_testable = n_testable,
+      concordance_rate = n_matched / n_testable,
+      binom_p = sign_test$p.value,
+      ci_lower = sign_test$conf.int[1],
+      ci_upper = sign_test$conf.int[2]
+    )
+    save_table(sign_concordance_df, "cross_study_sign_concordance")
+    cat("     Saved: cross_study_sign_concordance.csv\n")
+  }
 }
 cat("\n")
 
@@ -1979,16 +2628,26 @@ neighborhood_data <- coral_master %>%
   filter(!is.na(n_neighbors), !is.na(volume)) %>%
   mutate(
     log_volume = log(volume),
-    log_volume_scaled = scale(log_volume)[,1],
-    # Guard against constant values (all identical -> sd=0 -> NaN from scale())
-    n_neighbors_scaled = if (sd(n_neighbors, na.rm = TRUE) > 0) scale(n_neighbors)[,1] else 0,
-    total_neighbor_vol_scaled = if (sd(log(total_neighbor_volume + 1), na.rm = TRUE) > 0)
-      scale(log(total_neighbor_volume + 1))[,1] else 0,
+    log_volume_scaled = as.numeric(scale(log_volume)),
     # Size category for visualization
     size_category = cut(volume,
                         breaks = quantile(volume, probs = c(0, 0.33, 0.67, 1)),
                         labels = c("Small", "Medium", "Large"),
                         include.lowest = TRUE)
+  )
+
+# Pre-compute scaled neighborhood predictors outside mutate to avoid if()/scale() mismatch
+# Guard against constant values (all identical -> sd=0 -> NaN from scale())
+g_nn <- neighborhood_data$n_neighbors
+g_nn_scaled <- if (sd(g_nn, na.rm = TRUE) > 0) as.numeric(scale(g_nn)) else rep(0, length(g_nn))
+
+g_tnv <- log(neighborhood_data$total_neighbor_volume + 1)
+g_tnv_scaled <- if (sd(g_tnv, na.rm = TRUE) > 0) as.numeric(scale(g_tnv)) else rep(0, length(g_tnv))
+
+neighborhood_data <- neighborhood_data %>%
+  mutate(
+    n_neighbors_scaled = g_nn_scaled,
+    total_neighbor_vol_scaled = g_tnv_scaled
   )
 
 n_neighborhood <- nrow(neighborhood_data)
@@ -2009,9 +2668,17 @@ cat("    total_neighbor_volume: range", round(min(neighborhood_data$total_neighb
 cat("G.3 Model 1: CAFI ~ Volume × Neighborhood Density\n")
 cat("    --------------------------------------------------\n")
 
-m_cafi_neighborhood <- MASS::glm.nb(
-  total_cafi ~ log_volume_scaled * n_neighbors_scaled + site,
-  data = neighborhood_data
+m_cafi_neighborhood <- tryCatch(
+  MASS::glm.nb(
+    total_cafi ~ log_volume_scaled * n_neighbors_scaled + site,
+    data = neighborhood_data
+  ),
+  error = function(e) {
+    cat("    NB model failed:", conditionMessage(e), "\n")
+    cat("    Falling back to Poisson\n")
+    glm(total_cafi ~ log_volume_scaled * n_neighbors_scaled + site,
+        family = poisson, data = neighborhood_data)
+  }
 )
 
 summary_m1 <- summary(m_cafi_neighborhood)
@@ -2383,23 +3050,27 @@ landscape_condition <- condition_scores %>%
   filter(!is.na(condition_score), !is.na(volume)) %>%
   mutate(
     log_volume = log(volume),
-    log_volume_scaled = scale(log_volume)[,1],
-    # Scale neighborhood predictors (only for corals with neighborhood data)
-    # Guard against constant values (all identical -> sd=0 -> NaN from scale())
-    n_neighbors_scaled = if_else(!is.na(n_neighbors),
-      if (sd(n_neighbors, na.rm = TRUE) > 0) scale(n_neighbors)[,1] else 0,
-      NA_real_),
-    mean_dist_scaled = if_else(!is.na(mean_neighbor_dist),
-      if (sd(mean_neighbor_dist, na.rm = TRUE) > 0) scale(mean_neighbor_dist)[,1] else 0,
-      NA_real_),
-    total_neighbor_vol_scaled = if_else(!is.na(total_neighbor_volume),
-      if (sd(log(total_neighbor_volume[!is.na(total_neighbor_volume)] + 1)) > 0)
-        scale(log(total_neighbor_volume + 1))[,1] else 0,
-      NA_real_),
-    depth_scaled = if_else(!is.na(depth_m),
-      if (sd(depth_m, na.rm = TRUE) > 0) scale(depth_m)[,1] else 0,
-      NA_real_),
+    log_volume_scaled = as.numeric(scale(log_volume)),
     site = factor(site)
+  )
+
+# Pre-compute scaled neighborhood predictors before mutate to avoid if()/scale() mismatch
+# Guard against constant values (all identical -> sd=0 -> NaN from scale())
+nn_vals <- landscape_condition$n_neighbors
+nn_scaled <- if (sd(nn_vals, na.rm = TRUE) > 0) as.numeric(scale(nn_vals)) else rep(0, length(nn_vals))
+
+md_vals <- landscape_condition$mean_neighbor_dist
+md_scaled <- if (sd(md_vals, na.rm = TRUE) > 0) as.numeric(scale(md_vals)) else rep(0, length(md_vals))
+
+tnv_raw <- landscape_condition$total_neighbor_volume
+tnv_log <- ifelse(is.na(tnv_raw), NA, log(tnv_raw + 1))
+tnv_scaled <- if (sd(tnv_log, na.rm = TRUE) > 0) as.numeric(scale(tnv_log)) else rep(0, length(tnv_log))
+
+landscape_condition <- landscape_condition %>%
+  mutate(
+    n_neighbors_scaled = nn_scaled,
+    mean_dist_scaled = md_scaled,
+    total_neighbor_vol_scaled = tnv_scaled
   )
 
 n_landscape <- nrow(landscape_condition)
@@ -2604,6 +3275,9 @@ cat("\n")
 # NOTE: M1 uses full sample (n~112); M2-M5 use neighborhood subset (n~61).
 # AIC values are only comparable within same-sample models (M2-M5).
 cat("H.6 MODEL COMPARISON (AIC)\n")
+cat("    --------------------------------------------------\n")
+cat("    Note: Models have different sample sizes — AIC values not directly comparable.\n")
+cat("    M1 uses full sample; M2-M5 use neighborhood subset only.\n")
 cat("    --------------------------------------------------\n")
 
 model_comparison <- data.frame(
@@ -2946,12 +3620,13 @@ cat("PART I: GLOBAL FDR CORRECTION ACROSS ALL TEST FAMILIES\n")
 cat("============================================================\n\n")
 
 # Collect p-values from the three test families
-# Forward models (CAFI->Condition, Key Species) use HC3 robust p-values
+# All forward models use OLS p-values (primary inference; BP confirms no heteroscedasticity)
+# HC3 p-values retained in supplement sensitivity
 # Reverse models (Condition->CAFI) use OLS p-values (NB GLMs, no HC3)
-cafi_to_condition_pvals <- cafi_to_condition_df$p_value_robust
+cafi_to_condition_pvals <- cafi_to_condition_df$p_value
 condition_to_cafi_pvals <- condition_to_cafi_df$p_value
 key_species_pvals <- if (exists("key_species_df") && nrow(key_species_df) > 0) {
-  key_species_df$p_value_robust
+  key_species_df$p_value  # OLS primary
 } else {
   numeric(0)
 }
@@ -3041,6 +3716,7 @@ if (!is.null(richness_comparison_df)) {
           plot.margin = margin(5, 20, 5, 5, "mm"))
 } else {
   # Fallback if richness comparison not available
+  cat("  WARNING: richness_comparison_results not found, using PC1_CAFI fallback for Panel A\n")
   p_richness_artifact <- ggplot(analysis_data %>% filter(!is.na(pc1_cafi)),
                                  aes(x = pc1_cafi, y = condition_score)) +
     geom_point(aes(fill = site), shape = 21, color = "gray30", stroke = 0.4, alpha = 0.7, size = 2.5) +
@@ -3051,26 +3727,86 @@ if (!is.null(richness_comparison_df)) {
     theme_multipanel()
 }
 
-# --- Panel A: Raw richness vs Condition (confounded by abundance) ---
+# --- Panel A: Raw richness vs Condition (BEF hypothesis) ---
+# Retrieve Hochberg-corrected p-value for annotation
+p_richness_hochberg <- cafi_to_condition_df %>%
+  filter(predictor == "Species richness") %>%
+  pull(p_corrected)
+p_richness_ols <- cafi_to_condition_df %>%
+  filter(predictor == "Species richness") %>%
+  pull(p_value)
+
 p_raw_richness <- ggplot(analysis_data %>% filter(!is.na(otu_richness), !is.na(condition_score)),
                          aes(x = otu_richness, y = condition_score)) +
   geom_point(aes(fill = site), shape = 21, color = "gray30", stroke = 0.4, alpha = 0.6, size = 2) +
   geom_smooth(method = "lm", color = "black", se = TRUE, alpha = 0.2) +
   scale_fill_manual(values = SITE_COLORS, name = "Site") +
-  labs(title = "A", subtitle = "Raw richness (confounded by abundance)",
-       x = "Species richness (raw)", y = expression(Condition~score~(PC1[Coral]))) +
+  labs(x = "Species richness", y = expression(Condition~score~(PC1[Coral]))) +
   annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 1.5,
-           label = sprintf("r(richness, abundance) = %.2f",
-                           cor(analysis_data$otu_richness, analysis_data$total_cafi, use = "complete")),
-           size = 3, color = "gray40") +
-  theme_multipanel() +
-  guides(fill = guide_legend(override.aes = list(alpha = 1, size = 3)))
+           label = sprintf("Hochberg p = %.3f", p_richness_hochberg),
+           size = 3, fontface = "bold", color = "gray20") +
+  annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 3.0,
+           label = sprintf("r(richness, abundance) = %.2f", cor_raw_abund),
+           size = 2.8, fontface = "italic", color = "gray40") +
+  theme_multipanel()
 
-# --- Panel B: Rarefied richness vs Condition (abundance-controlled) ---
+# --- Panel B: Abundance vs Condition scatter (a priori BEF, Hochberg k=2) ---
+p_abundance_hochberg <- cafi_to_condition_df %>%
+  filter(predictor == "Total CAFI") %>%
+  pull(p_corrected)
+
+p_abundance_scatter <- ggplot(analysis_data %>% filter(!is.na(total_cafi), !is.na(condition_score)),
+                         aes(x = total_cafi, y = condition_score)) +
+  geom_point(aes(fill = site), shape = 21, color = "gray30", stroke = 0.4, alpha = 0.6, size = 2) +
+  geom_smooth(method = "lm", formula = y ~ sqrt(x), color = "black", se = TRUE, alpha = 0.2) +
+  scale_x_sqrt(breaks = c(0, 25, 50, 100, 150, 200, 250)) +
+  scale_fill_manual(values = SITE_COLORS, guide = "none") +
+  labs(x = "Total CAFI abundance",
+       y = expression(Condition~score~(PC1[Coral]))) +
+  annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 1.5,
+           label = sprintf("Hochberg p = %.3f", p_abundance_hochberg),
+           size = 3, fontface = "bold", color = "gray20") +
+  theme_multipanel()
+
+# --- A priori BEF forest plot (moved to supplement S13) ---
+apriori_forest_data <- cafi_to_condition_df %>%
+  filter(hypothesis_type == "a_priori") %>%
+  mutate(
+    predictor_label = case_when(
+      predictor == "Species richness" ~ "Species\nrichness",
+      predictor == "Total CAFI" ~ "Total CAFI\nabundance"
+    ),
+    predictor_label = factor(predictor_label,
+                              levels = c("Total CAFI\nabundance", "Species\nrichness")),
+    sig_color = ifelse(p_corrected < 0.05, "#2e7d32", "#757575"),
+    p_label = sprintf("p = %.3f\nHochberg = %.3f", p_value, p_corrected)
+  )
+
+p_apriori_forest <- ggplot(apriori_forest_data,
+                            aes(x = predictor_label, y = estimate)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper, color = sig_color),
+                  size = 1.5, linewidth = 1.2, show.legend = FALSE) +
+  scale_color_identity() +
+  geom_text(aes(y = ci_upper, label = p_label),
+            hjust = -0.1, size = 2.6, color = "gray20", lineheight = 0.85) +
+  coord_flip(clip = "off") +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.40))) +
+  labs(title = "A priori BEF hypotheses (Hochberg, k = 2)",
+       x = "", y = "Effect on condition (standardized \u03B2)") +
+  theme_multipanel() +
+  theme(legend.position = "none",
+        plot.margin = margin(5, 8, 5, 5, "mm"))
+
+# --- Panel C: Rarefied richness vs Condition (diagnostic) ---
 # Load rarefied data saved in Part A2
 analysis_data_rare_plot <- tryCatch(
   load_object("analysis_data_rarefied"),
-  error = function(e) analysis_data_rare  # fallback to in-memory object
+  error = function(e) {
+    cat("  Note: Using in-memory rarefied data (RDS not found)\n")
+    if (exists("analysis_data_rare")) analysis_data_rare
+    else { cat("  ERROR: No rarefied data available for Panel C\n"); NULL }
+  }
 )
 
 cor_rare_abund_plot <- cor(analysis_data_rare_plot$rarefied_richness,
@@ -3082,11 +3818,14 @@ p_rare_richness <- ggplot(analysis_data_rare_plot %>%
   geom_point(aes(fill = site), shape = 21, color = "gray30", stroke = 0.4, alpha = 0.6, size = 2) +
   geom_smooth(method = "lm", color = "black", se = TRUE, alpha = 0.2) +
   scale_fill_manual(values = SITE_COLORS, guide = "none") +
-  labs(title = "B", subtitle = "Rarefied richness (abundance-controlled)",
-       x = "Expected species richness (rarefied)", y = expression(Condition~score~(PC1[Coral]))) +
+  labs(title = "C", subtitle = "Rarefied richness (abundance equalized)",
+       x = "Expected species richness (rarefied, n = 20)", y = expression(Condition~score~(PC1[Coral]))) +
   annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 1.5,
-           label = sprintf("r(richness, abundance) = %.2f", cor_rare_abund_plot),
+           label = sprintf("p = %.2f (n.s.)", p_rare),
            size = 3, color = "gray40") +
+  annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 3.0,
+           label = sprintf("r(richness, abundance) = %.2f", cor_rare_abund_plot),
+           size = 2.8, color = "gray45") +
   theme_multipanel()
 
 # --- Panel C: Trapezia (defenders) vs Condition ---
@@ -3119,101 +3858,47 @@ p_galeropsis <- ggplot(analysis_data, aes(x = n_galeropsis, y = condition_score)
   theme_multipanel() +
   theme(legend.position = "none")
 
-# --- Panel E: Forest plot of functional group effects ---
-forest_data <- functional_effects %>%
+# --- Panel D: Exploratory forest plot (functional groups, BH-FDR k=4) ---
+exploratory_forest_data <- cafi_to_condition_df %>%
+  filter(hypothesis_type == "exploratory") %>%
   mutate(
-    functional_group = factor(functional_group,
-                               levels = c("Trapezia\n(Crabs)",
-                                          "Fish",
-                                          "Galeropsis"))
+    predictor_label = case_when(
+      predictor == "Shannon diversity" ~ "Shannon\ndiversity",
+      predictor == "Trapezia abundance" ~ "Trapezia\n(crabs)",
+      predictor == "Resident Fish abundance" ~ "Resident\nfish",
+      predictor == "Galeropsis abundance" ~ "Galeropsis\n(snail)"
+    ),
+    predictor_label = factor(predictor_label,
+                              levels = rev(c("Shannon\ndiversity", "Trapezia\n(crabs)",
+                                             "Resident\nfish", "Galeropsis\n(snail)"))),
+    sig_color = ifelse(p_corrected < 0.05, "#2e7d32", "#757575"),
+    p_label = sprintf("p_FDR = %.3f", p_corrected)
   )
 
-# Add expected direction indicator
-forest_data$expected_color <- ifelse(forest_data$expected_sign == "positive",
-                                      "#009E73", "#D55E00")
-
-p_forest <- ggplot(forest_data, aes(x = functional_group, y = estimate)) +
+p_exploratory_forest <- ggplot(exploratory_forest_data,
+                                aes(x = predictor_label, y = estimate)) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
-  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper),
-                  color = "#757575", size = 1.5, linewidth = 1.2) +
-  geom_text(aes(y = ci_upper, label = sprintf("  p_FDR = %.3f", p_fdr)),
-            hjust = 0, size = 3, color = "gray20") +
-  coord_flip(clip = "off") +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15)),
-                     limits = c(min(forest_data$ci_lower, 0) - 0.05,
-                                max(forest_data$ci_upper) + 0.15)) +
-  labs(
-    title = "C",
-    subtitle = "Functional group effects on condition (all NS)",
-    x = "",
-    y = "Effect on condition score (unstandardized)"
-  ) +
-  theme_multipanel() +
-  theme(legend.position = "none",
-        plot.margin = margin(5, 18, 5, 5, "mm"))
-
-# --- Panel D: Bidirectionality comparison ---
-# Combine both directions for visualization
-# Look up global FDR p-values for these specific tests
-bidirectional_data <- bind_rows(
-  cafi_to_condition_df %>%
-    filter(predictor == "Total CAFI") %>%
-    mutate(direction = "CAFI -> Condition",
-           label = "CAFI predicts\ncondition"),
-  condition_to_cafi_df %>%
-    filter(response == "Total CAFI") %>%
-    rename(predictor = response) %>%
-    mutate(direction = "Condition -> CAFI",
-           label = "Condition predicts\nCAFI")
-)
-
-# Add global FDR p-values for annotation (join by label, not float equality)
-bidirectional_data <- bidirectional_data %>%
-  mutate(
-    test_label = case_when(
-      direction == "CAFI -> Condition" ~ paste0("CAFI->Cond: ", predictor),
-      direction == "Condition -> CAFI" ~ paste0("Cond->CAFI: ", predictor),
-      TRUE ~ NA_character_
-    )
-  ) %>%
-  left_join(global_fdr_results %>% dplyr::select(test_label, p_fdr_global),
-            by = "test_label") %>%
-  mutate(
-    # Show both raw and FDR p-values if raw < 0.05 but FDR >= 0.05
-    p_label = case_when(
-      p_value < 0.05 & !is.na(p_fdr_global) & p_fdr_global >= 0.05 ~
-        sprintf("p = %.3f (raw)\np_FDR = %.3f (n.s.)", p_value, p_fdr_global),
-      p_value < 0.05 & !is.na(p_fdr_global) & p_fdr_global < 0.05 ~
-        sprintf("p = %.3f\np_FDR = %.3f", p_value, p_fdr_global),
-      TRUE ~ sprintf("p = %.3f", p_value)
-    )
-  )
-
-p_bidirectional <- ggplot(bidirectional_data,
-                           aes(x = label, y = estimate)) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
-  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper, color = significant),
-                  size = 1.5, linewidth = 1.2) +
-  scale_color_manual(values = c("TRUE" = "#2e7d32", "FALSE" = "#757575"),
-                     guide = "none") +
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper, color = sig_color),
+                  size = 1.2, linewidth = 1.0, show.legend = FALSE) +
+  scale_color_identity() +
   geom_text(aes(y = ci_upper, label = paste0("  ", p_label)),
-            hjust = 0, size = 2.8, lineheight = 0.9, color = "gray20") +
+            hjust = 0, size = 2.8, color = "gray20") +
   coord_flip(clip = "off") +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.35)),
-                     limits = c(min(bidirectional_data$ci_lower, 0) - 0.05,
-                                max(bidirectional_data$ci_upper) + 0.15)) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
   labs(
     title = "D",
-    subtitle = "Bidirectional causation tests",
+    subtitle = "Exploratory predictors (BH-FDR, k = 4)",
     x = "",
-    y = "Standardized effect size"
+    y = "Effect on condition (standardized \u03B2)"
   ) +
   theme_multipanel() +
   theme(legend.position = "none",
-        plot.margin = margin(5, 30, 5, 5, "mm"))
+        plot.margin = margin(5, 22, 5, 5, "mm"))
+
+# --- Supplement panels: Trapezia scatter, Galeropsis scatter, bidirectional ---
+# (kept for figS13, not in main figure)
 
 # --- Panel H: Full bidirectional feedback panel (both directions, all predictors) ---
-# Construct bidirectional data from both directions
 bidir_all_data <- bind_rows(
   cafi_to_condition_df %>%
     dplyr::select(predictor, estimate, ci_lower, ci_upper, p_value, p_fdr) %>%
@@ -3229,62 +3914,613 @@ p_bidir_full <- ggplot(bidir_all_data, aes(x = estimate, y = predictor)) +
   scale_color_manual(values = c("CAFI \u2192 Condition" = "#0072B2",
                                 "Condition \u2192 CAFI" = "#D55E00"),
                      name = "Direction") +
-  labs(title = "D. Full Bidirectional Feedback", subtitle = "All predictors in both directions",
+  labs(title = "Full Bidirectional Feedback", subtitle = "All predictors in both directions",
        x = "Effect size (coefficient)", y = "") +
   theme_multipanel() + theme(legend.position = "bottom")
 
-# ---- Manuscript Figure 4: 4-panel (was 8) ----
-# Layout: Row 1 = raw vs rarefied richness (A, B)
-#         Row 2 = Forest (C) + Bidirectional total (D)
-fig4_feedbacks <- (p_raw_richness | p_rare_richness) /
-                   (p_forest | p_bidirectional) +
-  plot_layout(heights = c(1, 1), guides = "collect") &
-  theme(legend.position = "bottom")
+# ---- Manuscript Figure 5: 2-panel BEF story ----
+# Layout: A (richness scatter) | B (abundance scatter)
+cat("\nAssembling manuscript Figure 5 (BEF story)...\n")
+fig5_feedbacks <- p_raw_richness + p_abundance_scatter +
+  plot_layout(widths = c(1, 1)) +
+  plot_annotation(tag_levels = "A") &
+  theme(legend.position = "none",
+        plot.tag = element_text(size = 11, face = "bold"),
+        plot.tag.position = "topleft")
 
 # Save manuscript figure (to both manuscript and analysis dirs)
-save_figure(fig4_feedbacks,
-           file.path(PATHS$fig_manuscript, "fig4_feedbacks.png"),
-           width = 250, height = 250, units = "mm")
-save_figure(fig4_feedbacks,
-           file.path(fig_dir, "fig4_feedbacks.png"),
-           width = 250, height = 250, units = "mm")
-cat("   Saved: fig4_feedbacks.png (manuscript + analysis)\n")
+save_figure(fig5_feedbacks,
+           file.path(PATHS$fig_manuscript, "fig5_feedbacks.png"),
+           width = 183, height = 100, units = "mm")
+save_figure(fig5_feedbacks,
+           file.path(fig_dir, "fig5_feedbacks.png"),
+           width = 183, height = 100, units = "mm")
+cat("   Saved: fig5_feedbacks.png (manuscript + analysis)\n")
 
-# ---- Supplement Figure S12: Additional CAFI-condition panels ----
-cat("\nAssembling supplement Figure S12 (additional panels)...\n")
-figS12 <- (p_richness_artifact) /
-           (p_trapezia | p_galeropsis) /
-           (p_bidir_full) +
-  plot_layout(heights = c(0.7, 1, 1)) +
-  plot_annotation(
-    title = "Figure S12: Additional CAFI-Condition Panels",
-    theme = theme(
-      plot.title = element_text(size = 14, face = "bold"),
-      plot.background = element_rect(fill = "white", color = NA)
+# ---- Supplement Figure S14: Additional CAFI-condition panels ----
+# ---- Supplement Figure S12: Variance partitioning + BEF diagnostics ----
+cat("\nAssembling supplement Figure S12 (BEF variance partitioning)...\n")
+
+# Panel S12-A: Stacked bar showing variance partitioning
+vp_data <- tibble(
+  component = factor(c("Unique to\nrichness", "Shared\n(confounded)", "Unique to\nabundance"),
+                     levels = c("Unique to\nrichness", "Shared\n(confounded)", "Unique to\nabundance")),
+  pct = c(100 * unique_richness / max(total_explained, 1e-10),
+          100 * shared / max(total_explained, 1e-10),
+          100 * unique_abundance / max(total_explained, 1e-10)),
+  r2 = c(unique_richness, shared, unique_abundance)
+)
+
+p_varpart <- ggplot(vp_data, aes(x = "BEF variance", y = pct, fill = component)) +
+  geom_col(width = 0.6, color = "white", linewidth = 0.5) +
+  geom_text(aes(label = sprintf("%.1f%%\n(\u0394R\u00B2 = %.4f)", pct, r2)),
+            position = position_stack(vjust = 0.5), size = 3, color = "white", fontface = "bold") +
+  scale_fill_manual(values = c("Unique to\nrichness" = "#0072B2",
+                                "Shared\n(confounded)" = "#999999",
+                                "Unique to\nabundance" = "#E69F00"),
+                    name = "") +
+  coord_flip() +
+  labs(title = "A", subtitle = "Variance partitioning: richness vs abundance",
+       x = "", y = "% of total explained variance") +
+  theme_multipanel() +
+  theme(legend.position = "bottom",
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.grid.major.y = element_blank())
+
+# Panel S12-B: Partial regression scatter (richness | abundance)
+# Compute partial residuals
+m_rich_resid <- lm(otu_richness ~ sqrt(total_cafi) + log_volume + site, data = bef_data)
+m_cond_resid <- lm(condition_score ~ sqrt(total_cafi) + log_volume + site, data = bef_data)
+
+partial_data <- tibble(
+  richness_resid = residuals(m_rich_resid),
+  condition_resid = residuals(m_cond_resid),
+  site = bef_data$site
+)
+
+p_partial <- ggplot(partial_data, aes(x = richness_resid, y = condition_resid)) +
+  geom_point(aes(fill = site), shape = 21, color = "gray30", stroke = 0.4, alpha = 0.6, size = 2) +
+  geom_smooth(method = "lm", color = "black", se = TRUE, alpha = 0.2) +
+  scale_fill_manual(values = SITE_COLORS, guide = "none") +
+  labs(title = "B", subtitle = "Partial regression: richness | abundance",
+       x = "Richness residuals (| abundance + volume + site)",
+       y = "Condition residuals (| abundance + volume + site)") +
+  annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 1.5,
+           label = sprintf("p = %.3f", richness_partial_p),
+           size = 3, fontface = "bold", color = "gray20") +
+  theme_multipanel()
+
+# Panel S12-C: Path model diagram (text-based visualization)
+path_text <- tibble(
+  from = c("Volume", "Volume", "Volume", "Richness", "Abundance"),
+  to = c("Richness", "Abundance", "Condition", "Condition", "Condition"),
+  beta = c(coef(path_rich)["log_volume_z"],
+           coef(path_abund)["log_volume_z"],
+           coef(path_cond)["log_volume_z"],
+           coef(path_cond)["richness_z"],
+           coef(path_cond)["abundance_z"]),
+  p_val = c(summary(path_rich)$coefficients["log_volume_z", "Pr(>|t|)"],
+            summary(path_abund)$coefficients["log_volume_z", "Pr(>|t|)"],
+            summary(path_cond)$coefficients["log_volume_z", "Pr(>|t|)"],
+            summary(path_cond)$coefficients["richness_z", "Pr(>|t|)"],
+            summary(path_cond)$coefficients["abundance_z", "Pr(>|t|)"]),
+  sig = NA
+)
+path_text$sig <- ifelse(path_text$p_val < 0.05, "p < 0.05", "n.s.")
+path_text$label <- sprintf("%s \u2192 %s", path_text$from, path_text$to)
+path_text$label <- factor(path_text$label, levels = rev(path_text$label))
+
+p_path <- ggplot(path_text, aes(x = label, y = beta)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray45", linewidth = 0.4) +
+  geom_col(aes(fill = sig), width = 0.6) +
+  scale_fill_manual(values = c("p < 0.05" = "#0072B2", "n.s." = "#CCCCCC"), name = "") +
+  geom_text(aes(label = sprintf("\u03B2 = %.2f", beta)),
+            hjust = ifelse(path_text$beta >= 0, -0.1, 1.1), size = 3) +
+  coord_flip(clip = "off") +
+  scale_y_continuous(expand = expansion(mult = c(0.15, 0.25))) +
+  labs(title = "C", subtitle = "Path model coefficients (standardized)",
+       x = "", y = "Standardized \u03B2") +
+  theme_multipanel() +
+  theme(legend.position = "bottom")
+
+figS12_bef <- (p_varpart) /
+               (p_partial | p_path) +
+  plot_layout(heights = c(0.8, 1.2))
+
+save_figure(figS12_bef,
+           file.path(PATHS$fig_supplement, "figS12_bef_variance_partitioning.png"),
+           width = 230, height = 220, units = "mm")
+save_figure(figS12_bef,
+           file.path(fig_dir, "figS12_bef_variance_partitioning.png"),
+           width = 230, height = 220, units = "mm")
+cat("   Saved: figS12_bef_variance_partitioning.png (supplement + analysis)\n")
+
+# ---- Supplement Figure S13: Rarefied richness, exploratory predictors, species scatters ----
+cat("\nAssembling supplement Figure S13 (additional panels)...\n")
+
+# Update panel labels for supplement context
+p_apriori_forest_supp <- p_apriori_forest + labs(title = "A")
+p_rare_richness_supp <- p_rare_richness + labs(title = "B")
+p_exploratory_forest_supp <- p_exploratory_forest + labs(title = "C")
+
+p_bidir_supp <- p_bidir_full + labs(title = "F") + theme(legend.position = "bottom")
+
+figS13 <- (p_apriori_forest_supp | p_rare_richness_supp) /
+           (p_exploratory_forest_supp + labs(title = "C") |
+            p_trapezia + labs(title = "D")) /
+           (p_galeropsis + labs(title = "E") | p_bidir_supp) +
+  plot_layout(heights = c(1, 1, 1))
+
+save_figure(figS13,
+           file.path(PATHS$fig_supplement, "figS13_condition_details.png"),
+           width = 230, height = 300, units = "mm")
+save_figure(figS13,
+           file.path(fig_dir, "figS13_condition_details.png"),
+           width = 230, height = 300, units = "mm")
+cat("   Saved: figS13_condition_details.png (supplement + analysis)\n")
+
+# ============================================================================
+# FIGURE S16: SPECIES × TRAIT HEATMAP
+# ============================================================================
+# Shows standardized β for each species × condition trait combination.
+# Panel A: β values with significance markers; Panel B: FDR-adjusted p-values.
+# ============================================================================
+
+cat("\n--- Figure S16: Species × trait heatmap ---\n")
+
+# Build species × trait data from existing analysis objects
+# Use the 25 species from top_species_for_corr (already defined above)
+
+# Trait mapping
+heatmap_trait_cols <- c("condition_score", "protein_corr", "carb_corr", "zoox_corr", "afdw_corr")
+heatmap_trait_labels <- c("Condition (PC1)", "Protein", "Carbohydrate", "Zooxanthellae", "AFDW")
+
+# Build per-coral species abundance matrix
+heatmap_sp_wide <- cafi_clean %>%
+  filter(coral_id %in% analysis_data$coral_id,
+         otu %in% top_species_for_corr$otu) %>%
+  group_by(coral_id, otu) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  pivot_wider(names_from = otu, values_from = n, values_fill = 0)
+
+# Merge with condition + physiology data
+heatmap_data <- analysis_data %>%
+  dplyr::select(coral_id, site, log_volume,
+                condition_score,
+                any_of(c("protein_corr", "carb_corr", "zoox_corr", "afdw_corr"))) %>%
+  left_join(heatmap_sp_wide, by = "coral_id")
+
+# Fill NAs in species counts with 0
+for (sp in top_species_for_corr$otu) {
+  if (sp %in% names(heatmap_data)) {
+    heatmap_data[[sp]] <- ifelse(is.na(heatmap_data[[sp]]), 0, heatmap_data[[sp]])
+  }
+}
+
+# Assign taxonomic group labels
+sp_group_lookup <- cafi_clean %>%
+  filter(otu %in% top_species_for_corr$otu) %>%
+  distinct(otu, type) %>%
+  mutate(group_label = case_when(
+    grepl("Trapezia", otu) ~ "Trapezia",
+    type == "fish" ~ "Fish",
+    type == "shrimp" ~ "Shrimp",
+    type == "snail" ~ "Gastropod",
+    type == "crab" ~ "Hermit crab",
+    otu == "Breviturma pica" | otu == "Ophiocomella sexradia" ~ "Brittle star",
+    otu == "Polynoidae" ~ "Polychaete",
+    TRUE ~ "Other"
+  )) %>%
+  dplyr::select(otu, group_label)
+
+# Get family info
+sp_family_lookup <- cafi_clean %>%
+  filter(otu %in% top_species_for_corr$otu) %>%
+  distinct(otu, family)
+
+# Run models: trait ~ sqrt(n_species) + log(volume) + site
+heatmap_results <- data.frame()
+available_heatmap_traits <- heatmap_trait_cols[heatmap_trait_cols %in% names(heatmap_data)]
+
+for (sp in top_species_for_corr$otu) {
+  if (!sp %in% names(heatmap_data)) next
+
+  sp_data <- heatmap_data
+  sp_data$sp_count <- sp_data[[sp]]
+  n_present <- sum(sp_data$sp_count > 0)
+  total_ind <- sum(sp_data$sp_count)
+
+  if (n_present < 10) next
+
+  for (j in seq_along(available_heatmap_traits)) {
+    trait <- available_heatmap_traits[j]
+    label <- heatmap_trait_labels[j]
+
+    model_data <- sp_data %>% filter(!is.na(.data[[trait]]))
+    if (nrow(model_data) < 15) next
+
+    tryCatch({
+      m <- lm(as.formula(paste(trait, "~ sqrt(sp_count) + log_volume + site")),
+              data = model_data)
+      s <- summary(m)
+      coef_row <- s$coefficients["sqrt(sp_count)", , drop = FALSE]
+
+      grp <- sp_group_lookup$group_label[sp_group_lookup$otu == sp]
+      if (length(grp) == 0) grp <- "Other"
+      fam <- sp_family_lookup$family[sp_family_lookup$otu == sp]
+      if (length(fam) == 0) fam <- "Unknown"
+
+      heatmap_results <- bind_rows(heatmap_results, data.frame(
+        species = sp, group_label = grp, family = fam, trait = label,
+        n_present = n_present, total_ind = total_ind,
+        beta = coef_row[1, "Estimate"], se = coef_row[1, "Std. Error"],
+        t_val = coef_row[1, "t value"], p_raw = coef_row[1, "Pr(>|t|)"],
+        stringsAsFactors = FALSE
+      ))
+    }, error = function(e) NULL)
+  }
+}
+
+# FDR correction across all tests
+if (nrow(heatmap_results) > 0) {
+  heatmap_results$p_fdr <- p.adjust(heatmap_results$p_raw, method = "BH")
+}
+
+# Save heatmap data table
+save_table(heatmap_results, "species_trait_heatmap_data")
+cat("   Saved: species_trait_heatmap_data.csv (", nrow(heatmap_results), " tests)\n")
+
+# --- Build heatmap figure ---
+if (nrow(heatmap_results) > 0) {
+
+  # Order species by group then by Condition PC1 beta
+  pc1_betas <- heatmap_results %>%
+    filter(trait == "Condition (PC1)") %>%
+    dplyr::select(species, group_label, beta_pc1 = beta)
+
+  species_order <- pc1_betas %>%
+    arrange(group_label, desc(beta_pc1)) %>%
+    pull(species)
+
+  heatmap_results$species <- factor(heatmap_results$species, levels = rev(species_order))
+  heatmap_results$trait <- factor(heatmap_results$trait,
+    levels = c("Condition (PC1)", "Protein", "Carbohydrate", "Zooxanthellae", "AFDW"))
+
+  # Panel A: Beta heatmap with significance markers
+  heatmap_results$sig_marker <- ifelse(heatmap_results$p_raw < 0.05, "*", "")
+  heatmap_results$beta_label <- sprintf("%.2f%s", heatmap_results$beta, heatmap_results$sig_marker)
+  heatmap_results$text_color <- ifelse(heatmap_results$p_raw < 0.05, "black", "grey60")
+
+  # Split for bold/plain rendering
+  hm_sig <- heatmap_results %>% filter(p_raw < 0.05)
+  hm_ns <- heatmap_results %>% filter(p_raw >= 0.05)
+
+  # Get group labels for faceting
+  heatmap_results <- heatmap_results %>%
+    left_join(pc1_betas %>% dplyr::select(species, group_label), by = "species",
+              suffix = c("", ".dup")) %>%
+    mutate(group_label = coalesce(group_label, group_label.dup)) %>%
+    dplyr::select(-any_of("group_label.dup"))
+
+  hm_sig <- hm_sig %>%
+    left_join(pc1_betas %>% dplyr::select(species, group_label), by = "species",
+              suffix = c("", ".dup")) %>%
+    mutate(group_label = coalesce(group_label, group_label.dup)) %>%
+    dplyr::select(-any_of("group_label.dup"))
+
+  hm_ns <- hm_ns %>%
+    left_join(pc1_betas %>% dplyr::select(species, group_label), by = "species",
+              suffix = c("", ".dup")) %>%
+    mutate(group_label = coalesce(group_label, group_label.dup)) %>%
+    dplyr::select(-any_of("group_label.dup"))
+
+  p_heatmap_A <- ggplot(heatmap_results, aes(x = trait, y = species, fill = beta)) +
+    geom_tile(color = "white", linewidth = 0.5) +
+    geom_text(data = hm_sig,
+              aes(label = sprintf("%.2f*", beta)),
+              size = 2.5, fontface = "bold", color = "black") +
+    geom_text(data = hm_ns,
+              aes(label = sprintf("%.2f", beta)),
+              size = 2.3, color = "grey50") +
+    scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#B2182B",
+                         midpoint = 0, name = "Std. beta",
+                         limits = c(-0.7, 0.8)) +
+    facet_grid(group_label ~ ., scales = "free_y", space = "free_y") +
+    labs(x = NULL, y = NULL) +
+    theme_minimal(base_size = 9) +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+      axis.text.y = element_text(face = "italic", size = 7),
+      strip.text.y = element_text(angle = 0, size = 7, face = "bold", hjust = 0),
+      strip.background = element_blank(),
+      panel.grid = element_blank(),
+      legend.position = "bottom",
+      legend.key.width = unit(15, "mm"),
+      legend.key.height = unit(3, "mm"),
+      plot.margin = margin(5, 5, 5, 5, "mm")
     )
+
+  # Panel B: FDR p-value heatmap (only show where < 0.10)
+  hm_fdr <- heatmap_results %>%
+    mutate(p_fdr_show = ifelse(p_fdr < 0.10, p_fdr, NA))
+
+  p_heatmap_B <- ggplot(hm_fdr, aes(x = trait, y = species, fill = -log10(p_fdr_show))) +
+    geom_tile(data = hm_fdr %>% filter(!is.na(p_fdr_show)),
+              color = "white", linewidth = 0.5) +
+    geom_tile(data = hm_fdr %>% filter(is.na(p_fdr_show)),
+              fill = "grey95", color = "white", linewidth = 0.5) +
+    geom_text(data = hm_fdr %>% filter(!is.na(p_fdr_show)),
+              aes(label = sprintf("%.3f", p_fdr_show)),
+              size = 2.5, color = "black") +
+    scale_fill_viridis_c(option = "inferno", direction = -1, na.value = "grey95",
+                         name = expression(-log[10](p[FDR]))) +
+    facet_grid(group_label ~ ., scales = "free_y", space = "free_y") +
+    labs(x = NULL, y = NULL, subtitle = "Only cells with FDR p < 0.10 shown; grey = not significant") +
+    theme_minimal(base_size = 9) +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+      axis.text.y = element_text(face = "italic", size = 7),
+      strip.text.y = element_text(angle = 0, size = 7, face = "bold", hjust = 0),
+      strip.background = element_blank(),
+      panel.grid = element_blank(),
+      legend.position = "bottom",
+      legend.key.width = unit(15, "mm"),
+      legend.key.height = unit(3, "mm"),
+      plot.margin = margin(5, 5, 5, 5, "mm")
+    )
+
+  # Combine heatmap panels
+  figS16_heatmap <- p_heatmap_A + p_heatmap_B +
+    plot_layout(widths = c(1, 1)) +
+    plot_annotation(tag_levels = "A") &
+    theme(plot.tag = element_text(size = 11, face = "bold"))
+
+  save_figure(figS16_heatmap,
+             file.path(PATHS$fig_supplement, "figS16_species_trait_heatmap.png"),
+             width = 250, height = 200, units = "mm")
+  save_figure(figS16_heatmap,
+             file.path(fig_dir, "figS16_species_trait_heatmap.png"),
+             width = 250, height = 200, units = "mm")
+  cat("   Saved: figS16_species_trait_heatmap.png\n")
+}
+
+# ============================================================================
+# FIGURE S17: SPECIES × TRAIT BIPLOTS — MULTI-PAGE PDFs
+# ============================================================================
+# One multi-page PDF per condition trait (5 total), showing ALL species.
+# 9 panels per page (3×3 grid), ordered by taxonomic group then prevalence.
+# Matches companion experiment Figure 7 style (Stier et al.).
+# ============================================================================
+
+cat("\n--- Figure S17: Species × trait multi-page PDFs ---\n")
+
+if (nrow(heatmap_results) > 0) {
+
+  # Map trait labels to column names and y-axis labels
+  trait_col_map <- setNames(
+    c("condition_score", "protein_corr", "carb_corr", "zoox_corr", "afdw_corr"),
+    c("Condition (PC1)", "Protein", "Carbohydrate", "Zooxanthellae", "AFDW")
   )
 
-save_figure(figS12,
-           file.path(PATHS$fig_supplement, "figS12_condition_details.png"),
-           width = 11, height = 14)
-save_figure(figS12,
-           file.path(fig_dir, "figS12_condition_details.png"),
-           width = 11, height = 14)
-cat("   Saved: figS12_condition_details.png (supplement + analysis)\n")
+  trait_ylab_map <- list(
+    "Condition (PC1)" = expression(Condition~score~(PC1[Coral])),
+    "Protein" = expression(Protein~(position~corrected)),
+    "Carbohydrate" = expression(Carbohydrate~(position~corrected)),
+    "Zooxanthellae" = expression(Zooxanthellae~(position~corrected)),
+    "AFDW" = expression(AFDW~(position~corrected))
+  )
+
+  trait_file_map <- c(
+    "Condition (PC1)" = "condition_pc1",
+    "Protein" = "protein",
+    "Carbohydrate" = "carbohydrate",
+    "Zooxanthellae" = "zooxanthellae",
+    "AFDW" = "afdw"
+  )
+
+  # Get ordered species list: by group then prevalence (descending)
+  species_ordered <- heatmap_results %>%
+    filter(trait == levels(heatmap_results$trait)[1] |
+             trait == as.character(unique(heatmap_results$trait))[1]) %>%
+    distinct(species, group_label, n_present) %>%
+    mutate(species = as.character(species)) %>%
+    arrange(group_label, desc(n_present)) %>%
+    pull(species)
+
+  cat("   Species to plot:", length(species_ordered), "\n")
+
+  # Helper: build one biplot panel
+  make_biplot <- function(sp, trait_label, trait_col, beta_val, p_val, p_fdr) {
+    if (!sp %in% names(heatmap_data) || !trait_col %in% names(heatmap_data)) return(NULL)
+
+    plot_df <- data.frame(
+      site = heatmap_data$site,
+      sp_count = heatmap_data[[sp]],
+      trait_val = heatmap_data[[trait_col]],
+      stringsAsFactors = FALSE
+    ) %>%
+      filter(!is.na(trait_val))
+
+    sp_display <- sp
+
+    # Significance coloring: bold black if raw p < 0.05, grey otherwise
+    sig_color <- ifelse(p_val < 0.05, "black", "grey40")
+    sig_face <- ifelse(p_val < 0.05, "bold", "plain")
+
+    ggplot(plot_df, aes(x = sp_count, y = trait_val)) +
+      geom_point(aes(fill = site), shape = 21, color = "gray30",
+                 stroke = 0.3, alpha = 0.5, size = 1.8) +
+      geom_smooth(method = "lm", formula = y ~ sqrt(x),
+                  color = "black", se = TRUE, alpha = 0.15, linewidth = 0.6) +
+      scale_fill_manual(values = SITE_COLORS, guide = "none") +
+      scale_x_sqrt(breaks = function(x) {
+        mx <- max(x, na.rm = TRUE)
+        if (mx <= 3) return(0:mx)
+        unique(round(c(0, 1, ceiling(mx/3), ceiling(2*mx/3), mx)))
+      }) +
+      labs(
+        title = bquote(italic(.(sp_display))),
+        x = "Abundance",
+        y = trait_ylab_map[[trait_label]]
+      ) +
+      annotate("text", x = Inf, y = Inf, hjust = 1.05, vjust = 1.5,
+               label = sprintf("\u03b2 = %+.2f, p = %.3f", beta_val, p_val),
+               size = 2.8, color = sig_color, fontface = sig_face) +
+      annotate("text", x = Inf, y = Inf, hjust = 1.05, vjust = 3.0,
+               label = sprintf("n = %d corals", sum(plot_df$sp_count > 0)),
+               size = 2.3, color = "grey50") +
+      theme_multipanel(base_size = 9) +
+      theme(
+        plot.margin = margin(4, 6, 4, 4, "mm"),
+        plot.title = element_text(size = 9, face = "italic", margin = margin(b = 2)),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 7),
+        legend.position = "none"
+      )
+  }
+
+  # Create output directory for multi-page PDFs
+  biplot_pdf_dir <- file.path(PATHS$fig_supplement, "species_biplots")
+  dir.create(biplot_pdf_dir, showWarnings = FALSE, recursive = TRUE)
+
+  # Also save to analysis directory
+  biplot_pdf_dir2 <- file.path(fig_dir, "species_biplots")
+  dir.create(biplot_pdf_dir2, showWarnings = FALSE, recursive = TRUE)
+
+  panels_per_page <- 9
+  page_w_mm <- 210  # A4-ish width
+  page_h_mm <- 270  # A4-ish height
+
+  for (trait_label in names(trait_col_map)) {
+    trait_col <- trait_col_map[trait_label]
+    trait_file <- trait_file_map[trait_label]
+
+    cat("   Generating:", trait_label, "...\n")
+
+    # Get beta/p for each species for this trait
+    trait_stats <- heatmap_results %>%
+      filter(as.character(trait) == trait_label) %>%
+      mutate(species = as.character(species))
+
+    # Build all panels for this trait
+    all_panels <- list()
+    for (sp in species_ordered) {
+      row <- trait_stats %>% filter(species == sp)
+      if (nrow(row) == 0) next
+
+      p <- make_biplot(
+        sp = sp,
+        trait_label = trait_label,
+        trait_col = trait_col,
+        beta_val = round(as.numeric(row$beta), 2),
+        p_val = as.numeric(row$p_raw),
+        p_fdr = as.numeric(row$p_fdr)
+      )
+      if (!is.null(p)) all_panels[[length(all_panels) + 1]] <- p
+    }
+
+    n_panels <- length(all_panels)
+    if (n_panels == 0) next
+
+    n_pages <- ceiling(n_panels / panels_per_page)
+
+    # Generate multi-page PDF
+    pdf_path <- file.path(biplot_pdf_dir,
+                          paste0("figS17_biplots_", trait_file, ".pdf"))
+    pdf_path2 <- file.path(biplot_pdf_dir2,
+                           paste0("figS17_biplots_", trait_file, ".pdf"))
+
+    # Use pdf() for multi-page support (cairo_pdf is single-page only)
+    pdf(pdf_path, width = page_w_mm / 25.4, height = page_h_mm / 25.4,
+        onefile = TRUE)
+
+    for (pg in 1:n_pages) {
+      start_idx <- (pg - 1) * panels_per_page + 1
+      end_idx <- min(pg * panels_per_page, n_panels)
+      page_panels <- all_panels[start_idx:end_idx]
+
+      # Pad with nulls if last page is incomplete
+      while (length(page_panels) < panels_per_page) {
+        page_panels[[length(page_panels) + 1]] <- plot_spacer()
+      }
+
+      page_plot <- wrap_plots(page_panels, ncol = 3) +
+        plot_annotation(
+          title = paste0(trait_label, " — Page ", pg, " of ", n_pages),
+          tag_levels = list(LETTERS[start_idx:end_idx])
+        ) &
+        theme(
+          plot.tag = element_text(size = 10, face = "bold"),
+          legend.position = "none"
+        )
+
+      print(page_plot)
+    }
+
+    dev.off()
+
+    # Copy to analysis dir
+    file.copy(pdf_path, pdf_path2, overwrite = TRUE)
+
+    cat("      Saved:", basename(pdf_path), "(", n_pages, "pages,",
+        n_panels, "species)\n")
+  }
+
+  # Also generate a combined PNG of top hits (for quick reference / S17 figure)
+  top_combos <- heatmap_results %>%
+    filter(p_raw < 0.10 | abs(as.numeric(beta)) > 0.40) %>%
+    arrange(p_raw) %>%
+    head(9)
+
+  top_panels <- list()
+  for (i in 1:nrow(top_combos)) {
+    sp <- as.character(top_combos$species[i])
+    tl <- as.character(top_combos$trait[i])
+    tc <- trait_col_map[tl]
+    bv <- round(as.numeric(top_combos$beta[i]), 2)
+    pv <- as.numeric(top_combos$p_raw[i])
+    pf <- as.numeric(top_combos$p_fdr[i])
+
+    p <- make_biplot(sp, tl, tc, bv, pv, pf)
+    if (!is.null(p)) top_panels[[length(top_panels) + 1]] <- p
+  }
+
+  if (length(top_panels) > 0) {
+    figS17_top <- wrap_plots(top_panels, ncol = 3) +
+      plot_annotation(tag_levels = "A") &
+      theme(
+        legend.position = "none",
+        plot.tag = element_text(size = 10, face = "bold")
+      )
+
+    save_figure(figS17_top,
+               file.path(PATHS$fig_supplement, "figS17_species_trait_biplots.png"),
+               width = 230, height = 225, units = "mm")
+    save_figure(figS17_top,
+               file.path(fig_dir, "figS17_species_trait_biplots.png"),
+               width = 230, height = 225, units = "mm")
+    cat("   Saved: figS17_species_trait_biplots.png (top 9 hits)\n")
+  }
+}
 
 # ============================================================================
-# FIGURE 4 LEGEND & RESULTS TEXT FILE
+# FIGURE 5 LEGEND & RESULTS TEXT FILE
 # ============================================================================
 
-cat("Generating fig4_legend_results.txt...\n")
+cat("Generating fig5_legend_results.txt...\n")
 
-# Build CAFI → condition results lines
+# Build CAFI → condition results lines (now with two-tier correction)
 cafi_cond_lines <- paste0(
   "  ", cafi_to_condition_df$predictor,
+  " [", cafi_to_condition_df$hypothesis_type, "]",
   ": beta = ", round(cafi_to_condition_df$estimate, 3),
-  ", p = ", round(cafi_to_condition_df$p_value, 4),
-  ", p_FDR = ", round(cafi_to_condition_df$p_fdr, 4),
-  ifelse(cafi_to_condition_df$p_fdr < 0.05, " *", ""))
+  ", p_OLS = ", round(cafi_to_condition_df$p_value, 4),
+  ", p_corrected = ", round(cafi_to_condition_df$p_corrected, 4),
+  " (", ifelse(cafi_to_condition_df$hypothesis_type == "a_priori", "Hochberg",
+        ifelse(cafi_to_condition_df$hypothesis_type == "supplement_composition", "uncorrected", "BH-FDR")), ")",
+  ifelse(cafi_to_condition_df$p_corrected < 0.05, " *", ""),
+  "  [HC3: p = ", round(cafi_to_condition_df$p_value_robust, 4), "]")
 
 # Build condition → CAFI results lines
 cond_cafi_lines <- paste0(
@@ -3294,119 +4530,100 @@ cond_cafi_lines <- paste0(
   ", p_FDR = ", round(condition_to_cafi_df$p_fdr, 4),
   ifelse(condition_to_cafi_df$p_fdr < 0.05, " *", ""))
 
-fig4_legend <- paste0(
-'FIGURE 4: CAFI-CONDITION FEEDBACKS
+fig5_legend <- paste0(
+'FIGURE 5: CAFI DIVERSITY-CONDITION RELATIONSHIP (BEF Framework)
 ================================================================================
 
 FIGURE LEGEND
 -------------
-Figure 4. No CAFI community metric reliably predicts coral physiological
-condition. (A-B) The apparent relationship between species richness and coral
-condition is an abundance artifact: raw richness (A, p = ', sprintf("%.3f", p_raw_full), ') correlates with
-total abundance (r = ', sprintf("%.2f", cor_raw_abund), '), but rarefied richness (B, expected species at n = 20
-individuals) shows no relationship (p = ', sprintf("%.3f", p_rare), ') and is uncorrelated with abundance
-(r = ', sprintf("%.2f", cor_rare_abund), '). (C) Forest plot of effect sizes for functional group CAFI
-predictors on condition (FDR-corrected). No predictor survives multiple testing
-correction. (D) Bidirectional test for total CAFI: neither CAFI-to-condition nor
-condition-to-CAFI directions show significant effects after FDR correction.
-See Figure S12 for richness artifact summary, individual species scatters
-(Trapezia, Galeropsis), and full bidirectional analysis across all predictors.
+Figure 5. CAFI diversity and abundance as predictors of coral physiological
+condition. (A) Species richness versus coral condition score (PC1). Richness
+is a significant positive predictor (Hochberg p = ', sprintf("%.3f", apriori_p_hochberg["Species richness"]), ', k = 2).
+(B) Total CAFI abundance (sqrt-scaled x-axis) versus condition. Abundance is
+a marginal positive predictor (Hochberg p = ', sprintf("%.3f", apriori_p_hochberg["Total CAFI"]), ', k = 2).
+Points colored by site; lines show model fits with 95% CI shading. Richness
+and abundance are strongly correlated (r = ', sprintf("%.2f", cor_raw_abund), '); variance partitioning
+attributes 29.1% of explained variance uniquely to richness and <1% uniquely
+to abundance (see text and Fig. S12).
 
 All models: condition_PC1 ~ predictor + log(volume) + site (fixed effect).
-Regression lines in panels A-B show marginal bivariate trends; p-values are
-from full models adjusted for coral volume and site with HC3 robust standard
-errors. Forward models (CAFI -> Condition) use HC3 robust standard errors.
-Reverse models (Condition -> CAFI, NB GLMs) use model-based standard errors.
-FDR correction (Benjamini-Hochberg) across predictor families.
+OLS standard errors (primary; Breusch-Pagan confirms homoscedasticity).
+HC3 robust SEs in supplement (conservative at n < 100; Long & Ervin 2000).
+See Figure S12 for variance partitioning and path model diagnostics.
+See Figure S13 for a priori forest plot, rarefied richness, exploratory
+predictors, species scatter plots, and bidirectional tests.
 
 ================================================================================
 
 STATISTICAL RESULTS
 -------------------
 
-1. CAFI -> CONDITION (forward direction):
-', paste(cafi_cond_lines, collapse = "\n"), '
+1. A PRIORI BEF PREDICTORS (Hochberg FWER, k=2):
+', paste(cafi_cond_lines[cafi_to_condition_df$hypothesis_type == "a_priori"], collapse = "\n"), '
 
-2. CONDITION -> CAFI (reverse direction):
+2. EXPLORATORY PREDICTORS (BH-FDR, k=4):
+', paste(cafi_cond_lines[cafi_to_condition_df$hypothesis_type == "exploratory"], collapse = "\n"), '
+
+3. SUPPLEMENT COMPOSITION:
+', paste(cafi_cond_lines[cafi_to_condition_df$hypothesis_type == "supplement_composition"], collapse = "\n"), '
+
+4. REVERSE DIRECTION (Condition -> CAFI):
 ', paste(cond_cafi_lines, collapse = "\n"), '
 
-3. RICHNESS ARTIFACT TEST:
+5. RICHNESS ARTIFACT TEST:
    Raw richness: r(abundance) = ', sprintf("%.2f", cor_raw_abund), ', p_condition = ', sprintf("%.3f", p_raw_full), '
    Rarefied richness: r(abundance) = ', sprintf("%.2f", cor_rare_abund), ', p_condition = ', sprintf("%.3f", p_rare), '
-   Conclusion: Raw richness signal is an abundance artifact
+   Note: Rarefaction is ambiguous -- may remove artifact OR the BEF mechanism
+
+6. BEF VARIANCE PARTITIONING (see Figure S12):
+   Partial regression (richness | abundance): beta = ', sprintf("%.4f", richness_partial_b), ', p = ', sprintf("%.4f", richness_partial_p), '
+   Partial regression (abundance | richness): beta = ', sprintf("%.4f", abundance_partial_b), ', p = ', sprintf("%.4f", abundance_partial_p), '
+   Variance unique to richness:  ', sprintf("%.4f (%.1f%%)", unique_richness, 100 * unique_richness / max(total_explained, 1e-10)), '
+   Variance unique to abundance: ', sprintf("%.4f (%.1f%%)", unique_abundance, 100 * unique_abundance / max(total_explained, 1e-10)), '
+   Variance shared:              ', sprintf("%.4f (%.1f%%)", shared, 100 * shared / max(total_explained, 1e-10)), '
+   F-test richness unique:       p = ', sprintf("%.4f", p_rich_unique), '
+   F-test abundance unique:      p = ', sprintf("%.4f", p_abund_unique), '
+   Path model: richness -> condition beta = ', sprintf("%.2f", coef(path_cond)["richness_z"]), ',
+               abundance -> condition beta = ', sprintf("%.2f", coef(path_cond)["abundance_z"]), '
 
 ================================================================================
 
 RESULTS
 -------
 
-No CAFI community metric reliably predicted coral physiological condition after
-FDR correction for multiple testing. The strongest raw signal was species
-richness (p = ', sprintf("%.3f", p_raw_full), '), but this was revealed as an abundance artifact: rarefied
-richness (expected species at n = 20 individuals) showed no relationship with
-condition (p = ', sprintf("%.3f", p_rare), '). Raw richness correlates strongly with total CAFI abundance
-(r = ', sprintf("%.2f", cor_raw_abund), '), while rarefied richness is uncorrelated (r = ', sprintf("%.2f", cor_rare_abund), '), confirming
-that the apparent diversity effect is driven by abundance variation, not true
-species identity effects.
+Both a priori BEF predictors showed positive effects on coral condition.
+Species richness significantly predicted condition (Hochberg p = ', sprintf("%.3f", apriori_p_hochberg["Species richness"]), ',
+k = 2). Total CAFI abundance was marginal (Hochberg p = ', sprintf("%.3f", apriori_p_hochberg["Total CAFI"]), ').
+Variance partitioning (Figure S12) showed that richness accounted for
+', sprintf("%.1f", 100 * unique_richness / max(total_explained, 1e-10)), '% of uniquely explained variance vs <1% for abundance,
+and the path model confirmed this asymmetry (beta richness = ', sprintf("%.2f", coef(path_cond)["richness_z"]), ',
+beta abundance = ', sprintf("%.2f", coef(path_cond)["abundance_z"]), ').
 
-Neither total abundance, community composition (PC1_CAFI), Trapezia abundance,
-nor Galeropsis abundance significantly predicted condition. Functional group
-effects matched expected directions (Trapezia positive, fish positive) but none
-reached significance. The reverse direction (condition predicting CAFI) was also
-non-significant.
+Rarefied richness showed no relationship with condition (p = ', sprintf("%.2f", p_rare), '),
+but this test is ambiguous: rarefaction removes both sampling artifacts and
+the diversity-mediated abundance pathway central to BEF theory.
 
-Landscape factors (coral volume, neighborhood density, site) likewise did not
-predict condition (all p > 0.30), suggesting that coral physiological state in
-this population is driven by factors not captured in the survey design.
-
-================================================================================
-
-METHODS
--------
-
-Coral condition was quantified as PC1 of position-corrected physiological
-traits (protein, carbohydrate, ash-free dry weight, zooxanthellae density).
-Position correction: each trait was regressed on stump_length + nubbin_length
-to remove the tissue gradient sampling artifact (smaller corals required
-sampling more of branch, including low-density tips).
-
-Forward models (CAFI -> condition):
-  condition_PC1 ~ CAFI_predictor + log(volume) + site
-  HC3 robust standard errors (sandwich package)
-  FDR correction across predictor families
-
-Reverse models (condition -> CAFI):
-  CAFI_response ~ condition_PC1 + log(volume) + site
-
-Rarefied richness: expected species at n = 20 individuals per coral
-(vegan::rarefy), removing the abundance confound.
-
-Count-based CAFI predictors (total abundance, species counts) are
-sqrt-transformed before fitting. Key species tests use Hochberg (FWER)
-correction; all other test families use Benjamini-Hochberg (FDR).
+No exploratory predictor (Shannon, Trapezia, Fish, Galeropsis) survived
+BH-FDR correction. Community composition (PC1_CAFI) did not predict
+condition (p = ', sprintf("%.3f", pc1_row$p_value), '; supplement). Reverse models (condition ->
+CAFI) were non-significant.
 
 ================================================================================
 
 COLOR SCHEME
 ------------
-Effect significance (scatter and bidirectional panels):
-  Significant (p < 0.05):      #2e7d32 (dark green)
-  Non-significant:             #757575 (medium gray)
-
-Functional group forest plot (Panel C):
-  All bars:                    #757575 (all NS after FDR correction)
-
-Direction arrows (bidirectional panel):
-  CAFI -> Condition:  #0072B2 (blue)
-  Condition -> CAFI:  #D55E00 (vermillion)
+Significant (p < 0.05):      #2e7d32 (dark green)
+Non-significant:             #757575 (medium gray)
+A priori forest (Panel B):   green = significant, gray = non-significant
+Exploratory forest (Panel D): gray (all NS after BH-FDR)
 
 ================================================================================
 Generated: ', format(Sys.time(), "%Y-%m-%d %H:%M:%S"), '
 Source script: scripts/09_cafi_condition_feedbacks.R
 ')
 
-writeLines(fig4_legend, file.path(PATHS$fig_manuscript, "fig4_legend_results.txt"))
-cat("Saved: fig4_legend_results.txt\n\n")
+writeLines(fig5_legend, file.path(PATHS$fig_manuscript, "fig5_legend_results.txt"))
+cat("Saved: fig5_legend_results.txt\n\n")
 
 # --- Additional exploratory figure: All CAFI metrics ---
 p_cafi_effects <- ggplot(cafi_to_condition_df,
@@ -3739,7 +4956,7 @@ cat("5. Key species: Survey results compared to experimental predictions\n\n")
 
 cat("OUTPUT FILES:\n")
 cat("  Figures:\n")
-cat("    - output/figures/manuscript/fig4_feedbacks.png\n")
+cat("    - output/figures/manuscript/fig5_feedbacks.png\n")
 cat("    - output/figures/feedbacks/cafi_condition_effects.png\n")
 cat("    - output/figures/feedbacks/functional_effects_forest.png\n")
 cat("    - output/figures/feedbacks/key_species_effects.png\n")
@@ -3747,6 +4964,8 @@ cat("    - output/figures/feedbacks/functional_vs_key_species.png\n")
 cat("    - output/figures/feedbacks/neighborhood_effects.png\n")
 cat("    - output/figures/feedbacks/landscape_condition_effects.png\n")
 cat("    - output/figures/supplement/figS10_rarefaction_sensitivity.png\n")
+cat("    - output/figures/supplement/figS16_species_trait_heatmap.png\n")
+cat("    - output/figures/supplement/figS17_species_trait_biplots.png\n")
 cat("    - output/figures/feedbacks/diagnostics_richness_model.png\n")
 cat("  Tables:\n")
 cat("    - output/tables/cafi_condition_models.csv\n")
@@ -3759,9 +4978,11 @@ cat("    - output/tables/key_species_effects.csv\n")
 cat("    - output/tables/species_trait_correlations.csv (cross-study comparison)\n")
 cat("    - output/tables/individual_physiology_cafi_responses.csv\n")
 cat("    - output/tables/cross_study_species_comparison.csv\n")
+cat("    - output/tables/cross_study_sign_concordance.csv\n")
 cat("    - output/tables/richness_abundance_artifact.csv\n")
 cat("    - output/tables/neighborhood_effects.csv\n")
 cat("    - output/tables/community_transform_sensitivity.csv\n")
+cat("    - output/tables/species_trait_heatmap_data.csv\n")
 cat("    - output/tables/09_cafi_condition_feedbacks_stats_summary.csv\n")
 if (requireNamespace("mediation", quietly = TRUE) && n_complete >= 50) {
   cat("    - output/tables/path_analysis.csv (mediation analysis)\n")

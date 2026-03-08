@@ -21,8 +21,7 @@
 #
 # OUTPUTS:
 #   Figures:
-#     - output/figures/supplement/figS_cooccurrence.png (3-panel)
-#     - output/figures/supplement/figS11_network.png (legacy)
+#     - output/figures/supplement/figS11_cooccurrence.png (3-panel)
 #   Tables:
 #     - output/tables/pairwise_cooccurrence.csv
 #     - output/tables/intraspecific_density.csv
@@ -48,6 +47,11 @@ cat("============================================================\n\n")
 
 if (!exists("PATHS")) source(here::here("scripts/00_setup.R"))
 if (!exists("coral_master")) source(here::here("scripts/01_load_data.R"))
+
+# Explicitly load community_matrix (may not be in global env if script is run standalone)
+if (!exists("community_matrix")) {
+  community_matrix <- load_object("community_matrix")
+}
 
 # Create output directories
 fig_dir <- file.path(PATHS$figures, "06_network")
@@ -155,18 +159,23 @@ for (sp in focal_species) {
     error = function(e) NULL
   )
   # Check for convergence / infinite coefficients → fall back to volume-only
-  if (!is.null(fit) && any(!is.finite(coef(fit)))) fit <- NULL
+  if (!is.null(fit) && any(!is.finite(coef(fit)))) {
+    cat("    WARNING:", sp, "- volume+site model has non-finite coefficients, falling back\n")
+    fit <- NULL
+  }
   if (is.null(fit)) {
     fit <- tryCatch(
       glm(y ~ log_vol, family = binomial),
       warning = function(w) suppressWarnings(glm(y ~ log_vol, family = binomial)),
       error = function(e) NULL
     )
+    if (!is.null(fit)) cat("    NOTE:", sp, "- using volume-only model (site caused separation)\n")
   }
   if (!is.null(fit)) {
     pred_probs[, sp] <- predict(fit, type = "response")
   } else {
     # Fallback: use marginal frequency
+    cat("    WARNING:", sp, "- all GLMs failed, using marginal frequency\n")
     pred_probs[, sp] <- mean(y)
   }
 }
@@ -329,6 +338,8 @@ cat("\n============================================================\n")
 cat("PART 2: INTRASPECIFIC DENSITY PATTERNS (H2)\n")
 cat("============================================================\n\n")
 
+set.seed(42)  # Reproducibility for Part 2 null model
+
 # Select top abundant species for density analysis
 # Use species with mean abundance > 1.5 per occupied coral AND on >= 20 corals
 density_species <- c()
@@ -344,6 +355,8 @@ cat("   ", paste(density_species, collapse = ", "), "\n\n")
 # For each species: fix total abundance N and number of occupied corals K
 # Null: distribute N individuals across K corals with probabilities
 # proportional to coral volume
+# Note: Multinomial null model is site-agnostic; volume-proportional allocation
+# controls for size but not site-specific pools.
 density_results <- list()
 
 for (sp in density_species) {
@@ -355,6 +368,7 @@ for (sp in density_species) {
   obs_abund <- comm[occupied, sp]
 
   # Volume weights for occupied corals
+  # NOTE: Volume weighting is across all sites (not site-specific). If species are site-restricted, this null is slightly conservative.
   vol_occupied <- vol[occupied]
   vol_weights <- vol_occupied / sum(vol_occupied)
 
@@ -443,8 +457,12 @@ cat("\n============================================================\n")
 cat("PART 3: SIZE-DEPENDENT CO-OCCURRENCE\n")
 cat("============================================================\n\n")
 
-# NOTE: Species pools differ across size classes due to prevalence thresholds (min 5 corals).
-# Direct comparison of SES patterns across classes should account for these differing species sets.
+set.seed(42)  # Reproducibility for Part 3 null model
+
+# NOTE: Species pools differ across size classes (species with >= 5 occurrences
+# within each class). SES values are therefore not directly comparable across
+# classes because null variance reflects different species sets. Results are
+# presented as within-class patterns, not cross-class comparisons.
 size_classes <- c("Small", "Medium", "Large")
 size_ses_results <- list()
 
@@ -674,8 +692,8 @@ p_heatmap <- ggplot(heat_data, aes(
   labs(x = NULL, y = NULL) +
   theme_publication(base_size = 10) +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 8, face = "italic"),
-    axis.text.y = element_text(size = 8, face = "italic"),
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 5, face = "italic"),
+    axis.text.y = element_text(size = 5, face = "italic"),
     legend.position = "right",
     legend.key.height = unit(15, "mm"),
     legend.key.width = unit(4, "mm"),
@@ -728,7 +746,10 @@ p_density <- ggplot(density_plot_data, aes(x = density_bin)) +
   geom_point(aes(y = observed), size = 3, color = "#B2182B") +
   facet_wrap(~ species, scales = "free_y", ncol = 2) +
   scale_y_continuous(breaks = function(x) {
-    pretty(x, n = 4) %>% .[. == floor(.)]
+    b <- pretty(x, n = 4)
+    b <- b[b == floor(b)]
+    if (length(b) == 0) b <- range(x, na.rm = TRUE)
+    b
   }) +
   labs(x = "Individuals per coral", y = "Number of corals") +
   theme_publication(base_size = 10) +
@@ -773,20 +794,23 @@ if (nrow(size_dep_table) > 0) {
 
 # --- Compose Supplementary Co-occurrence Figure ---
 
-figS_cooccurrence <- (p_heatmap / (p_density | p_size)) +
+figS11_cooccurrence <- (p_heatmap / (p_density | p_size)) +
   plot_layout(heights = c(0.9, 1)) +
   plot_annotation(tag_levels = "A")
 
-save_figure(figS_cooccurrence,
-            file.path(PATHS$fig_supplement, "figS_cooccurrence.png"),
-            width = 250, height = 250, units = "mm")
-save_figure(figS_cooccurrence,
-            file.path(fig_dir, "figS_cooccurrence.png"),
-            width = 250, height = 250, units = "mm")
+save_figure(figS11_cooccurrence,
+            file.path(PATHS$fig_supplement, "figS11_cooccurrence.png"),
+            width = 300, height = 260, units = "mm")
+save_figure(figS11_cooccurrence,
+            file.path(fig_dir, "figS11_cooccurrence.png"),
+            width = 300, height = 260, units = "mm")
+
+# Co-occurrence is supplement-only (Fig S11)
+cat("   Co-occurrence saved to supplement only (figS11)\n")
 
 # Write legend/results text
 legend_text <- paste0(
-  "Figure S-Cooccurrence. Null-model co-occurrence analysis of coral-associated fauna.\n\n",
+  "Figure S11. Null-model co-occurrence analysis of coral-associated fauna.\n\n",
   "(A) Pairwise co-occurrence heatmap showing standardized effect sizes (SES) ",
   "from a volume-weighted null model (", format(N_ITER, big.mark = ","),
   " iterations). Red = positive association (co-occurrence more frequent than expected); ",
@@ -805,7 +829,8 @@ legend_text <- paste0(
   size_ses_results[["Medium"]]$n_corals, "), Large (n = ",
   size_ses_results[["Large"]]$n_corals, ")."
 )
-writeLines(legend_text, file.path(PATHS$fig_supplement, "figS_cooccurrence_legend_results.txt"))
+writeLines(legend_text, file.path(PATHS$fig_supplement, "figS11_cooccurrence_legend_results.txt"))
+
 cat("  Legend text saved.\n")
 
 
@@ -868,7 +893,11 @@ for (i in 1:(n_sp_net - 1)) {
     if (abs(cor_net[i, j]) > threshold) {
       ct <- tryCatch(
         cor.test(resid_net[, i], resid_net[, j], method = "spearman"),
-        error = function(e) list(p.value = 1)
+        error = function(e) {
+          cat("    WARNING: cor.test failed for", colnames(resid_net)[i], "-",
+              colnames(resid_net)[j], ":", e$message, "\n")
+          list(p.value = 1)
+        }
       )
       p_net[i, j] <- p_net[j, i] <- ct$p.value
     }
@@ -939,26 +968,6 @@ V(g)$label <- sapply(V(g)$name, function(x) {
 
 layout_circle <- layout_in_circle(g, order = order(as.numeric(V(g)$group)))
 
-png(file.path(PATHS$fig_supplement, "figS11_network.png"),
-    width = 8, height = 8, units = "in", res = 600, bg = "white")
-par(mar = c(1, 1, 2, 1))
-plot(g, layout = layout_circle,
-     vertex.size = 4 + deg / max(deg) * 12,
-     vertex.color = group_colors[as.numeric(V(g)$group)],
-     vertex.frame.color = "grey40",
-     vertex.label = V(g)$label,
-     vertex.label.cex = 0.55,
-     vertex.label.dist = 1.2,
-     vertex.label.font = 3,
-     edge.color = adjustcolor("grey60", alpha.f = 0.4),
-     edge.width = 0.5,
-     main = "Figure S11: Co-occurrence network (volume-residualized)")
-legend("bottomleft", legend = paste("Group", 1:n_groups),
-       col = group_colors, pch = 19, cex = 0.8, bty = "n")
-dev.off()
-cat("  Saved: figS11_network.png\n")
-
-
 # ============================================================================
 # SAVE RESULTS OBJECT
 # ============================================================================
@@ -999,8 +1008,7 @@ cat("  ", nrow(size_dep_table), "pair × size-class comparisons\n\n")
 
 cat("Outputs:\n")
 cat("  Figures:\n")
-cat("    output/figures/supplement/figS_cooccurrence.png\n")
-cat("    output/figures/supplement/figS11_network.png\n")
+cat("    output/figures/supplement/figS11_cooccurrence.png\n")
 cat("  Tables:\n")
 cat("    output/tables/pairwise_cooccurrence.csv\n")
 cat("    output/tables/intraspecific_density.csv\n")

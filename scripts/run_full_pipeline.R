@@ -50,7 +50,7 @@
 #     12_model_evaluation.R
 #
 #   Note: Manuscript figures are created by their respective analysis scripts
-#     (01 → Fig 1, 05 → Fig 2, 02 → Fig 3, 09 → Fig 4, 06 → S-cooccurrence, 08 → S9)
+#     (01 → Fig 1, 05 → Figs 2+3, 02 → Fig 4, 09 → Fig 5, 06 → S11, 08 → S9)
 #
 # OUTPUTS:
 #   - output/pipeline.log          - Detailed execution log
@@ -89,15 +89,20 @@ PIPELINE_SCRIPTS <- list(
 
   # Machine Learning (exploratory - not in default pipeline)
   ml = list(
-    list(name = "exploration/10_feature_engineering.R", desc = "Feature engineering", required = FALSE),
-    list(name = "exploration/11_machine_learning.R", desc = "Machine learning models", required = FALSE),
-    list(name = "exploration/12_model_evaluation.R", desc = "Model evaluation", required = FALSE)
+    list(name = "archive/10_feature_engineering.R", desc = "Feature engineering", required = FALSE),
+    list(name = "archive/11_machine_learning.R", desc = "Machine learning models", required = FALSE),
+    list(name = "archive/12_model_evaluation.R", desc = "Model evaluation", required = FALSE)
   )
 )
 
 # Expected outputs for dependency checking
 EXPECTED_OUTPUTS <- list(
   "00_setup.R" = character(0),  # Creates global variables only
+  # PL6: Added 00b entry
+
+  "00b_data_quality_audit.R" = c(
+    "output/tables/data_quality_report.csv"
+  ),
   "01_load_data.R" = c(
     "output/objects/coral_master.rds",
     "output/objects/cafi_clean.rds",
@@ -108,13 +113,17 @@ EXPECTED_OUTPUTS <- list(
     "output/objects/otu_taxonomy.rds",
     "output/objects/taxonomy_scenario_data.rds",
     "output/objects/functional_summary.rds",
+    "output/objects/overlap_genera.rds",        # PL7: was missing
     "output/figures/manuscript/fig1_study_design.png"
   ),
   "02_community_analysis.R" = c(
     "output/objects/community_analysis_results.rds",
     "output/figures/02_community/community_summary.png",
-    "output/figures/manuscript/fig3_composition.png",
+    "output/figures/manuscript/fig4_composition.png",
     "output/figures/supplement/figS1_species_accumulation.png",
+    "output/figures/supplement/figS2_permanova_sensitivity.png",  # PL2
+    "output/figures/supplement/figS3_nmds_ordination.png",        # PL2
+    "output/figures/supplement/figS5_composition_divergence.png", # PL2
     "output/tables/permanova_subsampling_summary.csv"
   ),
   "03_landscape_characterization.R" = c(
@@ -122,14 +131,17 @@ EXPECTED_OUTPUTS <- list(
     "output/tables/landscape_structure_summary.csv"
   ),
   "04_landscape_effects.R" = c(
-    "output/tables/landscape_full_model_results.csv"
+    "output/tables/landscape_full_model_results.csv",
+    "output/figures/supplement/figS7_neighborhood_null.png"       # PL2
   ),
   "05_species_scaling_analysis.R" = c(
     "output/objects/scaling_analysis_results.rds",
     "output/tables/scaling_results_all.csv",
     "output/tables/occurrence_scaling_results.csv",
-    "output/figures/supplement/figS14_occurrence_curves.png",
-    "output/figures/manuscript/figS14_legend_results.txt"
+    "output/figures/manuscript/fig2_scaling.png",
+    "output/figures/manuscript/fig3_species_group_scaling.png",
+    "output/figures/supplement/figS6_species_scaling.png",        # PL2
+    "output/figures/supplement/figS15_occurrence_curves.png"
   ),
   "06_cooccurrence_analysis.R" = c(
     "output/objects/cooccurrence_results.rds",
@@ -138,11 +150,11 @@ EXPECTED_OUTPUTS <- list(
     "output/tables/intraspecific_density.csv",
     "output/tables/size_dependent_cooccurrence.csv",
     "output/tables/network_metrics.csv",
-    "output/figures/supplement/figS_cooccurrence.png",
-    "output/figures/supplement/figS11_network.png"
+    "output/figures/supplement/figS11_cooccurrence.png"
   ),
   "07_spatial_autocorrelation.R" = c(
-    "output/tables/morans_i_results.csv"
+    "output/tables/morans_i_results.csv",
+    "output/figures/supplement/figS4_spatial_autocorrelation.png" # PL2
   ),
   "08_functional_groups.R" = c(
     "output/figures/supplement/figS9_functional_groups.png",
@@ -150,10 +162,15 @@ EXPECTED_OUTPUTS <- list(
     "output/objects/functional_analysis_results.rds"
   ),
   "09_cafi_condition_feedbacks.R" = c(
-    "output/figures/manuscript/fig4_feedbacks.png",
+    "output/figures/manuscript/fig5_feedbacks.png",
     "output/figures/supplement/figS10_rarefaction_sensitivity.png",
-    "output/figures/supplement/figS12_condition_details.png",
-    "output/tables/cafi_condition_models.csv"
+    "output/figures/supplement/figS12_bef_variance_partitioning.png",
+    "output/figures/supplement/figS13_condition_details.png",
+    "output/figures/supplement/figS16_species_trait_heatmap.png",     # PL2
+    "output/figures/supplement/figS17_species_trait_biplots.png",     # PL2
+    "output/tables/cafi_condition_models.csv",
+    "output/tables/key_species_effects.csv",                         # PL5
+    "output/tables/species_trait_correlations.csv"                    # PL5
   ),
   "13_taxonomy_sensitivity.R" = c(
     "output/tables/taxonomy_sensitivity.csv",
@@ -162,7 +179,7 @@ EXPECTED_OUTPUTS <- list(
     "output/tables/network_edge_overlap.csv",
     "output/tables/network_hub_stability.csv",
     "output/figures/supplement/figS8_taxonomy_sensitivity.png",
-    "output/figures/supplement/figS13_network_sensitivity.png"
+    "output/figures/supplement/figS14_network_sensitivity.png"
   )
 )
 
@@ -245,13 +262,28 @@ verify_dependencies <- function(script_name) {
     "07_spatial_autocorrelation.R" = list(objects = c("coral_master", "community_matrix")),
     "08_functional_groups.R" = list(objects = c("coral_master", "cafi_clean")),
     "09_cafi_condition_feedbacks.R" = list(objects = c("coral_master", "cafi_clean", "community_matrix", "condition_scores")),
-    "13_taxonomy_sensitivity.R" = list(objects = c("coral_master"))
+    "13_taxonomy_sensitivity.R" = list(objects = c("coral_master", "cafi_clean", "condition_scores", "otu_taxonomy", "taxonomy_scenario_data"))
   )
 
   script_deps <- deps[[script_name]]
   if (is.null(script_deps)) return(list(success = TRUE, missing = character(0)))
 
   missing <- check_objects(script_deps$objects)
+
+  # PL3: Fallback — if object not in global env, check for corresponding RDS on disk
+  if (length(missing) > 0) {
+    still_missing <- character(0)
+    for (obj in missing) {
+      rds_path <- file.path("output", "objects", paste0(obj, ".rds"))
+      if (file.exists(rds_path)) {
+        # Load the RDS into global env so the script can use it
+        assign(obj, readRDS(rds_path), envir = .GlobalEnv)
+      } else {
+        still_missing <- c(still_missing, obj)
+      }
+    }
+    missing <- still_missing
+  }
 
   return(list(
     success = length(missing) == 0,
@@ -344,8 +376,8 @@ format_time <- function(seconds) {
 #' @param skip_completed Skip scripts whose outputs already exist (default FALSE)
 #' @param verbose Print detailed progress (default TRUE)
 #' @param stop_on_error Stop on first error (default FALSE)
-#' @param sections Which sections to run: "all", "core", "extended", "ml", "publication"
-#'   Default runs core + extended + publication (excludes ML exploration).
+#' @param sections Which sections to run: "all", "core", "extended", "ml"
+#'   Default runs core + extended (excludes ML exploration).
 #'   Use sections = "all" to include ML scripts.
 #' @return List with timing and status for each script
 run_pipeline <- function(skip_completed = FALSE,
@@ -372,7 +404,7 @@ run_pipeline <- function(skip_completed = FALSE,
 
   # Determine which sections to run
   if ("all" %in% sections) {
-    sections <- c("core", "extended", "ml", "publication")
+    sections <- c("core", "extended", "ml")
   }
 
   # Collect all scripts to run
@@ -619,8 +651,8 @@ ensure_setup_and_data <- function(script_name) {
 #' @param script Script reference: number ("09"), partial name ("09_cafi"), or full name
 #' @examples
 #'   run_one("09")    # CAFI-condition feedbacks (Fig 5)
-#'   run_one("06")    # Co-occurrence analysis (Fig 4)
-#'   run_one("13")    # Taxonomy sensitivity (Fig S8, S13)
+#'   run_one("06")    # Co-occurrence analysis (Fig S11)
+#'   run_one("13")    # Taxonomy sensitivity (Fig S8, S14)
 run_one <- function(script) {
   script_name <- resolve_script(script)
   cat("\n=== Running:", script_name, "===\n\n")

@@ -30,13 +30,12 @@ This data dictionary describes all data files associated with the manuscript "La
 
 | Variable | Type | Description | Units/Values | Missing |
 |----------|------|-------------|--------------|---------|
-| coral_id | character | Unique coral colony identifier | Format: "SITE_###" (e.g., "HAU_001") | None |
+| coral_id | character | Unique coral colony identifier | Format: "SITE-POC##" (e.g., "HAU-POC29") | None |
 | site | character | Study site code | HAU, MAT, MRB | None |
 | type | character | Broad taxonomic group | Crab, Shrimp, Fish, Gastropod, Echinoderm, Worm, Bivalve, Other | None |
 | genus | character | Genus name | Latin genus name (e.g., "Trapezia") | 12 records |
 | species | character | Species epithet or morphospecies code | Latin epithet or "sp." | 45 records |
-| size_mm | numeric | Individual body size (carapace width for crabs, total length for shrimp/fish) | millimeters (mm) | 156 records |
-| count | integer | Number of individuals of this morphotype | 1+ | None |
+| cafi_size_mm | numeric | Individual body size (carapace width for crabs, total length for shrimp/fish) | millimeters (mm) | 156 records |
 | notes | character | Additional identification notes | Free text | Most records |
 
 **Taxonomic Notes**:
@@ -59,19 +58,18 @@ This data dictionary describes all data files associated with the manuscript "La
 | coral_id | character | Unique coral colony identifier | Format: "SITE-POC##" (e.g., "HAU-POC01") | None |
 | site | character | Study site code | HAU, MAT, MRB | None |
 | **survey_type** | character | Type of survey conducted | "neighborhood" or "size" | None |
-| latitude | numeric | GPS latitude (WGS84) | Decimal degrees (negative = South) | None |
-| longitude | numeric | GPS longitude (WGS84) | Decimal degrees (negative = West) | None |
+| lat | numeric | GPS latitude (WGS84) | Decimal degrees (negative = South) | None |
+| long | numeric | GPS longitude (WGS84) | Decimal degrees (negative = West) | None |
 | depth | numeric | Water depth at colony | meters (m) | None |
-| max_diameter | numeric | Maximum colony diameter | centimeters (cm) | None |
-| perp_diameter | numeric | Perpendicular diameter | centimeters (cm) | None |
-| height | numeric | Colony height | centimeters (cm) | None |
+| length_field | numeric | Maximum colony length (field) | centimeters (cm) | None |
+| width_field | numeric | Colony width (field) | centimeters (cm) | None |
+| height_field | numeric | Colony height (field) | centimeters (cm) | None |
 | volume_field | numeric | Volume estimated in field | cubic centimeters (cm³) | 8 records |
 | volume_lab | numeric | Volume measured in lab (water displacement) | cubic centimeters (cm³) | 23 records |
-| surface_area_cm2 | numeric | Estimated surface area | square centimeters (cm²) | 15 records |
 | branch_width | character | Branch architecture classification | "tight" or "wide" | 2 records |
 | morphotype | character | Putative species morphotype | "verrucosa", "meandrina", "eydouxi" | 5 records |
-| collection_date | date | Date of collection | YYYY-MM-DD | None |
-| collector | character | Collector initials | 2-3 letter code | None |
+| date | date | Date of collection | YYYY-MM-DD | None |
+| field_obs | character | Field observer initials | 2-3 letter code | None |
 
 **CRITICAL: Survey Type Distinction**:
 
@@ -101,20 +99,18 @@ The study employed two complementary sampling designs:
 
 | Variable | Type | Description | Units/Values | Missing |
 |----------|------|-------------|--------------|---------|
-| coral_id | character | Unique coral colony identifier | Format: "SITE_###" | None |
-| sample_id | character | Unique sample identifier | Format: "SITE_###_S#" | None |
+| coral_id | character | Unique coral colony identifier | Format: "SITE-POC##" (e.g., "HAU-POC01") | None |
+| nub | character | Nubbin identifier | Nubbin number within coral | None |
 | stump_length | numeric | Distance from colony base to sampling point | centimeters (cm) | None |
-| protein | numeric | Tissue protein content | mg/cm² | 3 records |
-| carbohydrate | numeric | Tissue carbohydrate content | mg/cm² | 3 records |
-| lipid | numeric | Tissue lipid content | mg/cm² | 12 records |
-| zoox_density | numeric | Symbiodiniaceae (zooxanthellae) density | cells × 10⁶/cm² | 5 records |
-| chlorophyll_a | numeric | Chlorophyll a concentration | μg/cm² | 5 records |
-| chlorophyll_c | numeric | Chlorophyll c concentration | μg/cm² | 8 records |
-| afdw | numeric | Ash-free dry weight (tissue biomass) | mg/cm² | 2 records |
+| protein_mg_cm2 | numeric | Tissue protein content | mg/cm² | 3 records |
+| carb_mg_cm2 | numeric | Tissue carbohydrate content | mg/cm² | 3 records |
+| zooxDensity | numeric | Symbiodiniaceae (zooxanthellae) density | cells/cm² | 5 records |
+| zoox_cells_cm2 | numeric | Zooxanthellae density (alternative column) | cells/cm² | 5 records |
+| afdw_mg_cm2 | numeric | Ash-free dry weight (tissue biomass) | mg/cm² | 2 records |
 
 **Position Correction Note**:
 Sampling position (stump_length) correlates with colony size (r = 0.565), creating a confound. Position-corrected traits are derived by:
-1. Regressing each trait on stump_length
+1. Regressing each trait on stump_length + nubbin_length
 2. Extracting residuals as position-corrected values
 3. Standardizing to z-scores
 
@@ -141,12 +137,14 @@ Sampling position (stump_length) correlates with colony size (r = 0.565), creati
 | Variable | Type | Description | Units |
 |----------|------|-------------|-------|
 | volume_cm3 | numeric | Colony volume | cm³ |
-| log_volume | numeric | log₁₀(volume_cm3) | — |
+| log_volume | numeric | ln(volume_cm3) [natural log] | — |
 | surface_area_cm2 | numeric | Colony surface area | cm² |
 | depth | numeric | Water depth | m |
 | branch_width | character | Branch architecture | tight/wide |
 | latitude | numeric | GPS latitude | degrees |
 | longitude | numeric | GPS longitude | degrees |
+
+**Note**: All models use natural logarithms (R's `log()` function). The `log_volume` column is ln(volume), not log₁₀(volume).
 
 #### CAFI Community Metrics
 
@@ -235,45 +233,9 @@ Sampling position (stump_length) correlates with colony size (r = 0.565), creati
 
 ---
 
-### 7. cafi_network_metrics.csv
+### 7–8. Legacy network outputs (deprecated)
 
-**Description**: Co-occurrence network summary metrics.
-
-**Rows**: 1 (network-level summary)
-**Location**: `output/tables/`
-
-| Variable | Type | Description |
-|----------|------|-------------|
-| n_nodes | integer | Number of species in network |
-| n_edges | integer | Number of significant co-occurrences |
-| connectance | numeric | Edge density (realized / possible edges) |
-| modularity_Q | numeric | Newman-Girvan modularity |
-| n_modules | integer | Number of modules detected |
-| transitivity | numeric | Global clustering coefficient |
-| mean_degree | numeric | Average edges per node |
-| mean_path_length | numeric | Average shortest path |
-| diameter | integer | Maximum shortest path |
-
----
-
-### 8. cafi_keystone_species.csv
-
-**Description**: Network centrality metrics for each species.
-
-**Rows**: 200 species (all in network)
-**Location**: `output/tables/`
-
-| Variable | Type | Description |
-|----------|------|-------------|
-| species | character | Species name |
-| degree | integer | Number of co-occurrence partners |
-| betweenness | numeric | Betweenness centrality (0-1) |
-| closeness | numeric | Closeness centrality |
-| eigenvector | numeric | Eigenvector centrality |
-| module | integer | Module membership |
-| within_module_degree | numeric | Z-score of within-module degree |
-| participation_coef | numeric | Among-module connectivity |
-| keystone_index | numeric | Composite centrality score |
+**Note**: The files `cafi_network_metrics.csv` and `cafi_keystone_species.csv` are from the deprecated network analysis (script `archive/06_network_analysis_legacy.R`) and are **not generated by the current pipeline**. The current co-occurrence analysis (`06_cooccurrence_analysis.R`) uses volume-weighted null models and produces different output files (see `output/tables/` for pairwise SES results and intraspecific density tables).
 
 ---
 

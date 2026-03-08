@@ -31,7 +31,9 @@ required_pkgs <- c(
   # Visualization
   "patchwork", "viridis", "scales",
   # Used by downstream scripts (04, 06, 07, 09)
-  "igraph", "spdep", "sf", "sandwich", "lmtest", "DHARMa", "ggrepel", "cowplot"
+  "igraph", "spdep", "sf", "sandwich", "lmtest", "DHARMa", "ggrepel", "cowplot",
+  # Conditional but important (01, 05, 07, 09)
+  "magick", "geosphere", "piecewiseSEM", "mediation"
 )
 missing_pkgs <- required_pkgs[!sapply(required_pkgs, requireNamespace, quietly = TRUE)]
 if (length(missing_pkgs) > 0) {
@@ -252,19 +254,29 @@ save_figure <- function(plot, path, width = 8, height = 6, units = "in", dpi = 6
   ggsave(path, plot, width = width, height = height, units = units, dpi = dpi, bg = "white")
   pdf_path <- sub("\\.[^.]+$", ".pdf", path)
   # Try cairo_pdf first (higher quality); fall back to standard pdf
-  suppressWarnings(tryCatch(
-    ggsave(pdf_path, plot, width = width, height = height, units = units,
-           device = cairo_pdf, bg = "white"),
-    error = function(e) NULL, warning = function(w) NULL
-  ))
-  if (!file.exists(pdf_path)) {
+  tryCatch(
+    suppressWarnings(ggsave(pdf_path, plot, width = width, height = height, units = units,
+           device = cairo_pdf, bg = "white")),
+    error = function(e) {
+      cat("  WARNING: cairo_pdf failed:", conditionMessage(e), "\n")
+      NULL
+    }
+  )
+  if (!file.exists(pdf_path) || file.info(pdf_path)$size == 0) {
     tryCatch(
       ggsave(pdf_path, plot, width = width, height = height, units = units,
              device = grDevices::pdf),
-      error = function(e) NULL
+      error = function(e) {
+        cat("  WARNING: PDF fallback also failed:", conditionMessage(e), "\n")
+        NULL
+      }
     )
   }
   pdf_ok <- file.exists(pdf_path)
+  # PL8: Warn on suspiciously small PDF (likely corrupted partial write)
+  if (pdf_ok && file.info(pdf_path)$size < 100) {
+    warning(paste("PDF file suspiciously small:", pdf_path))
+  }
   cat("  Saved:", path, if(pdf_ok) "(+ PDF)" else "(PNG only)", "\n")
   invisible(path)
 }
@@ -290,8 +302,10 @@ calc_pseudo_r2 <- function(model, null_model = NULL) {
   }
   if (is.null(null_model)) {
     # Fallback: use null.deviance (available on all glm objects)
-    # This gives 1 - D_model/D_null, which approximates McFadden's R²
+    # This gives 1 - D_model/D_null (deviance-explained, not identical to McFadden's R²)
     if (!is.null(model$null.deviance) && !is.null(model$deviance)) {
+      warning("calc_pseudo_r2: Using deviance-explained (logLik failed). ",
+              "Value may differ slightly from McFadden's R-squared.")
       return(1 - (model$deviance / model$null.deviance))
     }
     return(NA_real_)

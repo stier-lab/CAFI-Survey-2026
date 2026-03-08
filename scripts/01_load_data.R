@@ -25,7 +25,7 @@
 #   - taxonomy_scenario_data.rds  — Pre-built sensitivity scenarios (5 scenarios)
 #   - functional_summary.rds      — Functional group summary per coral
 # OUTPUTS (output/figures/manuscript/):
-#   - fig1_study_design.png       — Figure 1: satellite map + distributions + schematics (6-panel)
+#   - fig1_study_design.png       — Figure 1: satellite map + distributions + CAFI species photos (6-panel)
 #   - fig1_legend_results.txt     — Figure 1 legend and results text
 #
 # Author: CAFI Survey Analysis Pipeline
@@ -157,7 +157,7 @@ cafi_by_coral <- cafi_clean %>%
     n_trapezia      = sum(functional_group == "Trapezia"),
     n_resident_fish = sum(functional_group == "Resident Fish"),
     n_corallivore   = sum(functional_group == "Gastropod"),
-    n_galeropsis    = sum(str_detect(tolower(otu), "galeropsis"), na.rm = TRUE),
+    n_galeropsis    = sum(str_detect(tolower(otu), "galeropsis"), na.rm = TRUE),  # PL9: checked below
     n_other_crab    = sum(functional_group == "Other Crab"),
     n_shrimp        = sum(functional_group == "Shrimp"),
     n_other         = sum(functional_group == "Other"),
@@ -173,6 +173,11 @@ cafi_by_coral <- cafi_clean %>%
     mean_cafi_size = if (all(is.na(size_mm))) NA_real_ else mean(size_mm, na.rm = TRUE),
     .groups = "drop"
   )
+
+# PL9: Verify Galeropsis was found (guards against silent OTU name changes)
+if (sum(cafi_by_coral$n_galeropsis, na.rm = TRUE) == 0) {
+  warning("No Galeropsis individuals found — check OTU name matching")
+}
 
 # ============================================================================
 # 3. CLEAN CORAL DATA
@@ -281,12 +286,12 @@ cat("   Master dataset:", nrow(coral_master), "corals,", ncol(coral_master), "va
 n_expected <- nrow(coral_clean)
 n_got <- nrow(coral_master)
 if (n_got != n_expected) {
-  warning(sprintf("JOIN VALIDATION: Expected %d rows after left_join but got %d (possible duplicate keys in cafi_by_coral)",
-                  n_expected, n_got))
+  stop(sprintf("JOIN VALIDATION: Expected %d rows after left_join but got %d (possible duplicate keys in cafi_by_coral)",
+               n_expected, n_got))
 }
 n_dup <- sum(duplicated(coral_master$coral_id))
 if (n_dup > 0) {
-  warning(sprintf("JOIN VALIDATION: %d duplicate coral_ids detected after join", n_dup))
+  stop(sprintf("JOIN VALIDATION: %d duplicate coral_ids detected after join", n_dup))
 }
 cat("   Validation: row count", ifelse(n_got == n_expected, "OK", "MISMATCH"),
     "| duplicates:", n_dup, "\n\n")
@@ -341,7 +346,13 @@ if (nrow(physio_merged) > 20) {
     dplyr::select(coral_id, site, volume, stump_length, nubbin_length, any_of(physio_vars)) %>%
     drop_na()
 
-  cat("    Lost to missing physio vars:", n_before_dropna - nrow(correction_data), "\n")
+  n_dropped_condition <- n_before_dropna - nrow(correction_data)
+  cat("    Lost to missing physio vars:", n_dropped_condition, "\n")
+  if (n_dropped_condition > 20) {
+    warning(sprintf("Condition score computation dropped %d of %d corals (%.0f%%)",
+                    n_dropped_condition, n_before_dropna,
+                    100 * n_dropped_condition / n_before_dropna))
+  }
 
   corrected_traits <- correction_data %>%
     dplyr::select(coral_id, site, volume, stump_length, nubbin_length)
@@ -399,6 +410,17 @@ if (nrow(physio_merged) > 20) {
   condition_scores <- corrected_traits %>%
     dplyr::select(coral_id, site, condition_score, any_of(corrected_vars))
 
+  # CQ14: Log how many corals survived the condition pipeline
+  message(sprintf("Position correction: %d/%d corals retained for condition PCA",
+                  nrow(condition_scores), nrow(physio_raw)))
+  if (nrow(condition_scores) < nrow(physio_raw) * 0.5) {
+    warning("More than 50% of physiology records dropped during condition score computation")
+  }
+
+  # Check for duplicate coral_ids BEFORE joining to coral_master
+  stopifnot("condition_scores should have no duplicate coral_ids before join" =
+              !any(duplicated(condition_scores$coral_id)))
+
   save_object(condition_scores, "condition_scores")
 
   coral_master <- coral_master %>%
@@ -416,8 +438,8 @@ cat("   Corals with condition:", sum(!is.na(coral_master$condition_score)), "\n\
 # --- Data validation after condition join ---
 n_after_cond <- nrow(coral_master)
 if (n_after_cond != n_expected) {
-  warning(sprintf("CONDITION JOIN: Row count changed from %d to %d (duplicate coral_ids in condition_scores?)",
-                  n_expected, n_after_cond))
+  stop(sprintf("CONDITION JOIN: Row count changed from %d to %d (duplicate coral_ids in condition_scores?)",
+               n_expected, n_after_cond))
 }
 
 # ============================================================================
@@ -446,6 +468,9 @@ if (length(missing_corals) > 0) {
   community_matrix <- rbind(community_matrix, zero_rows)
   cat("   Added", length(missing_corals), "zero-CAFI corals to community matrix\n")
 }
+# CQ15: Ensure community_matrix row order matches coral_master
+cm_order <- intersect(coral_master$coral_id, rownames(community_matrix))
+community_matrix <- community_matrix[cm_order, , drop = FALSE]
 
 cat("   Matrix:", nrow(community_matrix), "corals x", ncol(community_matrix), "OTUs\n\n")
 
@@ -750,10 +775,11 @@ tryCatch({
   # --- Check for required spatial packages ---
   has_sf       <- requireNamespace("sf",       quietly = TRUE)
   has_maptiles <- requireNamespace("maptiles", quietly = TRUE)
+  has_tidyterra <- requireNamespace("tidyterra", quietly = TRUE)
 
-  if (!has_sf || !has_maptiles) {
-    warning("Figure 1 skipped: packages 'sf' and/or 'maptiles' not available. ",
-            "Install with install.packages(c('sf','maptiles')) to enable map generation.")
+  if (!has_sf || !has_maptiles || !has_tidyterra) {
+    warning("Figure 1 skipped: packages 'sf', 'maptiles', and/or 'tidyterra' not available. ",
+            "Install with install.packages(c('sf','maptiles','tidyterra')) to enable map generation.")
   } else {
 
     library(sf)
@@ -843,6 +869,12 @@ tryCatch({
 
     site_data <- site_data %>%
       left_join(label_positions, by = "site")
+
+    # PL4: Check tidyterra availability before using it
+    if (!is.null(sat_tiles) && !requireNamespace("tidyterra", quietly = TRUE)) {
+      message("tidyterra not available — falling back to schematic map panel")
+      sat_tiles <- NULL
+    }
 
     if (!is.null(sat_tiles)) {
       panel_a <- ggplot() +
@@ -964,10 +996,6 @@ tryCatch({
         limits = c(15, 180000)
       ) +
       scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
-      annotate("text", x = sqrt(vol_stats$min_vol * vol_stats$max_vol),
-               y = Inf, vjust = 1.5,
-               label = ">3 orders\nof magnitude",
-               size = 3.2, color = "gray30", fontface = "italic", lineheight = 0.9) +
       labs(
         title = "B",
         subtitle = paste0("n=", vol_stats$n, "  |  CV=", round(vol_stats$cv), "%"),
@@ -1001,31 +1029,12 @@ tryCatch({
     cat("  Neighbors range:", neighbor_stats$min_n, "to", neighbor_stats$max_n, "\n")
     cat("  Median:", neighbor_stats$median_n, "\n")
 
-    dens_max_c <- max(density(neighbor_data$n_neighbors)$y)
-
-    # Compute density for D/E/F markers on Panel C
-    dens_obj_neighbors <- density(neighbor_data$n_neighbors, adjust = 1.0)
-    get_density_at_x <- function(x, dens) approx(dens$x, dens$y, xout = x)$y
-
-    marker_df <- data.frame(
-      x = c(5, 17, 76),
-      label = c("D", "E", "F"),
-      color = c(SITE_COLORS["HAU"], SITE_COLORS["MRB"], SITE_COLORS["MRB"])
-    )
-    marker_df$y <- sapply(marker_df$x, get_density_at_x, dens = dens_obj_neighbors)
-
     panel_c <- neighbor_data %>%
       ggplot(aes(x = n_neighbors)) +
       geom_histogram(aes(y = after_stat(density)),
                      binwidth = 5, fill = DATA_FILL, color = "white",
                      alpha = 0.85, linewidth = 0.3) +
       geom_density(color = DENSITY_LINE, linewidth = 1.1, adjust = 1.0) +
-      # D/E/F markers as inverted triangles
-      geom_point(data = marker_df, aes(x = x, y = y + 0.004, fill = color),
-                 shape = 25, color = "gray30", size = 2.8, stroke = 0.6) +
-      scale_fill_identity() +
-      geom_text(data = marker_df, aes(x = x, y = y + 0.0085, label = label),
-                fontface = "bold", size = 3.2, color = "gray20") +
       scale_x_continuous(breaks = seq(0, 80, by = 20), limits = c(-2, 88)) +
       scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
       labs(
@@ -1041,102 +1050,84 @@ tryCatch({
       )
 
     # ==================================================================
-    # PANELS D, E, F: Neighborhood schematics
+    # PANELS D, E, F: Representative CAFI species photographs
     # ==================================================================
-    cat("Creating Panels D-F: Neighborhood schematics...\n")
+    cat("Creating Panels D-F: Representative CAFI species photos...\n")
 
-    # Scale volume to point size (cube root for area perception)
-    vol_to_size <- function(vol, min_size = 1.5, max_size = 14) {
-      scaled <- (vol^(1/3) - 20^(1/3)) / (45000^(1/3) - 20^(1/3))
-      pmax(min_size, pmin(max_size, min_size + scaled * (max_size - min_size)))
-    }
+    library(cowplot)
+    library(magick)
 
-    # Neighborhood schematic function
-    create_neighborhood_plot <- function(focal_vol, mean_neigh_vol, n_neighbors,
-                                         mean_neigh_dist_cm, site_name, focal_color,
-                                         panel_label, density_label,
-                                         focal_size_override = NULL) {
-      set.seed(42 + n_neighbors)
-      mean_dist_scaled <- mean_neigh_dist_cm / 500
-      focal_size <- if (!is.null(focal_size_override)) focal_size_override else
-        vol_to_size(focal_vol, min_size = 5, max_size = 16)
+    # Photo paths (from moorea-cafi-data repo)
+    cafi_photo_dir <- normalizePath("~/moorea-cafi-data/images", mustWork = FALSE)
 
-      if (n_neighbors > 0) {
-        if (n_neighbors <= 10) {
-          base_angles <- seq(0, 2*pi, length.out = n_neighbors + 1)[1:n_neighbors]
-          jitter <- runif(n_neighbors, -pi/n_neighbors * 0.4, pi/n_neighbors * 0.4)
-          angles <- base_angles + jitter
-        } else {
-          angles <- runif(n_neighbors, 0, 2*pi)
-        }
-        radii_raw <- rnorm(n_neighbors, mean = mean_dist_scaled, sd = mean_dist_scaled * 0.3)
-        radii <- pmax(0.15, pmin(0.95, radii_raw))
-        neighbor_vols <- rlnorm(n_neighbors, meanlog = log(mean_neigh_vol) - 0.125, sdlog = 0.5)
-        neighbor_vols <- pmax(50, pmin(10000, neighbor_vols))
-        neighbor_sizes <- vol_to_size(neighbor_vols, min_size = 1.2, max_size = 6)
-        neighbor_df <- data.frame(x = radii * cos(angles), y = radii * sin(angles),
-                                  size = neighbor_sizes)
-      } else {
-        neighbor_df <- data.frame(x = numeric(0), y = numeric(0), size = numeric(0))
+    photo_specs <- list(
+      list(file = "trapezia-coral-crab-hiding.jpg",
+           label = "D",
+           species = expression(italic("Trapezia")~"sp."),
+           common = "Coral guard crab"),
+      list(file = "harpiliopsis_spinigera.jpg",
+           label = "E",
+           species = expression(italic("Harpiliopsis spinigera")),
+           common = "Coral shrimp"),
+      list(file = "flame-hawkfish.jpg",
+           label = "F",
+           species = expression(italic("Neocirrhites armatus")),
+           common = "Flame hawkfish")
+    )
+
+    create_photo_panel <- function(spec, photo_dir) {
+      img_path <- file.path(photo_dir, spec$file)
+      if (!file.exists(img_path)) {
+        warning("Photo not found: ", img_path)
+        return(ggplot() + theme_void() +
+                 annotate("text", x = 0.5, y = 0.5, label = "Photo not found"))
       }
 
-      ggplot() +
-        annotate("path", x = cos(seq(0, 2*pi, length.out = 100)),
-                 y = sin(seq(0, 2*pi, length.out = 100)),
-                 color = "gray75", linetype = "dashed", linewidth = 0.4) +
-        geom_point(data = neighbor_df, aes(x = x, y = y, size = size),
-                   shape = 21, fill = "gray55", color = "gray35", stroke = 0.4) +
-        scale_size_identity() +
-        annotate("point", x = 0, y = 0, shape = 21, fill = focal_color,
-                 color = "white", size = focal_size, stroke = 2) +
-        annotate("text", x = 0, y = 1.45, label = density_label,
-                 fontface = "bold", size = 3.8, color = "gray25") +
-        annotate("text", x = 0, y = 1.29, label = paste0(n_neighbors, " neighbors"),
-                 size = 3.2, color = "gray45") +
-        annotate("text", x = 0, y = 1.15,
-                 label = paste0("mean dist: ", round(mean_neigh_dist_cm), " cm"),
-                 size = 2.8, color = "gray55", fontface = "italic") +
-        annotate("text", x = 0, y = -1.28, label = site_name,
-                 fontface = "bold", size = 4.2, color = focal_color) +
-        labs(title = panel_label) +
-        coord_fixed(xlim = c(-1.2, 1.2), ylim = c(-1.45, 1.65)) +
-        theme_void() +
-        theme(plot.title = element_text(face = "bold", size = 16, hjust = 0,
-                                        margin = margin(b = 2)),
-              plot.margin = margin(5, 8, 5, 8),
+      # Read and crop to 4:3 landscape aspect ratio for consistency
+      img <- image_read(img_path)
+      info <- image_info(img)
+      target_ratio <- 4 / 3
+      current_ratio <- info$width / info$height
+      if (current_ratio > target_ratio) {
+        # Too wide — crop sides
+        new_w <- round(info$height * target_ratio)
+        offset_x <- round((info$width - new_w) / 2)
+        img <- image_crop(img, paste0(new_w, "x", info$height, "+", offset_x, "+0"))
+      } else if (current_ratio < target_ratio) {
+        # Too tall — crop top/bottom
+        new_h <- round(info$width / target_ratio)
+        offset_y <- round((info$height - new_h) / 2)
+        img <- image_crop(img, paste0(info$width, "x", new_h, "+0+", offset_y))
+      }
+
+      # Write temp file for cowplot
+      tmp <- tempfile(fileext = ".jpg")
+      image_write(img, tmp, format = "jpeg", quality = 95)
+
+      p <- ggdraw() +
+        draw_image(tmp) +
+        # Panel label — white bold on dark chip, top-left
+        annotate("rect", xmin = 0.01, xmax = 0.09, ymin = 0.88, ymax = 0.99,
+                 fill = alpha("black", 0.55), color = NA) +
+        draw_label(spec$label, x = 0.05, y = 0.935,
+                   size = 14, fontface = "bold", color = "white",
+                   hjust = 0.5, vjust = 0.5) +
+        theme(plot.margin = margin(2, 4, 2, 4),
               plot.background = element_rect(fill = "white", color = NA))
+
+      return(p)
     }
 
-    # Fixed focal coral size across D-F (panels illustrate density, not coral size)
-    FOCAL_SIZE <- 10
-
-    # D: HAU-POC04 (Hauru) - 5 neighbors, far neighbors
-    panel_d <- create_neighborhood_plot(
-      focal_vol = 26741, mean_neigh_vol = 1336, n_neighbors = 5,
-      mean_neigh_dist_cm = 167, site_name = "Hauru",
-      focal_color = SITE_COLORS["HAU"], panel_label = "D",
-      density_label = "Low density", focal_size_override = FOCAL_SIZE)
-
-    # E: MRB-POC10 (Maharepa) - 17 neighbors
-    panel_e <- create_neighborhood_plot(
-      focal_vol = 5472, mean_neigh_vol = 686, n_neighbors = 17,
-      mean_neigh_dist_cm = 154, site_name = "Maharepa",
-      focal_color = SITE_COLORS["MRB"], panel_label = "E",
-      density_label = "Median density", focal_size_override = FOCAL_SIZE)
-
-    # F: MRB-POC18 (Maharepa) - 76 neighbors, close neighbors
-    panel_f <- create_neighborhood_plot(
-      focal_vol = 3064, mean_neigh_vol = 395, n_neighbors = 76,
-      mean_neigh_dist_cm = 113, site_name = "Maharepa",
-      focal_color = SITE_COLORS["MRB"], panel_label = "F",
-      density_label = "High density", focal_size_override = FOCAL_SIZE)
+    panel_d <- create_photo_panel(photo_specs[[1]], cafi_photo_dir)
+    panel_e <- create_photo_panel(photo_specs[[2]], cafi_photo_dir)
+    panel_f <- create_photo_panel(photo_specs[[3]], cafi_photo_dir)
 
     # ==================================================================
     # Combine panels and save
     # ==================================================================
     cat("Combining panels...\n")
 
-    # ---- Main manuscript Figure 1 (6-panel: map + distributions + schematics) ----
+    # ---- Main manuscript Figure 1 (6-panel: map + distributions + CAFI photos) ----
     top_row <- panel_a + panel_b + panel_c +
       plot_layout(ncol = 3, widths = c(1.35, 1, 1))
 
@@ -1144,26 +1135,34 @@ tryCatch({
       plot_layout(ncol = 3, widths = c(1, 1, 1))
 
     fig1 <- top_row / bottom_row +
-      plot_layout(heights = c(1.3, 1)) +
+      plot_layout(heights = c(1.2, 1)) +
       plot_annotation(
-        caption = paste0(
-          "(A) Study sites on Mo\u2019orea, French Polynesia. ",
-          "(B) Colony volume distribution spanning >3 orders of magnitude.\n",
-          "(C) Neighborhood density (Pocillopora within 5 m); triangles mark example corals in D\u2013F. ",
-          "(D\u2013F) Focal coral (colored)\nwith neighbors (gray) within 5 m; ",
-          "circle sizes reflect colony volumes, positions reflect measured distances."),
         theme = theme(
           plot.background = element_rect(fill = "white", color = NA),
-          plot.caption = element_text(size = 9, hjust = 0, color = "gray35",
-                                     lineheight = 1.3, margin = margin(t = 15)),
-          plot.margin = margin(12, 15, 15, 15)
+          plot.margin = margin(10, 12, 10, 12)
         )
       )
 
-    # Save to manuscript directory
+    # Save to manuscript directory (PNG + raster-based PDF for photo panels)
     output_path_ms <- file.path(PATHS$fig_manuscript, "fig1_study_design.png")
-    save_figure(fig1, output_path_ms, width = 300, height = 250, units = "mm")
-    cat("  Saved:", output_path_ms, "\n")
+    ggsave(output_path_ms, fig1, width = 300, height = 250, units = "mm",
+           dpi = 600, bg = "white")
+    # For figures with embedded photos, create PDF from high-res PNG
+    # (draw_image rasters don't embed reliably in vector PDF)
+    pdf_path_ms <- sub("\\.png$", ".pdf", output_path_ms)
+    tmp_hires <- tempfile(fileext = ".png")
+    ggsave(tmp_hires, fig1, width = 300, height = 250, units = "mm",
+           dpi = 600, bg = "white")
+    tryCatch({
+      img <- magick::image_read(tmp_hires)
+      magick::image_write(img, path = pdf_path_ms, format = "pdf")
+    }, error = function(e) {
+      cat("  Warning: magick PDF conversion failed, using ggsave fallback\n")
+      ggsave(pdf_path_ms, fig1, width = 300, height = 250, units = "mm",
+             device = if (capabilities("cairo")) cairo_pdf else "pdf")
+    })
+    unlink(tmp_hires)
+    cat("  Saved:", output_path_ms, "(+ PDF)\n")
 
     # Save to analysis directory
     output_path_data <- file.path(PATHS$fig_01_data, "fig1_study_design.png")
@@ -1181,18 +1180,24 @@ tryCatch({
 
 FIGURE LEGEND
 -------------
-Figure 1. Study design and sampling overview. (A) Satellite imagery of Mo\'orea,
-French Polynesia (17\u00b030\'S, 149\u00b050\'W), showing the three reef sites: Hauru
-(fringing reef, north shore; n = ', site_data$n_corals[site_data$site == "HAU"], ' corals), Maatea (lagoon/back reef, east
-shore; n = ', site_data$n_corals[site_data$site == "MAT"], '), and Maharepa (barrier reef, north shore; n = ', site_data$n_corals[site_data$site == "MRB"], '). Site markers
-colored by reef site (purple = Hauru, slate = Maatea, sage green = Maharepa).
+Figure 1. Study design and representative coral-associated fauna (CAFI).
+(A) Satellite imagery of Mo\'orea, French Polynesia (17\u00b030\'S, 149\u00b050\'W),
+showing the three reef sites: Hauru (fringing reef, north shore;
+n = ', site_data$n_corals[site_data$site == "HAU"], ' corals), Maatea (lagoon/back reef, east shore;
+n = ', site_data$n_corals[site_data$site == "MAT"], '), and Maharepa (barrier reef, north shore;
+n = ', site_data$n_corals[site_data$site == "MRB"], '). Site markers colored by reef site
+(purple = Hauru, slate = Maatea, sage green = Maharepa).
 (B) Distribution of Pocillopora colony volumes on a log10 scale, spanning >3
 orders of magnitude (', round(vol_stats$min_vol), '\u2013', format(round(vol_stats$max_vol), big.mark = ","), ' cm3; CV = ', round(vol_stats$cv), '%; n = ', vol_stats$n, ' colonies with volume
 data). Black curve shows kernel density estimate. (C) Distribution of
-neighborhood density (number of Pocillopora colonies within 5 m; n = ', neighbor_stats$n, ' corals
-with neighborhood surveys). Inverted triangles mark three example colonies
-shown in panels D\u2013F below. (D\u2013F) Neighborhood schematics for three representative
-colonies illustrating the range of neighborhood densities.
+neighborhood density (number of Pocillopora colonies within 5 m;
+n = ', neighbor_stats$n, ' corals with neighborhood surveys).
+(D\u2013F) Representative CAFI species from three major functional groups found
+within Pocillopora colonies: (D) Trapezia sp. coral guard crab (Trapeziidae),
+an obligate symbiont that defends coral from predators; (E) Harpiliopsis
+spinigera (coral shrimp, Palaemonidae), an obligate Pocillopora symbiont;
+(F) Neocirrhites armatus (flame hawkfish), a coral-dwelling reef fish.
+All photographs from Mo\'orea field collections.
 
 ================================================================================
 
@@ -1228,29 +1233,24 @@ and post-settlement interactions.
 Neighborhood density (n_neighbors) ranged from ', neighbor_stats$min_n, ' to ', neighbor_stats$max_n, ' colonies within 5 m
 (median = ', neighbor_stats$median_n, ', mean = ', round(neighbor_stats$mean_n, 1), ', CV = ', round(neighbor_stats$cv), '%).
 
-Example Colonies (Panels D\u2013F)
--------------------------------
-Three colonies were selected to illustrate the range of neighborhood densities:
+Representative CAFI Species (Panels D\u2013F)
+-----------------------------------------
+Three species were selected to represent the major functional groups of
+coral-associated fauna found within Pocillopora colonies:
 
-  Panel D \u2014 HAU-POC04 (Hauru):
-    Volume: ', format(26741, big.mark = ","), ' cm3 | Neighbors: 5 | Mean neighbor distance: 167 cm
-    Represents the low-density extreme (sparse, isolated colony).
+  Panel D \u2014 Trapezia sp. (coral guard crab, Trapeziidae):
+    Obligate coral symbiont. Defends host from corallivores (e.g., Acanthaster).
+    Shown in situ within Pocillopora branches.
 
-  Panel E \u2014 MRB-POC10 (Maharepa):
-    Volume: ', format(5472, big.mark = ","), ' cm3 | Neighbors: 17 | Mean neighbor distance: 154 cm
-    Represents the median neighborhood density.
+  Panel E \u2014 Harpiliopsis spinigera (coral shrimp, Palaemonidae):
+    Obligate Pocillopora symbiont. Transparent body with spotted pattern.
+    Common palaemonid shrimp in Pocillopora communities.
 
-  Panel F \u2014 MRB-POC18 (Maharepa):
-    Volume: ', format(3064, big.mark = ","), ' cm3 | Neighbors: 76 | Mean neighbor distance: 113 cm
-    Represents the high-density extreme (densely packed neighborhood).
+  Panel F \u2014 Neocirrhites armatus (flame hawkfish, Cirrhitidae):
+    Coral-dwelling reef fish. Uses Pocillopora branches as shelter.
+    Represents the fish component of the CAFI community.
 
-Panels D\u2013F illustrate neighborhood density variation using example
-colonies from Hauru and Maharepa sites. Maatea shows similar density patterns.
-
-Focal coral point size is held constant across panels D\u2013F to emphasize the
-density contrast rather than differences in focal colony volume. Neighbor
-volumes were drawn from a lognormal distribution parameterized by measured mean
-neighbor volume at each site.
+All photographs from Mo\'orea field collections (2019 field season).
 
 ================================================================================
 
@@ -1307,7 +1307,7 @@ Focal species: Pocillopora spp.
 
 COLOR SCHEME
 ------------
-Site palette (Panel A markers; also used in Figure S11 focal corals):
+Site palette (Panel A markers):
   HAU (Hauru):    #9B7EB8 (muted purple)
   MAT (Maatea):   #7B9BAE (cool slate)
   MRB (Maharepa): #7AAC6D (sage green)
@@ -1316,10 +1316,9 @@ Data distributions (Panels B\u2013C):
   Histogram fill: #4A90A4 (steel blue)
   Density line:   #1A3A5C (dark navy)
 
-Neighborhood schematics (Figure S11, Panels D\u2013F):
-  Focal coral:  Site color with white stroke
-  Neighbors:    gray55 fill, gray35 border
-  5 m radius:   gray75 dashed circle
+CAFI species photos (Panels D\u2013F):
+  Panel label:   white bold on dark chip (top-left)
+  Species identifications in figure legend text only
 
 ================================================================================
 Generated: ', Sys.Date(), '
@@ -1332,13 +1331,11 @@ Source script: scripts/01_load_data.R
     cat("\nFigure 1 specifications:\n")
     cat("  - Dimensions: 300 x 250 mm\n")
     cat("  - Resolution: 600 dpi (PNG)\n")
-    cat("  - Panels: A (satellite map), B (volume), C (neighbors)\n")
+    cat("  - Panels: A (satellite map), B (volume), C (neighbors), D-F (CAFI photos)\n")
     cat("  - Site colors: HAU=#9B7EB8, MAT=#7B9BAE, MRB=#7AAC6D\n")
     cat("  - Total corals:", nrow(coral_master), "\n")
     cat("  - Corals with neighborhood data:", neighbor_stats$n, "\n")
-    cat("\nFigure S11 specifications:\n")
-    cat("  - Dimensions: 300 x 250 mm\n")
-    cat("  - Panels: D-F (neighborhood schematics)\n")
+    cat("  - CAFI photos: Trapezia sp., Harpiliopsis spinigera, Neocirrhites armatus\n")
   }
 
 }, error = function(e) {

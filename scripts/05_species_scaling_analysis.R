@@ -90,7 +90,7 @@ if (!exists("coral_master")) source(here::here("scripts/01_load_data.R"))
 FIG_DIR <- PATHS$fig_05_scaling
 
 # Load CAFI data
-cafi_clean <- readRDS(file.path(PATHS$objects, "cafi_clean.rds"))
+cafi_clean <- load_object("cafi_clean")
 
 # ============================================================================
 # HELPER FUNCTION: Fit Scaling Model with Bootstrap CI
@@ -155,6 +155,7 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 10
       p_value = NA_real_,
       z_vs_1 = NA_real_,
       p_vs_1 = NA_real_,
+      p_boot_vs_1 = NA_real_,
       pseudo_r2 = NA_real_,
       interpretation = "Insufficient data",
       model = NULL,
@@ -188,6 +189,8 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 10
     # Bootstrap 95% CI (following Stier et al. 2024 methodology)
     boot_ci_lower <- NA_real_
     boot_ci_upper <- NA_real_
+    p_boot_vs_1 <- NA_real_
+    boot_ci_method <- NA_character_
 
     if (requireNamespace("boot", quietly = TRUE) && n_nonzero >= 20) {
       suppressWarnings({
@@ -196,10 +199,14 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 10
         boot_result <- boot::boot(data, boot_scaling, R = n_boot,
                                   strata = factor(data$site))
 
-        # Report bootstrap failure rate
-        n_failed <- sum(is.na(boot_result$t))
-        cat("  Bootstrap failures:", n_failed, "of", length(boot_result$t),
-            "(", round(100 * n_failed / length(boot_result$t), 1), "%)\n")
+        # Report bootstrap success/failure rate
+        n_succeeded <- sum(!is.na(boot_result$t[,1]))
+        n_total_boot <- nrow(boot_result$t)
+        cat(sprintf("  Bootstrap: %d/%d iterations succeeded\n", n_succeeded, n_total_boot))
+        if (n_succeeded < 0.9 * n_total_boot) {
+          warning(sprintf("Bootstrap failure rate >10%% for %s: %d/%d failed",
+                          response_name, n_total_boot - n_succeeded, n_total_boot))
+        }
 
         valid_betas <- boot_result$t[!is.na(boot_result$t)]
 
@@ -216,13 +223,26 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 10
           if (!is.null(bca_ci)) {
             boot_ci_lower <- bca_ci$bca[4]
             boot_ci_upper <- bca_ci$bca[5]
+            boot_ci_method <- "BCa"
           } else {
             # Fallback to percentile
             boot_ci_lower <- quantile(valid_betas, 0.025)
             boot_ci_upper <- quantile(valid_betas, 0.975)
+            boot_ci_method <- "percentile"
           }
+
+          # Bootstrap p-value vs β=1 (proportion of replicates on opposite side of 1)
+          # Two-sided: p = 2 * min(proportion ≥ 1, proportion < 1)
+          prop_ge_1 <- mean(valid_betas >= 1)
+          p_boot_vs_1 <- 2 * min(prop_ge_1, 1 - prop_ge_1)
         }
       })
+
+      # Warn if bootstrap failure rate exceeds 10%
+      if (n_failed > 0.1 * n_boot) {
+        warning(sprintf("Bootstrap for %s: %d/%d iterations failed (%.1f%%)",
+                        response_name, n_failed, n_boot, 100 * n_failed / n_boot))
+      }
     }
 
     # Use bootstrap CI if available, otherwise profile CI
@@ -258,10 +278,12 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 10
       ci_upper = ci[2],
       boot_ci_lower = boot_ci_lower,
       boot_ci_upper = boot_ci_upper,
+      boot_ci_method = boot_ci_method,
       z_value = z_val,
       p_value = p_val,
       z_vs_1 = z_vs_1,
       p_vs_1 = p_vs_1,
+      p_boot_vs_1 = p_boot_vs_1,
       pseudo_r2 = pseudo_r2,
       interpretation = interpretation,
       model = model,
@@ -282,10 +304,12 @@ fit_scaling_model <- function(data, response_name, min_nonzero = 15, n_boot = 10
       ci_upper = NA_real_,
       boot_ci_lower = NA_real_,
       boot_ci_upper = NA_real_,
+      boot_ci_method = NA_character_,
       z_value = NA_real_,
       p_value = NA_real_,
       z_vs_1 = NA_real_,
       p_vs_1 = NA_real_,
+      p_boot_vs_1 = NA_real_,
       interpretation = paste("Model error:", conditionMessage(e)),
       model = NULL,
       converged = FALSE
@@ -327,6 +351,7 @@ fit_richness_model <- function(data, response_name, min_nonzero = 15, n_boot = 1
       p_value = NA_real_,
       z_vs_1 = NA_real_,
       p_vs_1 = NA_real_,
+      p_boot_vs_1 = NA_real_,
       pseudo_r2 = NA_real_,
       interpretation = "Insufficient data",
       model = NULL,
@@ -371,17 +396,23 @@ fit_richness_model <- function(data, response_name, min_nonzero = 15, n_boot = 1
       }
     )
 
-    # Bootstrap 95% CI using Poisson bootstrap function
+    # Bootstrap 95% CI — match detected family (Poisson or quasipoisson)
+    # The bootstrap is nonparametric (resampling rows), so the family choice
+    # affects point estimation within each replicate. Using the same family
+    # as the main model ensures consistency in SE estimation.
+    richness_family <- if (model_family == "quasiPoisson") quasipoisson else poisson
     boot_ci_lower <- NA_real_
     boot_ci_upper <- NA_real_
+    p_boot_vs_1 <- NA_real_
+    boot_ci_method <- NA_character_
 
     boot_richness_fn <- function(data, indices) {
       d <- data[indices, ]
       tryCatch({
         if ("site" %in% names(d) && length(unique(d$site)) > 1) {
-          m <- glm(abundance ~ log(volume) + site, data = d, family = poisson)
+          m <- glm(abundance ~ log(volume) + site, data = d, family = richness_family)
         } else {
-          m <- glm(abundance ~ log(volume), data = d, family = poisson)
+          m <- glm(abundance ~ log(volume), data = d, family = richness_family)
         }
         coef(m)["log(volume)"]
       }, error = function(e) NA)
@@ -393,10 +424,14 @@ fit_richness_model <- function(data, response_name, min_nonzero = 15, n_boot = 1
         boot_result <- boot::boot(data, boot_richness_fn, R = n_boot,
                                   strata = factor(data$site))
 
-        # Report bootstrap failure rate
-        n_failed <- sum(is.na(boot_result$t))
-        cat("  Bootstrap failures:", n_failed, "of", length(boot_result$t),
-            "(", round(100 * n_failed / length(boot_result$t), 1), "%)\n")
+        # Report bootstrap success/failure rate
+        n_succeeded <- sum(!is.na(boot_result$t[,1]))
+        n_total_boot <- nrow(boot_result$t)
+        cat(sprintf("  Bootstrap: %d/%d iterations succeeded\n", n_succeeded, n_total_boot))
+        if (n_succeeded < 0.9 * n_total_boot) {
+          warning(sprintf("Bootstrap failure rate >10%% for %s: %d/%d failed",
+                          response_name, n_total_boot - n_succeeded, n_total_boot))
+        }
 
         valid_betas <- boot_result$t[!is.na(boot_result$t)]
 
@@ -413,11 +448,17 @@ fit_richness_model <- function(data, response_name, min_nonzero = 15, n_boot = 1
           if (!is.null(boot_ci)) {
             boot_ci_lower <- boot_ci$bca[4]
             boot_ci_upper <- boot_ci$bca[5]
+            boot_ci_method <- "BCa"
           } else {
             # Fallback to percentile
             boot_ci_lower <- quantile(valid_betas, 0.025)
             boot_ci_upper <- quantile(valid_betas, 0.975)
+            boot_ci_method <- "percentile"
           }
+
+          # Bootstrap p-value vs β=1
+          prop_ge_1 <- mean(valid_betas >= 1)
+          p_boot_vs_1 <- 2 * min(prop_ge_1, 1 - prop_ge_1)
         }
       })
     }
@@ -426,9 +467,13 @@ fit_richness_model <- function(data, response_name, min_nonzero = 15, n_boot = 1
     test_ci_lower <- if (!is.na(boot_ci_lower)) boot_ci_lower else ci[1]
     test_ci_upper <- if (!is.na(boot_ci_upper)) boot_ci_upper else ci[2]
 
-    # Test vs beta = 1 using z-test
+    # Test vs beta = 1: use z-test for Poisson, t-test for quasipoisson
     z_vs_1 <- (beta - 1) / se
-    p_vs_1 <- 2 * pnorm(-abs(z_vs_1))
+    if (model_family == "quasiPoisson") {
+      p_vs_1 <- 2 * pt(-abs(z_vs_1), df = model$df.residual)
+    } else {
+      p_vs_1 <- 2 * pnorm(-abs(z_vs_1))
+    }
 
     # Pseudo-R2 (McFadden's)
     pseudo_r2 <- calc_pseudo_r2(model)
@@ -457,10 +502,12 @@ fit_richness_model <- function(data, response_name, min_nonzero = 15, n_boot = 1
       ci_upper = ci[2],
       boot_ci_lower = boot_ci_lower,
       boot_ci_upper = boot_ci_upper,
+      boot_ci_method = boot_ci_method,
       z_value = z_val,
       p_value = p_val,
       z_vs_1 = z_vs_1,
       p_vs_1 = p_vs_1,
+      p_boot_vs_1 = p_boot_vs_1,
       pseudo_r2 = pseudo_r2,
       interpretation = interpretation,
       model = model,
@@ -480,10 +527,12 @@ fit_richness_model <- function(data, response_name, min_nonzero = 15, n_boot = 1
       ci_upper = NA_real_,
       boot_ci_lower = NA_real_,
       boot_ci_upper = NA_real_,
+      boot_ci_method = NA_character_,
       z_value = NA_real_,
       p_value = NA_real_,
       z_vs_1 = NA_real_,
       p_vs_1 = NA_real_,
+      p_boot_vs_1 = NA_real_,
       interpretation = paste("Model error:", conditionMessage(e)),
       model = NULL,
       converged = FALSE
@@ -505,10 +554,12 @@ result_to_row <- function(result) {
     ci_upper = result$ci_upper,
     boot_ci_lower = if (!is.null(result$boot_ci_lower)) result$boot_ci_lower else NA_real_,
     boot_ci_upper = if (!is.null(result$boot_ci_upper)) result$boot_ci_upper else NA_real_,
+    ci_method = if (!is.null(result$boot_ci_method)) result$boot_ci_method else NA_character_,
     z_value = result$z_value,
     p_value = result$p_value,
     z_vs_1 = result$z_vs_1,
     p_vs_1 = result$p_vs_1,
+    p_boot_vs_1 = if (!is.null(result$p_boot_vs_1)) result$p_boot_vs_1 else NA_real_,
     interpretation = result$interpretation
   )
 }
@@ -557,7 +608,11 @@ if (!is.na(total_result$boot_ci_lower)) {
 cat("  z-value =", round(total_result$z_value, 2), ", p =", format.pval(total_result$p_value, 3), "\n\n")
 
 cat("Test vs Field of Dreams (H0: β = 1):\n")
-cat("  z =", round(total_result$z_vs_1, 2), ", p =", format.pval(total_result$p_vs_1, 3), "\n")
+cat("  z =", round(total_result$z_vs_1, 2), ", p =", format.pval(total_result$p_vs_1, 3), "(Wald)\n")
+if (!is.na(total_result$p_boot_vs_1)) {
+  cat("  Bootstrap p vs β=1:", format.pval(total_result$p_boot_vs_1, 3),
+      "(proportion of", 1000, "replicates ≥ 1)\n")
+}
 if (!is.na(total_result$boot_ci_lower)) {
   cat("  Bootstrap CI includes 1:", ifelse(total_result$boot_ci_lower <= 1 & total_result$boot_ci_upper >= 1, "YES", "NO"), "\n")
 }
@@ -786,6 +841,7 @@ if (nrow(shannon_data) >= 15) {
     p_value = shannon_p,
     z_vs_1 = shannon_t_vs_0,
     p_vs_1 = shannon_p_vs_0,
+    p_boot_vs_1 = NA_real_,
     interpretation = ifelse(shannon_p_vs_0 < 0.05 && shannon_beta > 0,
                            "Positive scaling (β > 0)",
                            ifelse(shannon_p_vs_0 >= 0.05, "No significant scaling",
@@ -798,7 +854,7 @@ if (nrow(shannon_data) >= 15) {
     response = "Shannon Diversity",
     n_corals = nrow(shannon_data), n_nonzero = NA, n_zero = NA, total_abundance = NA,
     beta = NA, se = NA, ci_lower = NA, ci_upper = NA, z_value = NA, p_value = NA,
-    z_vs_1 = NA, p_vs_1 = NA, interpretation = "Insufficient data", model = NULL, converged = FALSE
+    z_vs_1 = NA, p_vs_1 = NA, p_boot_vs_1 = NA, interpretation = "Insufficient data", model = NULL, converged = FALSE
   )
   cat("Insufficient data for Shannon scaling analysis\n\n")
 }
@@ -901,15 +957,16 @@ species_summary <- cafi_clean %>%
   summarise(
     total_individuals = n(),
     n_corals_present = n_distinct(coral_id),
-    prevalence = n_distinct(coral_id) / n_distinct(cafi_clean$coral_id) * 100,
+    prevalence = n_distinct(coral_id) / n_distinct(coral_master$coral_id) * 100,  # denominator = all 114 corals surveyed
     .groups = "drop"
   ) %>%
   arrange(desc(total_individuals))
 
-# Get functional group info
+# Get functional group info (deduplicate by OTU in case functional_group/type are inconsistent)
 species_functional <- cafi_clean %>%
   dplyr::select(otu, functional_group, type) %>%
-  distinct()
+  distinct(otu, .keep_all = TRUE) %>%
+  group_by(otu) %>% slice(1) %>% ungroup()
 
 species_summary <- species_summary %>%
   left_join(species_functional, by = "otu")
@@ -1046,6 +1103,8 @@ for (sp in key_species_abundances) {
 }
 
 # Fit scaling models with RELAXED thresholds for key species
+# Note: Some species have very few non-zero observations (~5); NB GLM results
+# for these rare taxa should be interpreted as exploratory, not confirmatory.
 # Using min_nonzero = 5 to include rarer but important species
 cat("\nFitting scaling models (relaxed threshold: min 5 corals with species present)...\n\n")
 
@@ -1108,7 +1167,9 @@ key_species_summary <- key_species_summary %>%
       interpretation == "Field of Dreams" ~ "Field of Dreams (β ≈ 1)",
       grepl("Redirection", interpretation) ~ "Propagule Redirection (β < 1)",
       TRUE ~ interpretation
-    )
+    ),
+    # Flag species with fewer than 15 non-zero observations as exploratory
+    reliability = ifelse(n_present < 15, "low", "adequate")
   )
 
 print(key_species_summary %>%
@@ -1118,6 +1179,92 @@ print(key_species_summary %>%
 # Save key species scaling table
 save_table(key_species_summary, "key_species_scaling_experimental")
 cat("\n  Saved: key_species_scaling_experimental.csv\n")
+
+# --- SCALING CONCORDANCE: Survey vs Experiment ---
+# The experiment found ~proportional scaling (Field of Dreams) at reef scale.
+# The survey finds sublinear scaling (Redirection) at colony scale.
+# Compare species tested in both studies.
+cat("\n--- CROSS-STUDY SCALING CONCORDANCE ---\n\n")
+
+# Experimental scaling responses (from companion paper)
+# Experiment measured per-coral abundance as function of reef-level coral number
+expt_scaling <- tribble(
+  ~species,                  ~expt_response,
+  "Caracanthus maculatus",   "proportional",
+  "Harpiliopsis spinigera",  "proportional",
+  "Periclimenes watamuae",   "proportional",
+  "Calcinus latens",         "proportional",
+  "Trapezia serenei",        "sub-proportional",
+  "Alpheus lottini",         "proportional",
+  "Alpheus diadema",         "sub-proportional",
+  "Luniella pugil",          "super-proportional",
+  "Galeropsis monodonta",    "proportional"
+)
+
+# Match with BOTH key species AND individual species from survey
+# Key species summary uses grouped names; individual species from Part 4 uses OTU names
+survey_scaling <- bind_rows(
+  # From key species (Part 5)
+  key_species_summary %>%
+    dplyr::select(species, survey_beta = beta, survey_ci_lower = ci_lower,
+                  survey_ci_upper = ci_upper, survey_pattern = scaling_pattern),
+  # From individual species (Part 4) — these use OTU names
+  if (exists("all_results") && !is.null(all_results$individual_species)) {
+    map_df(all_results$individual_species, function(r) {
+      if (is.null(r) || is.na(r$beta)) return(NULL)
+      tibble(species = r$response, survey_beta = r$beta,
+             survey_ci_lower = r$boot_ci_lower, survey_ci_upper = r$boot_ci_upper,
+             survey_pattern = r$interpretation)
+    })
+  } else {
+    tibble()
+  }
+) %>%
+  distinct(species, .keep_all = TRUE)
+
+scaling_concordance <- expt_scaling %>%
+  left_join(survey_scaling, by = "species") %>%
+  filter(!is.na(survey_beta))
+
+if (nrow(scaling_concordance) > 0) {
+  cat("  Species with scaling data in both studies:", nrow(scaling_concordance), "\n")
+
+  scaling_concordance <- scaling_concordance %>%
+    mutate(
+      survey_class = case_when(
+        !is.na(survey_ci_upper) & survey_ci_upper < 1 ~ "sublinear",
+        !is.na(survey_ci_lower) & survey_ci_lower > 1 ~ "super-linear",
+        TRUE ~ "proportional"
+      ),
+      expt_class = case_when(
+        expt_response == "sub-proportional" ~ "sublinear",
+        expt_response == "super-proportional" ~ "super-linear",
+        TRUE ~ "proportional"
+      )
+    )
+
+  cat("\n  Cross-study scaling comparison:\n")
+  cat(sprintf("  %-25s %-18s %-18s\n", "Species", "Experiment", "Survey"))
+  cat("  ", strrep("-", 62), "\n", sep = "")
+  for (i in 1:nrow(scaling_concordance)) {
+    r <- scaling_concordance[i, ]
+    cat(sprintf("  %-25s %-18s %-18s\n",
+                r$species, r$expt_response,
+                sprintf("β=%.2f %s", r$survey_beta, r$survey_class)))
+  }
+
+  n_survey_sub <- sum(scaling_concordance$survey_class == "sublinear")
+  cat(sprintf("\n  Survey: %d/%d species show sublinear scaling (vs mostly proportional in experiment)\n",
+              n_survey_sub, nrow(scaling_concordance)))
+  cat("  Key contrast: experiment found ~proportional at reef scale (colonization),\n")
+  cat("  survey finds sublinear at colony scale (established communities).\n")
+
+  save_table(scaling_concordance, "cross_study_scaling_concordance")
+  cat("  Saved: cross_study_scaling_concordance.csv\n")
+} else {
+  cat("  No overlapping species between experiment and survey scaling analyses.\n")
+}
+cat("\n")
 
 # Create visualization: Key species forest plot
 cat("\nCreating key species scaling forest plot...\n")
@@ -1204,6 +1351,9 @@ cat("############################################################\n\n")
 
 comm_matrix_occ <- load_object("community_matrix")
 comm_pa <- (comm_matrix_occ > 0) * 1L
+
+# Validate coral_ids exist in community matrix row names before indexing
+stopifnot(all(coral_data$coral_id %in% rownames(comm_pa)))
 
 # Select species with ≥15% prevalence (≥17 of 112 corals)
 sp_prev <- colMeans(comm_pa[coral_data$coral_id, ])
@@ -1305,8 +1455,8 @@ all_results$occurrence_curves <- list(
   curves = occurrence_list
 )
 
-# ---- Figure S14: Occurrence Curves ----
-cat("\n  Generating occurrence curves figure (Fig S14)...\n")
+# ---- Figure S15: Occurrence Curves ----
+cat("\n  Generating occurrence curves figure (Fig S15)...\n")
 
 # Select species to show: all FDR-significant, plus top by |beta| up to 15 total
 show_species <- occ_df %>%
@@ -1366,7 +1516,7 @@ fig_occ <- ggplot() +
   labs(
     x = expression("Colony volume " (cm^3)),
     y = "P(occurrence)",
-    title = "Figure S14: Species occurrence probability vs. coral size"
+    title = "Figure S15: Species occurrence probability vs. coral size"
   ) +
   theme_publication(base_size = 10) +
   theme(
@@ -1386,18 +1536,18 @@ cat("  Saved: 05_scaling/occurrence_curves.png\n")
 
 supplement_dir <- file.path(PATHS$figures, "supplement")
 dir.create(supplement_dir, showWarnings = FALSE, recursive = TRUE)
-save_figure(fig_occ, file.path(supplement_dir, "figS14_occurrence_curves.png"),
+save_figure(fig_occ, file.path(supplement_dir, "figS15_occurrence_curves.png"),
             width = 250, height = occ_height, units = "mm")
-cat("  Saved: supplement/figS14_occurrence_curves.png\n\n")
+cat("  Saved: supplement/figS15_occurrence_curves.png\n\n")
 
-# ---- S14 Legend / Results Text ----
-s14_legend <- paste0(
-'FIGURE S14: SPECIES OCCURRENCE PROBABILITY VS. CORAL SIZE
+# ---- S15 Legend / Results Text ----
+s15_legend <- paste0(
+'FIGURE S15: SPECIES OCCURRENCE PROBABILITY VS. CORAL SIZE
 ================================================================================
 
 FIGURE LEGEND
 -------------
-Figure S14. Occurrence probability of prevalent CAFI species as a function of
+Figure S15. Occurrence probability of prevalent CAFI species as a function of
 coral colony volume. Each panel shows one species. Blue curves: logistic GLM fit
 (P(present) ~ log(volume) + site, averaged across sites). Points: observed
 presence/absence data (jittered vertically for visibility). Species are ordered
@@ -1463,8 +1613,8 @@ Generated: ', Sys.Date(), '
 Source script: scripts/05_species_scaling_analysis.R
 ')
 
-writeLines(s14_legend, file.path(PATHS$fig_manuscript, "figS14_legend_results.txt"))
-cat("  Generated: figS14_legend_results.txt\n")
+writeLines(s15_legend, file.path(PATHS$fig_supplement, "figS15_legend_results.txt"))
+cat("  Generated: figS15_legend_results.txt\n")
 
 # ############################################################################
 #                    PART 7: SUMMARY & SYNTHESIS
@@ -1671,6 +1821,7 @@ cat("Creating Figure 1: Community-level scaling...\n")
 p_total <- ggplot(coral_data, aes(x = volume, y = total_cafi, fill = site)) +
   geom_point(alpha = 0.7, size = 2.5, shape = 21, color = "gray30", stroke = 0.4) +
   geom_smooth(aes(group = 1), method = MASS::glm.nb, formula = y ~ log(x),
+              method.args = list(control = glm.control(maxit = 50)),
               se = TRUE, color = "black", linewidth = 1) +
   scale_x_log10(labels = scales::comma) +
   scale_y_log10() +
@@ -1735,6 +1886,10 @@ cat("  Saved: community_scaling.png\n")
 # ============================================================================
 # FIGURE 2: Taxonomic & Functional Group Forest Plot
 # ============================================================================
+# NOTE: Supplement/exploratory figures below use the default ggplot2 theme (via
+# theme() adjustments) rather than theme_publication(), which is reserved for
+# manuscript figures. This is intentional: supplement figures prioritize
+# information density over strict publication styling.
 
 cat("Creating Figure 2: Taxonomic & functional group scaling...\n")
 
@@ -1827,7 +1982,7 @@ top_species <- valid_results %>%
   arrange(desc(n_nonzero)) %>%
   head(12)
 
-make_species_panel <- function(sp_name, sp_result) {
+make_species_panel <- function(sp_name, sp_result, species_scaling_data) {
   sp_data <- species_scaling_data %>%
     filter(otu == sp_name, abundance > 0)
 
@@ -1840,31 +1995,53 @@ make_species_panel <- function(sp_name, sp_result) {
     TRUE ~ "gray55"
   )
 
-  ggplot(sp_data, aes(x = volume, y = abundance, fill = site)) +
-    geom_point(alpha = 0.7, size = 2, shape = 21, color = "gray30", stroke = 0.4) +
-    geom_smooth(aes(group = 1), method = MASS::glm.nb, formula = y ~ log(x),
-                se = TRUE, color = "black", linewidth = 0.8) +
-    scale_x_log10(labels = scales::comma) +
-    scale_y_continuous() +
-    scale_fill_manual(values = SITE_COLORS) +
-    labs(
-      x = expression("Volume (cm"^3*")"),
-      y = "Abundance",
-      title = str_replace(sp_name, "_", " ")
-    ) +
-    annotate("text", x = Inf, y = Inf,
-             label = sprintf("β = %.2f", beta_val),
-             hjust = 1.1, vjust = 1.3, size = 3, fontface = "italic") +
-    theme(
-      legend.position = "none",
-      plot.title = element_text(face = "bold.italic", size = 9, color = title_color)
-    )
+  tryCatch({
+    ggplot(sp_data, aes(x = volume, y = abundance, fill = site)) +
+      geom_point(alpha = 0.7, size = 2, shape = 21, color = "gray30", stroke = 0.4) +
+      geom_smooth(aes(group = 1), method = MASS::glm.nb, formula = y ~ log(x),
+                  method.args = list(control = glm.control(maxit = 50)),
+                  se = TRUE, color = "black", linewidth = 0.8) +
+      scale_x_log10(labels = scales::comma) +
+      scale_y_continuous() +
+      scale_fill_manual(values = SITE_COLORS) +
+      labs(
+        x = expression("Volume (cm"^3*")"),
+        y = "Abundance",
+        title = str_replace(sp_name, "_", " ")
+      ) +
+      annotate("text", x = Inf, y = Inf,
+               label = sprintf("\u03b2 = %.2f", beta_val),
+               hjust = 1.1, vjust = 1.3, size = 3, fontface = "italic") +
+      theme(
+        legend.position = "none",
+        plot.title = element_text(face = "bold.italic", size = 9, color = title_color)
+      )
+  }, error = function(e) {
+    # Fallback: plot points without NB smooth if convergence fails on sparse data
+    ggplot(sp_data, aes(x = volume, y = abundance, fill = site)) +
+      geom_point(alpha = 0.7, size = 2, shape = 21, color = "gray30", stroke = 0.4) +
+      scale_x_log10(labels = scales::comma) +
+      scale_y_continuous() +
+      scale_fill_manual(values = SITE_COLORS) +
+      labs(
+        x = expression("Volume (cm"^3*")"),
+        y = "Abundance",
+        title = str_replace(sp_name, "_", " ")
+      ) +
+      annotate("text", x = Inf, y = Inf,
+               label = sprintf("\u03b2 = %.2f (fit failed)", beta_val),
+               hjust = 1.1, vjust = 1.3, size = 3, fontface = "italic") +
+      theme(
+        legend.position = "none",
+        plot.title = element_text(face = "bold.italic", size = 9, color = title_color)
+      )
+  })
 }
 
 if (nrow(top_species) > 0) {
   species_panels <- map2(top_species$response,
                           map(top_species$response, ~all_results$individual_species[[.x]]),
-                          make_species_panel)
+                          ~make_species_panel(.x, .y, species_scaling_data))
 
   fig_species <- wrap_plots(species_panels, ncol = 4) +
     plot_annotation(
@@ -2044,19 +2221,30 @@ cat("\n============================================================\n")
 cat("MANUSCRIPT FIGURE 2: Size-Abundance Scaling\n")
 cat("============================================================\n\n")
 
-# Define theme_manuscript (normally in script 13; included here for standalone use)
-theme_manuscript <- function(base_size = 10) {
-  theme_publication(base_size = base_size) +
+# Clean publication theme for single-column (89mm) figure
+# Lighter than theme_publication: no box border, thin axis lines, subtle grid
+theme_fig2 <- function(base_size = 9) {
+  theme_minimal(base_size = base_size) +
     theme(
-      plot.title = element_text(face = "bold", size = base_size + 1, hjust = 0),
-      plot.subtitle = element_text(size = base_size - 1, color = "gray30"),
-      axis.title = element_text(size = base_size),
-      axis.text = element_text(size = base_size - 1),
+      axis.line = element_line(color = "grey30", linewidth = 0.3),
+      axis.ticks = element_line(color = "grey50", linewidth = 0.3),
+      axis.ticks.length = unit(0.12, "cm"),
+      axis.title = element_text(size = base_size, color = "black"),
+      axis.text = element_text(size = base_size - 1, color = "grey30"),
+      panel.grid.major = element_line(color = "grey93", linewidth = 0.2),
+      panel.grid.minor = element_blank(),
+      legend.position = "bottom",
       legend.title = element_text(size = base_size - 1, face = "bold"),
-      legend.text = element_text(size = base_size - 2),
-      plot.margin = margin(10, 10, 10, 10, "mm")
+      legend.text = element_text(size = base_size - 1),
+      legend.key.size = unit(3.5, "mm"),
+      legend.margin = margin(t = 0, b = 0),
+      plot.tag = element_text(size = base_size + 2, face = "bold"),
+      plot.margin = margin(2, 8, 2, 6, "mm"),
+      plot.background = element_rect(fill = "white", color = NA)
     )
 }
+# Alias for downstream code (Fig 3 etc.) that still references theme_manuscript
+theme_manuscript <- function(base_size = 10) theme_fig2(base_size = base_size)
 
 # Prepare data for scaling plots (coral_data already exists from earlier in this script)
 scaling_data <- coral_data %>%
@@ -2089,68 +2277,91 @@ if (nrow(scaling_data) >= 30) {
   }
 
   # --------------------------------------------------------------------------
-  # DESIGN: Site colors from global SITE_COLORS (00_setup.R)
+  # DESIGN: Refined aesthetics for 89mm single-column figure
   # --------------------------------------------------------------------------
 
-  # Shared regression aesthetics
-  smooth_color <- "gray20"
-  smooth_fill  <- "gray85"
-  smooth_lwd   <- 0.7
-  smooth_alpha  <- 0.30
-  point_alpha   <- 0.55
-  point_size    <- 1.4
+  smooth_color <- "grey20"
+  smooth_fill  <- "grey80"
+  smooth_lwd   <- 0.8
+  smooth_alpha  <- 0.25
+  point_alpha   <- 0.65
+  point_size    <- 2.0
 
-  # Compute intercept for proportional-scaling (beta=1) reference line.
-
-  # On log10 axes, slope=1 means log10(y) = log10(x) + intercept, i.e. y = 10^intercept * x.
-  # The intercept is calibrated from the data so the line passes through the data cloud.
+  # Proportional-scaling (beta=1) reference line intercept
   intercept_beta1 <- mean(
     log10(scaling_data$total_cafi[scaling_data$total_cafi > 0]) -
     log10(scaling_data$volume[scaling_data$total_cafi > 0])
   )
 
-  # Panel A: Total abundance vs volume (log-log)
+  shared_xlim <- c(30, 50000)
+
+  # Build annotation labels as parseable strings
+  beta_label <- if (!is.na(beta_abundance)) {
+    ci_lo <- if(!is.na(total_result$boot_ci_lower)) total_result$boot_ci_lower else ci_abundance[1]
+    ci_hi <- if(!is.na(total_result$boot_ci_upper)) total_result$boot_ci_upper else ci_abundance[2]
+    sprintf("beta == %.2f ~ '[' * %.2f * ', ' * %.2f * ']'", beta_abundance, ci_lo, ci_hi)
+  } else ""
+
+  # --- Panel A: Total abundance vs volume (log-log) ---
   panel_a <- scaling_data %>%
     ggplot(aes(x = volume, y = total_cafi)) +
-    geom_abline(slope = 1, intercept = intercept_beta1, linetype = "dashed",
-                color = "gray45", linewidth = 0.4) +
-    # Note: displayed curve is site-marginalized; subtitle beta is from site-adjusted model
+    geom_abline(slope = 1, intercept = intercept_beta1, linetype = "longdash",
+                color = "grey50", linewidth = 0.6) +
     geom_smooth(aes(group = 1), method = MASS::glm.nb, formula = y ~ log(x),
                 se = TRUE, color = smooth_color, fill = smooth_fill,
                 linewidth = smooth_lwd, alpha = smooth_alpha) +
     geom_point(aes(fill = site), alpha = point_alpha, size = point_size,
-               shape = 21, color = "gray30", stroke = 0.4) +
+               shape = 21, color = "white", stroke = 0.3) +
     scale_x_log10(labels = scales::comma, breaks = c(100, 1000, 10000)) +
     scale_y_log10(labels = scales::comma, breaks = c(1, 10, 100)) +
     scale_fill_manual(values = SITE_COLORS, name = "Site") +
-    coord_cartesian(xlim = c(30, 50000), ylim = c(0.8, 300)) +
-    labs(
-      x = expression("Coral volume (cm"^3*")"),
-      y = "Total CAFI abundance",
-      title = expression(bold("A")~"Abundance scaling"),
-      subtitle = if(!is.na(beta_abundance)) {
-        # Use bootstrap CI if available, otherwise profile CI
-        ci_lo <- if(!is.na(total_result$boot_ci_lower)) total_result$boot_ci_lower else ci_abundance[1]
-        ci_hi <- if(!is.na(total_result$boot_ci_upper)) total_result$boot_ci_upper else ci_abundance[2]
-        bquote(beta == .(sprintf("%.2f", beta_abundance)) ~
-          "[" * .(sprintf("%.2f", ci_lo)) * ", " *
-          .(sprintf("%.2f", ci_hi)) * "]")
-      } else "Model fit unavailable"
-    ) +
-    annotate("text", x = 50, y = 250, label = "1 : 1", size = 3,
-             color = "gray50", fontface = "italic", hjust = 0) +
-    theme_manuscript() +
+    coord_cartesian(xlim = shared_xlim, ylim = c(0.8, 500)) +
+    labs(x = NULL, y = "Total CAFI abundance") +
+    annotate("text", x = 35000, y = 0.9, label = beta_label,
+             size = 3.2, color = "black", fontface = "bold", hjust = 1, parse = TRUE) +
+    annotate("text", x = 70, y = 350, label = "1:1\n(Field of Dreams)",
+             size = 2.3, color = "grey40", fontface = "italic", hjust = 0,
+             lineheight = 0.85) +
+    theme_fig2() +
     theme(
-      axis.title = element_text(size = 10),
-      legend.position = "bottom",
-      legend.key.size = unit(3, "mm"),
-      legend.title = element_text(size = 8, face = "bold"),
-      legend.text = element_text(size = 7),
-      panel.grid.minor = element_blank(),
-      plot.margin = margin(10, 10, 5, 10, "mm")
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.line.x = element_blank(),
+      legend.position = "none"  # Site legend goes in companion text file (fig2_legend_results.txt)
     )
 
-  # Panel B: Species richness scaling (Poisson GLM, natural log)
+  # --- Panel B: Density Dilution (middle) ---
+  scaling_data_nonzero <- scaling_data %>% filter(total_cafi > 0)
+  density_lm <- lm(log(total_cafi / volume) ~ log(volume),
+                    data = scaling_data_nonzero)
+  density_slope <- coef(density_lm)[["log(volume)"]]
+
+  panel_b_density <- ggplot(scaling_data_nonzero,
+                            aes(x = volume, y = total_cafi / volume, fill = site)) +
+    geom_smooth(aes(group = 1), method = "lm", formula = y ~ x,
+                se = TRUE, color = smooth_color, fill = smooth_fill,
+                linewidth = smooth_lwd, alpha = smooth_alpha) +
+    geom_point(alpha = point_alpha, size = point_size,
+               shape = 21, color = "white", stroke = 0.3) +
+    geom_hline(yintercept = mean(scaling_data_nonzero$total_cafi / scaling_data_nonzero$volume),
+               linetype = "dashed", color = "grey60", linewidth = 0.4) +
+    scale_x_log10(labels = scales::comma, breaks = c(100, 1000, 10000)) +
+    scale_y_log10() +
+    scale_fill_manual(values = SITE_COLORS, name = "Site") +
+    coord_cartesian(xlim = shared_xlim) +
+    labs(x = NULL, y = expression("CAFI density (ind. cm"^-3*")")) +
+    annotate("text", x = 35000, y = min(scaling_data_nonzero$total_cafi / scaling_data_nonzero$volume) * 1.5,
+             label = sprintf("slope == %.2f", density_slope),
+             size = 3.2, color = "black", fontface = "bold", hjust = 1, parse = TRUE) +
+    theme_fig2() +
+    theme(
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.line.x = element_blank(),
+      legend.position = "none"
+    )
+
+  # --- Panel C: Species richness scaling ---
   richness_model_fig <- tryCatch({
     glm(otu_richness ~ log(volume) + site, data = scaling_data, family = poisson)
   }, error = function(e) NULL)
@@ -2170,210 +2381,45 @@ if (nrow(scaling_data) >= 30) {
     z_ci <- c(NA, NA)
   }
 
-  # Rarefied richness overlay data (from PART 2B)
-  rare_color <- "grey50"
-  rare_pred <- NULL
-  if (exists("rare_data") && nrow(rare_data) > 0 && exists("rare_model")) {
-    vol_seq_rare <- data.frame(
-      volume = exp(seq(log(min(rare_data$volume)), log(max(rare_data$volume)), length.out = 100)),
-      site = rare_data$site[1]  # placeholder for predict
-    )
-    # Average prediction across sites
-    rare_preds_by_site <- lapply(unique(rare_data$site), function(s) {
-      nd <- data.frame(volume = vol_seq_rare$volume, site = s)
-      predict(rare_model, newdata = nd)
-    })
-    rare_pred <- data.frame(
-      volume = vol_seq_rare$volume,
-      rarefied_richness = Reduce("+", rare_preds_by_site) / length(rare_preds_by_site)
-    )
-  }
+  z_label <- if (!is.na(z_richness)) {
+    z_lo <- if(!is.na(richness_result$boot_ci_lower)) richness_result$boot_ci_lower else z_ci[1]
+    z_hi <- if(!is.na(richness_result$boot_ci_upper)) richness_result$boot_ci_upper else z_ci[2]
+    sprintf("italic(z) == %.2f ~ '[' * %.2f * ', ' * %.2f * ']'", z_richness, z_lo, z_hi)
+  } else ""
 
-  panel_b <- scaling_data %>%
+  panel_c <- scaling_data %>%
     ggplot(aes(x = volume, y = otu_richness)) +
     geom_smooth(aes(group = 1), method = "glm",
                 method.args = list(family = poisson), formula = y ~ log(x),
                 se = TRUE, color = smooth_color, fill = smooth_fill,
                 linewidth = smooth_lwd, alpha = smooth_alpha) +
     geom_point(aes(fill = site), alpha = point_alpha, size = point_size,
-               shape = 21, color = "gray30", stroke = 0.4)
-
-  # Add rarefied richness overlay
-  if (!is.null(rare_pred) && exists("rare_data")) {
-    panel_b <- panel_b +
-      geom_point(data = rare_data, aes(x = volume, y = rarefied_richness),
-                 shape = 4, size = 1.6, alpha = 0.45, color = "grey30", stroke = 0.6) +
-      geom_line(data = rare_pred, aes(x = volume, y = rarefied_richness),
-                linetype = "dashed", linewidth = 1.0, color = "grey30") +
-      annotate("text", x = 45, y = 80,
-               label = "Rarefied (n = 20, ns)", size = 2.5, color = "grey30",
-               fontface = "italic", hjust = 0)
-  }
-
-  rare_p_label <- if (exists("all_results") && !is.null(all_results$rarefied_richness)) {
-    format.pval(all_results$rarefied_richness$p_value, 2)
-  } else "NA"
-
-  panel_b <- panel_b +
+               shape = 21, color = "white", stroke = 0.3) +
     scale_x_log10(labels = scales::comma, breaks = c(100, 1000, 10000)) +
     scale_y_log10(limits = c(1, NA)) +
     scale_fill_manual(values = SITE_COLORS, name = "Site") +
-    coord_cartesian(xlim = c(30, 50000)) +
-    labs(
-      x = expression("Coral volume (cm"^3*")"),
-      y = "Species richness",
-      title = expression(bold("B")~"Species-area relationship"),
-      subtitle = if(!is.na(z_richness)) {
-        # Use bootstrap CI if available, otherwise profile CI
-        z_lo <- if(!is.na(richness_result$boot_ci_lower)) richness_result$boot_ci_lower else z_ci[1]
-        z_hi <- if(!is.na(richness_result$boot_ci_upper)) richness_result$boot_ci_upper else z_ci[2]
-        bquote(italic(z) == .(sprintf("%.2f", z_richness)) ~
-          "[" * .(sprintf("%.2f", z_lo)) * ", " *
-          .(sprintf("%.2f", z_hi)) * "]" ~
-          "; rarefied" ~ italic(p) == .(rare_p_label))
-      } else "Model fit unavailable"
-    ) +
-    theme_manuscript() +
-    theme(
-      axis.title = element_text(size = 10),
-      legend.position = "none",
-      panel.grid.minor = element_blank(),
-      plot.margin = margin(10, 10, 5, 10, "mm")
-    )
+    coord_cartesian(xlim = shared_xlim) +
+    labs(x = expression("Coral volume (cm"^3*")"), y = "Species richness") +
+    annotate("text", x = 35000, y = 1.2,
+             label = z_label,
+             size = 3.2, color = "black", fontface = "bold", hjust = 1, parse = TRUE) +
+    theme_fig2() +
+    theme(legend.position = "none")
 
-  # --------------------------------------------------------------------------
-  # Panel C: Species-level scaling classification (top 10 by prevalence)
-  # Uses all_results_df already in memory from this script
-  # --------------------------------------------------------------------------
-  species_scaling <- all_results_df %>%
-    filter(category == "Species", !is.na(beta)) %>%
-    arrange(desc(n_nonzero)) %>%
-    head(10) %>%
-    mutate(
-      species_label = gsub("_", " ", response),
-      species_label = factor(species_label, levels = rev(species_label[order(beta)])),
-      scaling_class = case_when(
-        boot_ci_upper < 1 ~ "Redirection",
-        boot_ci_lower > 1 ~ "Super-linear",
-        TRUE              ~ "Field of Dreams"
-      )
-    )
-
-  if (nrow(species_scaling) > 0) {
-    x_min <- min(c(species_scaling$boot_ci_lower, 0), na.rm = TRUE) - 0.3
-    x_max <- max(species_scaling$boot_ci_upper, na.rm = TRUE) + 0.3
-
-    # Zone shading
-    shade_df <- data.frame(
-      xmin = c(x_min, 1),
-      xmax = c(1, x_max),
-      fill_col = c("#0072B2", "#D55E00")
-    )
-
-    # Color semantics
-    species_colors <- c(
-      "Redirection"    = "#5A8FAF",
-      "Field of Dreams" = "gray55",
-      "Super-linear"   = "#D55E00"
-    )
-
-    panel_c <- ggplot(species_scaling, aes(x = beta, y = species_label)) +
-      geom_rect(data = shade_df, inherit.aes = FALSE,
-                aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = fill_col),
-                alpha = 0.04) +
-      scale_fill_identity() +
-      geom_vline(xintercept = 1, linetype = "dashed", color = "gray45", linewidth = 0.4) +
-      geom_segment(aes(x = boot_ci_lower, xend = boot_ci_upper,
-                       y = species_label, yend = species_label, color = scaling_class),
-                   linewidth = 0.4, alpha = 0.6) +
-      geom_point(aes(color = scaling_class), size = 2) +
-      scale_color_manual(values = species_colors, name = "Scaling pattern") +
-      scale_x_continuous(
-        limits = c(x_min, x_max)
-      ) +
-      labs(
-        x = expression("Scaling exponent (" * beta * ")"),
-        y = NULL,
-        title = expression(bold("C")~"Species-level scaling"),
-        subtitle = expression("Top 10 species  |  " * beta == 1 ~ "= proportional")
-      ) +
-      # Inline legend using annotate (replaces garbled sec.axis)
-      annotate("text", x = (x_min + 1) / 2, y = Inf,
-               label = "\u2190 Redirection", color = "#5A8FAF",
-               size = 2.2, fontface = "bold", hjust = 0.5, vjust = 1.4) +
-      annotate("text", x = 1 + (x_max - 1) * 0.55, y = Inf,
-               label = "Super-linear \u2192", color = "#D55E00",
-               size = 2.2, fontface = "bold", hjust = 0.5, vjust = 1.4) +
-      theme_manuscript() +
-      theme(
-        axis.title = element_text(size = 10),
-        axis.text.y = element_text(face = "italic", size = 8),
-        legend.position = "none",
-        panel.grid.minor = element_blank(),
-        plot.margin = margin(12, 10, 10, 5)
-      )
-  } else {
-    panel_c <- ggplot() +
-      annotate("text", x = 0.5, y = 0.5, label = "Species scaling data unavailable") +
-      theme_void()
-  }
-
-  # --------------------------------------------------------------------------
-  # Panel D: Density Dilution
-  # Per-capita CAFI density = total_cafi / volume
-  # --------------------------------------------------------------------------
-  scaling_data_nonzero <- scaling_data %>% filter(total_cafi > 0)
-
-  # Compute density dilution slope dynamically from log-log linear model
-  density_lm <- lm(log10(total_cafi / volume) ~ log10(volume),
-                    data = scaling_data_nonzero)
-  density_slope <- coef(density_lm)[["log10(volume)"]]
-
-  panel_d <- ggplot(scaling_data_nonzero, aes(x = volume, y = total_cafi / volume, fill = site)) +
-    geom_point(alpha = point_alpha, size = point_size,
-               shape = 21, color = "gray30", stroke = 0.4) +
-    geom_smooth(aes(group = 1), method = "lm", formula = y ~ x,
-                se = TRUE, color = smooth_color, fill = smooth_fill,
-                linewidth = smooth_lwd, alpha = smooth_alpha) +
-    geom_hline(yintercept = mean(scaling_data_nonzero$total_cafi / scaling_data_nonzero$volume),
-               linetype = "dashed", color = "gray45", linewidth = 0.4) +
-    scale_x_log10(labels = scales::comma, breaks = c(100, 1000, 10000)) +
-    scale_y_log10() +
-    scale_fill_manual(values = SITE_COLORS, name = "Site") +
-    coord_cartesian(xlim = c(30, 50000)) +
-    labs(
-      x = expression("Coral volume (cm"^3*")"),
-      y = expression("CAFI density (ind. / cm"^3*")"),
-      title = expression(bold("D")~"Density dilution"),
-      subtitle = bquote("log-log slope" == .(sprintf("%.2f", density_slope)))
-    ) +
-    theme_manuscript() +
-    theme(
-      axis.title = element_text(size = 10),
-      legend.position = "none",
-      panel.grid.minor = element_blank()
-    )
-
-  # Combine: A and B side by side on top row, C and D on bottom row (2x2 grid)
-  fig2 <- (panel_a | panel_b) / (panel_c | panel_d) +
-    plot_layout(heights = c(1, 0.9), guides = "collect") +
-    plot_annotation(
-      caption = sprintf("Dashed line (A, C): proportional scaling (\u03b2 = 1). Solid curves (A, B, D): GLM fit \u00B1 95%% profile CI.\nGrey dashed curve (B): rarefied richness (n = 20). Panel C: 95%% bootstrap BCa CI. Panel D: dashed line = mean density.\nn = %d corals, 3 reef sites.", nrow(scaling_data)),
-      theme = theme(
-        plot.caption = element_text(size = 6.5, color = "gray45", hjust = 0,
-                                    margin = margin(t = 6, b = 2), lineheight = 1.2),
-        legend.position = "bottom"
-      )
-    )
+  # --- Combine: 3 vertical panels, shared x-axis ---
+  fig2 <- panel_a / panel_b_density / panel_c +
+    plot_layout(heights = c(1, 1, 1)) +
+    plot_annotation(tag_levels = "A") &
+    theme(plot.tag = element_text(size = 11, face = "bold"))
 
   # Save to manuscript directory
   save_figure(fig2, file.path(PATHS$fig_manuscript, "fig2_scaling.png"),
-              width = 180, height = 220, units = "mm")
-  cat("  Saved: manuscript/fig2_scaling.png\n")
+              width = 89, height = 200, units = "mm")
+  cat("  Saved: manuscript/fig2_scaling.png (+ PDF)\n")
 
   # Save to analysis figure directory
   save_figure(fig2, file.path(FIG_DIR, "fig2_scaling.png"),
-              width = 180, height = 220, units = "mm")
+              width = 89, height = 200, units = "mm")
   cat("  Saved: 05_scaling/fig2_scaling.png\n")
 
   # Save species scaling forest to supplement
@@ -2384,7 +2430,6 @@ if (nrow(scaling_data) >= 30) {
   cat("  Saved: supplement/figS6_species_scaling.png\n")
 
   # Generate fig2 legend results text
-  n_species_forest <- nrow(species_scaling)
   fig2_legend <- paste0(
 'FIGURE 2: CAFI SCALING WITH CORAL SIZE
 ================================================================================
@@ -2397,20 +2442,14 @@ binomial GLM fit; shaded band: 95% CI. Dashed line: 1:1 proportional scaling
 (\u03b2 = 1, Field of Dreams hypothesis). Abundance scaling exponent \u03b2 = ',
 round(total_result$beta, 2), ' [', round(if(!is.na(total_result$boot_ci_lower)) total_result$boot_ci_lower else total_result$ci_lower, 2), ', ',
 round(if(!is.na(total_result$boot_ci_upper)) total_result$boot_ci_upper else total_result$ci_upper, 2), '] — sublinear (Propagule Redirection).
-(B) Species richness vs colony volume. Solid curve: Poisson GLM; z = ',
-round(richness_result$beta, 2), ' [', round(if(!is.na(richness_result$boot_ci_lower)) richness_result$boot_ci_lower else richness_result$ci_lower, 2), ', ',
-round(if(!is.na(richness_result$boot_ci_upper)) richness_result$boot_ci_upper else richness_result$ci_upper, 2), '] — sublinear.
-Dashed grey curve: expected richness rarefied to n = 20 individuals (LM fit; p = ',
-if (exists("all_results") && !is.null(all_results$rarefied_richness)) sprintf("%.2f", all_results$rarefied_richness$p_value) else "NA", '),
-showing no relationship after removing the abundance confound (passive sampling).
-(C) Species-level scaling forest plot for ', n_species_forest, ' taxa.
-Error bars: 95% bootstrap CI (1,000 iterations, site-stratified). Species whose
-CI excludes 1.0 are classified as Redirection (\u03b2 < 1, blue) or Super-linear
-(\u03b2 > 1, vermillion); species whose CI spans 1.0 are Field of Dreams (gray).
-(D) Per-capita CAFI density (individuals per cm\u00b3) vs colony volume (log-log
+(B) Per-capita CAFI density (individuals per cm\u00b3) vs colony volume (log-log
 scale). Dashed horizontal line: mean density. Log-log slope = ',
 round(density_slope, 2), ', confirming density dilution — larger corals harbour
 fewer CAFI per unit volume, consistent with sublinear abundance scaling.
+(C) Species richness vs colony volume. Solid curve: Poisson GLM; z = ',
+round(richness_result$beta, 2), ' [', round(if(!is.na(richness_result$boot_ci_lower)) richness_result$boot_ci_lower else richness_result$ci_lower, 2), ', ',
+round(if(!is.na(richness_result$boot_ci_upper)) richness_result$boot_ci_upper else richness_result$ci_upper, 2), '] — sublinear.
+All panels share the same x-axis (coral volume).
 n = ', nrow(scaling_data), ' corals across 3 reef sites.
 
 ================================================================================
@@ -2420,18 +2459,13 @@ KEY STATISTICS
 
 Total CAFI Abundance:
   \u03b2 = ', round(total_result$beta, 3), ' [', round(if(!is.na(total_result$boot_ci_lower)) total_result$boot_ci_lower else total_result$ci_lower, 3), ', ', round(if(!is.na(total_result$boot_ci_upper)) total_result$boot_ci_upper else total_result$ci_upper, 3), ']
-  z vs 1 = ', round(total_result$z_vs_1, 2), ', p = ', format.pval(total_result$p_vs_1, 3), '
+  z vs 1 = ', round(total_result$z_vs_1, 2), ', p = ', format.pval(total_result$p_vs_1, 3), ' (Wald)', if(!is.na(total_result$p_boot_vs_1)) paste0('; p_boot = ', format.pval(total_result$p_boot_vs_1, 3)) else '', '
   Interpretation: ', total_result$interpretation, '
 
 Species Richness:
   z = ', round(richness_result$beta, 3), ' [', round(if(!is.na(richness_result$boot_ci_lower)) richness_result$boot_ci_lower else richness_result$ci_lower, 3), ', ', round(if(!is.na(richness_result$boot_ci_upper)) richness_result$boot_ci_upper else richness_result$ci_upper, 3), ']
-  z vs 1 = ', round(richness_result$z_vs_1, 2), ', p = ', format.pval(richness_result$p_vs_1, 3), '
+  z vs 1 = ', round(richness_result$z_vs_1, 2), ', p = ', format.pval(richness_result$p_vs_1, 3), ' (Wald)', if(!is.na(richness_result$p_boot_vs_1)) paste0('; p_boot = ', format.pval(richness_result$p_boot_vs_1, 3)) else '', '
   Interpretation: ', richness_result$interpretation, '
-
-Rarefied Richness (n = 20):
-  Slope = ', if (exists("all_results") && !is.null(all_results$rarefied_richness)) round(all_results$rarefied_richness$slope, 3) else "NA", '
-  p = ', if (exists("all_results") && !is.null(all_results$rarefied_richness)) sprintf("%.2f", all_results$rarefied_richness$p_value) else "NA", '
-  Interpretation: Richness-volume relationship disappears after rarefaction (passive sampling)
 
 Density Dilution:
   Log-log slope = ', round(density_slope, 3), '
@@ -2446,6 +2480,294 @@ Source script: scripts/05_species_scaling_analysis.R
 ')
   writeLines(fig2_legend, file.path(PATHS$fig_manuscript, "fig2_legend_results.txt"))
   cat("  Generated: fig2_legend_results.txt\n")
+
+  cat("\n")
+
+  # ==========================================================================
+  # MANUSCRIPT FIGURE 3: Species + Taxonomic Group Scaling (2x2)
+  # Top: raw abundance vs volume curves; Bottom: coefficient forest plots
+  # ==========================================================================
+
+  cat("============================================================\n")
+  cat("MANUSCRIPT FIGURE 3: Species & Taxonomic Group Scaling\n")
+  cat("============================================================\n\n")
+
+  # --- Scaling class colors (shared across bottom panels) ---
+  scaling_colors <- c(
+    "Redirection"     = "#5A8FAF",
+    "Field of Dreams" = "gray55",
+    "Super-linear"    = "#D55E00"
+  )
+
+  # --- Panel A: Key species abundance vs volume (overlaid curves) ---
+  # Top 10 species by prevalence (same set as old Fig 2C)
+  top10_species <- all_results_df %>%
+    filter(category == "Species", !is.na(beta)) %>%
+    arrange(desc(n_nonzero)) %>%
+    head(10)
+
+  # Full data for NB GLM fits (includes zeros), filtered for points
+  top10_data_all <- species_scaling_data %>%
+    filter(otu %in% top10_species$response) %>%
+    mutate(species_label = gsub("_", " ", otu))
+  top10_data_pts <- top10_data_all %>% filter(abundance > 0)
+
+  # Sort species by beta (ascending) — same order as Panel C forest plot
+  sp_order <- top10_species %>%
+    mutate(species_label = gsub("_", " ", response)) %>%
+    arrange(beta) %>%
+    pull(species_label)
+
+  # Assign colors: use a qualitative palette for species, ordered by beta
+  sp_palette <- c("#E69F00", "#56B4E9", "#009E73", "#0072B2", "#D55E00",
+                  "#CC79A7", "#882255", "#44AA99", "#999933", "#332288")
+  names(sp_palette) <- sp_order[1:min(length(sp_order), 10)]
+
+  # Apply factor levels to data so legend matches Panel C order (top = highest beta)
+  top10_data_all <- top10_data_all %>%
+    mutate(species_label = factor(species_label, levels = rev(sp_order)))
+
+  # Generate NB GLM predictions for each species (avoids zero-inflation display issues)
+  vol_grid <- data.frame(volume = exp(seq(log(50), log(40000), length.out = 100)))
+
+  sp_pred_list <- lapply(top10_species$response, function(sp) {
+    sp_data <- top10_data_all %>% filter(otu == sp)
+    fit <- tryCatch(MASS::glm.nb(abundance ~ log(volume), data = sp_data),
+                    error = function(e) NULL)
+    if (is.null(fit)) return(NULL)
+    pred <- predict(fit, newdata = vol_grid, type = "response")
+    data.frame(volume = vol_grid$volume, abundance = pred,
+               species_label = gsub("_", " ", sp))
+  })
+  sp_pred_df <- do.call(rbind, Filter(Negate(is.null), sp_pred_list))
+  sp_pred_df$species_label <- factor(sp_pred_df$species_label, levels = rev(sp_order))
+
+  panel_a_sp <- ggplot() +
+    geom_jitter(data = top10_data_all, aes(x = volume, y = abundance, color = species_label),
+                alpha = 0.15, size = 0.6, height = 0.3, width = 0, show.legend = FALSE) +
+    geom_line(data = sp_pred_df, aes(x = volume, y = abundance, color = species_label),
+              linewidth = 0.7) +
+    scale_x_log10(labels = scales::comma, breaks = c(100, 1000, 10000)) +
+    scale_y_sqrt(breaks = c(0, 1, 5, 10, 25, 50)) +
+    scale_color_manual(values = sp_palette, name = NULL) +
+    coord_cartesian(xlim = shared_xlim) +
+    labs(
+      x = expression("Coral volume (cm"^3*")"),
+      y = "Abundance",
+      title = expression(bold("A")~"Species scaling")
+    ) +
+    theme_manuscript() +
+    theme(
+      axis.title = element_text(size = 9),
+      legend.position = "none",  # 10 species — legend info in fig3_legend_results.txt
+      panel.grid.minor = element_blank(),
+      plot.margin = margin(8, 8, 5, 8, "mm")
+    )
+
+  # --- Panel B: Taxonomic group abundance vs volume (overlaid curves) ---
+  # Reshape taxonomic groups to long format
+  tax_cols <- c("n_crabs" = "Crabs", "n_shrimps" = "Shrimps",
+                "n_fish" = "Fishes", "n_snails" = "Snails")
+  tax_long <- scaling_data %>%
+    dplyr::select(coral_id, site, volume, all_of(names(tax_cols))) %>%
+    tidyr::pivot_longer(cols = all_of(names(tax_cols)),
+                        names_to = "col", values_to = "abundance") %>%
+    mutate(group = tax_cols[col])
+
+  tax_palette <- c("Crabs" = "#E69F00", "Shrimps" = "#56B4E9",
+                   "Fishes" = "#009E73", "Snails" = "#CC79A7")
+
+  # Generate NB GLM predictions for each taxonomic group
+  tax_pred_list <- lapply(unique(tax_long$group), function(g) {
+    g_data <- tax_long %>% filter(group == g)
+    fit <- tryCatch(MASS::glm.nb(abundance ~ log(volume), data = g_data),
+                    error = function(e) NULL)
+    if (is.null(fit)) return(NULL)
+    pred <- predict(fit, newdata = vol_grid, type = "response")
+    data.frame(volume = vol_grid$volume, abundance = pred, group = g)
+  })
+  tax_pred_df <- do.call(rbind, Filter(Negate(is.null), tax_pred_list))
+
+  # Direct-label endpoints for 4 taxonomic groups (ggrepel, no in-plot legend)
+  tax_label_df <- tax_pred_df %>%
+    group_by(group) %>%
+    slice_max(volume, n = 1) %>%
+    ungroup()
+
+  panel_b_tax <- ggplot() +
+    geom_jitter(data = tax_long, aes(x = volume, y = abundance, color = group),
+                alpha = 0.15, size = 0.6, height = 0.3, width = 0, show.legend = FALSE) +
+    geom_line(data = tax_pred_df, aes(x = volume, y = abundance, color = group),
+              linewidth = 0.7) +
+    ggrepel::geom_text_repel(
+      data = tax_label_df,
+      aes(x = volume, y = abundance, label = group, color = group),
+      size = 2.8, fontface = "bold", nudge_x = 0.05, direction = "y",
+      hjust = 0, segment.size = 0.3, segment.color = "grey60",
+      show.legend = FALSE
+    ) +
+    scale_x_log10(labels = scales::comma, breaks = c(100, 1000, 10000)) +
+    scale_y_sqrt(breaks = c(0, 1, 5, 10, 25, 50)) +
+    scale_color_manual(values = tax_palette, name = NULL) +
+    coord_cartesian(xlim = shared_xlim, clip = "off") +
+    labs(
+      x = expression("Coral volume (cm"^3*")"),
+      y = "Abundance",
+      title = expression(bold("B")~"Group scaling")
+    ) +
+    theme_manuscript() +
+    theme(
+      axis.title = element_text(size = 9),
+      legend.position = "none",  # Direct labels used instead; details in fig3_legend_results.txt
+      panel.grid.minor = element_blank(),
+      plot.margin = margin(8, 14, 5, 8, "mm")  # Extra right margin for labels
+    )
+
+  # --- Panel C: Species scaling coefficient forest plot ---
+  sp_forest <- top10_species %>%
+    mutate(
+      species_label = gsub("_", " ", response),
+      species_label = factor(species_label, levels = rev(species_label[order(beta)])),
+      scaling_class = case_when(
+        boot_ci_upper < 1 ~ "Redirection",
+        boot_ci_lower > 1 ~ "Super-linear",
+        TRUE              ~ "Field of Dreams"
+      )
+    )
+
+  panel_c_forest <- ggplot(sp_forest, aes(x = beta, y = species_label)) +
+    geom_vline(xintercept = 1, linetype = "dashed", color = "gray45", linewidth = 0.4) +
+    geom_segment(aes(x = boot_ci_lower, xend = boot_ci_upper,
+                     y = species_label, yend = species_label, color = scaling_class),
+                 linewidth = 0.5) +
+    geom_point(aes(color = scaling_class), size = 2) +
+    scale_color_manual(values = scaling_colors, name = NULL) +
+    labs(
+      x = expression("Scaling exponent (" * beta * ")"),
+      y = NULL,
+      title = expression(bold("C")~"Species" ~ beta ~ "estimates")
+    ) +
+    theme_manuscript() +
+    theme(
+      axis.title = element_text(size = 9),
+      axis.text.y = element_text(face = "italic", size = 7),
+      legend.position = "none",
+      panel.grid.minor = element_blank(),
+      plot.margin = margin(2, 2, 8, 8, "mm")
+    )
+
+  # --- Panel D: Taxonomic group scaling coefficient forest plot ---
+  tax_forest <- map_df(names(all_results$taxonomic_groups), function(nm) {
+    r <- all_results$taxonomic_groups[[nm]]
+    tibble(
+      group = nm,
+      beta = r$beta,
+      ci_lower = if (!is.na(r$boot_ci_lower)) r$boot_ci_lower else r$ci_lower,
+      ci_upper = if (!is.na(r$boot_ci_upper)) r$boot_ci_upper else r$ci_upper
+    )
+  }) %>%
+    filter(!is.na(beta)) %>%
+    mutate(
+      group = factor(group, levels = rev(group[order(beta)])),
+      scaling_class = case_when(
+        ci_upper < 1 ~ "Redirection",
+        ci_lower > 1 ~ "Super-linear",
+        TRUE          ~ "Field of Dreams"
+      )
+    )
+
+  panel_d_forest <- ggplot(tax_forest, aes(x = beta, y = group)) +
+    geom_vline(xintercept = 1, linetype = "dashed", color = "gray45", linewidth = 0.4) +
+    geom_segment(aes(x = ci_lower, xend = ci_upper,
+                     y = group, yend = group, color = scaling_class),
+                 linewidth = 0.5) +
+    geom_point(aes(color = scaling_class), size = 2.5) +
+    scale_color_manual(values = scaling_colors, name = NULL) +
+    labs(
+      x = expression("Scaling exponent (" * beta * ")"),
+      y = NULL,
+      title = expression(bold("D")~"Group" ~ beta ~ "estimates")
+    ) +
+    theme_manuscript() +
+    theme(
+      axis.title = element_text(size = 9),
+      axis.text.y = element_text(size = 8),
+      legend.position = "none",
+      panel.grid.minor = element_blank(),
+      plot.margin = margin(2, 8, 8, 2, "mm")
+    )
+
+  # --- Compose 2x2 (no guide collection — legends stay with their panels) ---
+  fig3 <- (panel_a_sp | panel_b_tax) / (panel_c_forest | panel_d_forest) +
+    plot_layout(heights = c(1, 1)) +
+    plot_annotation(
+      caption = sprintf("Top: NB GLM fits. Bottom: scaling exponents with 95%% bootstrap CI.\nDashed line: \u03b2 = 1 (proportional). n = %d corals, 3 sites.", nrow(scaling_data)),
+      theme = theme(
+        plot.caption = element_text(size = 6.5, color = "gray45", hjust = 0,
+                                    margin = margin(t = 4, b = 2), lineheight = 1.2)
+      )
+    )
+
+  save_figure(fig3, file.path(PATHS$fig_manuscript, "fig3_species_group_scaling.png"),
+              width = 183, height = 180, units = "mm")
+  cat("  Saved: manuscript/fig3_species_group_scaling.png\n")
+
+  save_figure(fig3, file.path(FIG_DIR, "fig3_species_group_scaling.png"),
+              width = 183, height = 180, units = "mm")
+  cat("  Saved: 05_scaling/fig3_species_group_scaling.png\n")
+
+  # Gather key statistics for legend
+  n_species_shown <- 10
+  n_species_total <- sum(all_results_df$category == "Species" & !is.na(all_results_df$beta))
+  n_redirection_all <- sum(all_results_df$category == "Species" &
+                           grepl("Redirection", all_results_df$interpretation), na.rm = TRUE)
+  n_fod_all <- sum(all_results_df$category == "Species" &
+                   grepl("Field of Dreams", all_results_df$interpretation), na.rm = TRUE)
+  n_super_all <- sum(all_results_df$category == "Species" &
+                     grepl("Super-linear", all_results_df$interpretation), na.rm = TRUE)
+  # Counts for the 10 species actually shown in Panel C
+  n_redirection_shown <- sum(grepl("Redirection", sp_forest$scaling_class))
+  n_fod_shown <- sum(grepl("Field of Dreams", sp_forest$scaling_class))
+  n_super_shown <- sum(grepl("Super-linear", sp_forest$scaling_class))
+
+  # Generate fig3 legend text
+  fig3_legend <- paste0(
+'FIGURE 3: SPECIES AND TAXONOMIC GROUP SCALING
+================================================================================
+
+FIGURE LEGEND
+-------------
+Figure 3. Scaling of individual species and taxonomic groups with coral volume.
+(A) Abundance vs colony volume for the ', n_species_shown, ' most prevalent CAFI species,
+fitted with negative binomial (NB) GLMs (total_cafi ~ log(volume) + site; log-log
+scale). (B) Abundance vs colony volume for four taxonomic groups
+(crabs, shrimps, fishes, snails). (C) Species-level scaling exponents (\u03b2) with
+95% bootstrap CI (1,000 site-stratified iterations). Blue: Redirection (\u03b2 < 1);
+grey: Field of Dreams (CI spans 1); vermillion: Super-linear (\u03b2 > 1).
+(D) Taxonomic group scaling exponents with 95% bootstrap CI.
+Dashed vertical line: proportional scaling (\u03b2 = 1).
+Of the ', n_species_shown, ' species shown in Panels A/C: ', n_redirection_shown, ' Redirection, ', n_fod_shown, ' Field of Dreams, ', n_super_shown, ' Super-linear.
+Across all ', n_species_total, ' species tested: ', n_redirection_all, ' Redirection, ', n_fod_all, ' Field of Dreams, ', n_super_all, ' Super-linear.
+FDR correction (Benjamini-Hochberg) applied within species and group categories.
+n = ', nrow(scaling_data), ' Pocillopora corals across 3 reef sites (HAU, MAT, MRB).
+
+PANEL A SPECIES COLORS (ordered by scaling exponent):
+', paste(sapply(seq_along(sp_order[1:min(length(sp_order), 10)]), function(i) {
+  sprintf("  %s: %s", gsub("_", " ", sp_order[i]), sp_palette[sp_order[i]])
+}), collapse = "\n"), '
+
+PANEL B TAXONOMIC GROUP COLORS:
+  Crabs: #E69F00 (amber)
+  Shrimps: #56B4E9 (sky blue)
+  Fishes: #009E73 (bluish green)
+  Snails: #CC79A7 (reddish purple)
+
+================================================================================
+Generated: ', Sys.Date(), '
+Source script: scripts/05_species_scaling_analysis.R
+')
+  writeLines(fig3_legend, file.path(PATHS$fig_manuscript, "fig3_legend_results.txt"))
+  cat("  Generated: fig3_legend_results.txt\n")
 
   cat("\n")
 
