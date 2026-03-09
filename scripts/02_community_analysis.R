@@ -622,8 +622,10 @@ if (!is.null(disp_test$pval) && !is.na(disp_test$pval)) {
 }
 
 # Save PERMDISP results table
-permdisp_interp <- if (!is.null(disp_test$pval) && !is.na(disp_test$pval)) {
-  ifelse(disp_test$pval < 0.05,
+permdisp_p <- if (length(disp_test$pval) == 1 && !is.na(disp_test$pval)) disp_test$pval else NA_real_
+permdisp_F <- if (length(disp_test$statistic) == 1) disp_test$statistic else NA_real_
+permdisp_interp <- if (!is.na(permdisp_p)) {
+  ifelse(permdisp_p < 0.05,
          "Dispersions differ between sites (interpret PERMANOVA with caution)",
          "Dispersions homogeneous (PERMANOVA valid)")
 } else {
@@ -631,8 +633,8 @@ permdisp_interp <- if (!is.null(disp_test$pval) && !is.na(disp_test$pval)) {
 }
 save_table(data.frame(
   test = "PERMDISP (site)",
-  F_statistic = disp_test$statistic,
-  p_value = disp_test$pval,
+  F_statistic = permdisp_F,
+  p_value = permdisp_p,
   interpretation = permdisp_interp,
   stringsAsFactors = FALSE
 ), "permdisp_results")
