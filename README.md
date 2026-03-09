@@ -116,13 +116,13 @@ CAFI-Survey-2026/
 │   │   ├── manuscript/            # 5 publication figures (fig1-fig5) + legend files
 │   │   ├── supplement/            # Supplementary figures (figS1-S17)
 │   │   ├── 01_data/              # Study design figures
-│   │   ├── 02_community/         # Community analysis (11 figures)
-│   │   ├── 03_landscape/         # Landscape characterization (3 figures)
-│   │   ├── 04_effects/           # Landscape effects (14 figures)
-│   │   ├── 05_scaling/           # Species-area scaling (7 figures)
-│   │   ├── 06_network/           # Network analysis (1 figure)
-│   │   ├── feedbacks/            # CAFI-condition feedbacks (8 figures)
-│   │   └── functional_groups/    # Taxonomic group analysis (7 figures)
+│   │   ├── 02_community/         # Community analysis
+│   │   ├── 03_landscape/         # Landscape characterization
+│   │   ├── 04_effects/           # Landscape effects
+│   │   ├── 05_scaling/           # Species-area scaling
+│   │   ├── 06_network/           # Co-occurrence analysis
+│   │   ├── feedbacks/            # CAFI-condition feedbacks
+│   │   └── functional_groups/    # Taxonomic group analysis
 │   ├── tables/                    # CSV statistical results
 │   └── objects/                   # RDS R data objects
 │
@@ -153,7 +153,7 @@ Each manuscript figure is created by its source analysis script with dual saves 
 #### Extended Analyses (scripts 06-09, 13)
 | Script | Purpose | Output |
 |--------|---------|--------|
-| `06_cooccurrence_analysis.R` | Pairwise co-occurrence null models, intraspecific density | Fig S (supplement) |
+| `06_cooccurrence_analysis.R` | Pairwise co-occurrence null models, intraspecific density | Fig S11 |
 | `07_spatial_autocorrelation.R` | Moran's I, LISA, Mantel tests | Fig S4 |
 | `08_functional_groups.R` | Taxonomic group scaling and composition | Fig S9 |
 | `09_cafi_condition_feedbacks.R` | PCA, fixed-effect LMs, Hochberg FWER correction | **Fig 5** |
@@ -312,7 +312,7 @@ coral_master <- readRDS("output/objects/coral_master.rds")
 | S13 | A priori forest + rarefied richness + exploratory forest + species scatters + bidirectional | `09_cafi_condition_feedbacks.R` |
 | S14 | Network sensitivity to taxonomic resolution | `13_taxonomy_sensitivity.R` |
 | S15 | Species occurrence probability vs. coral size | `05_species_scaling_analysis.R` |
-| S16 | Species × trait heatmap: top 20 species (≥5 corals) × 5 condition metrics | `09_cafi_condition_feedbacks.R` |
+| S16 | Species × trait heatmap: 19 prevalent species (≥5 corals) × 5 condition metrics | `09_cafi_condition_feedbacks.R` |
 | S17 | Species × trait biplots: strongest associations | `09_cafi_condition_feedbacks.R` |
 
 ### Statistical Tables (`output/tables/`)

@@ -845,7 +845,7 @@ cat("Fitting GLM models with site as fixed effect...\n")
 cat("(3 sites insufficient for random intercepts; Bolker et al. 2009)\n\n")
 
 # ---- MULTIPLE PREDICTOR GLM Models (fixed-effect site) ----
-# All 4 landscape predictors in one model, site as random effect
+# All 4 landscape predictors in one model, site as fixed effect
 # Scale predictors to improve convergence
 
 landscape_data_scaled <- landscape_data %>%
@@ -2145,7 +2145,7 @@ cat("  Size × Distance: p =", format.pval(int_p_dist, 3),
     ifelse(int_p_dist < 0.05, " *", ""), "\n\n")
 
 # ============================================================================
-# PART 8: NEIGHBORHOOD COMPOSITION DIVERGENCE
+# PART 12: NEIGHBORHOOD COMPOSITION DIVERGENCE
 # ============================================================================
 # Parallel to the experiment's finding that composition diverged with coral
 # number: do corals in denser neighborhoods have more variable CAFI composition?

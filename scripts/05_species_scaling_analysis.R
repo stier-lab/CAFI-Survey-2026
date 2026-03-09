@@ -42,9 +42,9 @@
 # PART 1: Total CAFI Abundance (community-level)
 # PART 2: Species Richness
 # PART 3: Shannon Diversity
-# PART 4: Individual Species (abundant taxa with sufficient prevalence)
-# PART 5: Taxonomic Groups (crabs, shrimps, fishes, snails)
-# PART 6: Taxonomic Groups (Trapezia, Gastropods, Fish, etc.)
+# PART 4: Taxonomic Groups (crabs, shrimps, fishes, snails)
+# PART 5: Functional Groups (Trapezia, Gastropods, Fish, etc.)
+# PART 6: Individual Species (abundant taxa with sufficient prevalence)
 #
 # MODEL SPECIFICATION:
 #   log(Y) ~ β × log(V) + site

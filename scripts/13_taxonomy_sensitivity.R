@@ -56,7 +56,7 @@ if (requireNamespace("conflicted", quietly = TRUE)) {
   conflicted::conflict_prefer("union", "base")
   conflicted::conflict_prefer("intersect", "base")
   conflicted::conflict_prefer("setdiff", "base")
-  conflicted::conflict_prefer("groups", "dplyr")
+  conflicted::conflict_prefer("groups", "dplyr")  # needed: igraph also exports groups()
   conflicted::conflict_prefer("as_data_frame", "igraph")
 }
 

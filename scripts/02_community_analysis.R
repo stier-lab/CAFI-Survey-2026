@@ -15,7 +15,7 @@
 #   source("scripts/02_community_analysis.R")
 #
 # OUTPUTS:
-#   - Figures: output/figures/community/
+#   - Figures: output/figures/02_community/
 #   - Tables: output/tables/
 #   - Console: Statistical summaries with effect sizes, p-values, df
 #
@@ -1793,7 +1793,7 @@ cat("\n------------------------------------------------------------\n")
 cat("MANUSCRIPT FIGURE 4: Site Composition (db-RDA biplot + Taxonomic Groups)\n")
 cat("------------------------------------------------------------\n\n")
 
-library(ggrepel)
+# ggrepel already loaded via 00_setup.R
 
 site_labels_fig4 <- c(HAU = "Hauru", MAT = "Maatea", MRB = "Maharepa")
 

@@ -240,7 +240,7 @@ Each manuscript figure is created by its source analysis script with **dual save
 | **S13** | `09_cafi_condition_feedbacks.R` | A priori forest + rarefied richness + exploratory forest + Trapezia/Galeropsis scatter + bidirectional (6-panel) |
 | **S14** | `13_taxonomy_sensitivity.R` | Network sensitivity to taxonomic resolution |
 | **S15** | `05_species_scaling_analysis.R` | Species occurrence probability vs. coral size (logistic GLM, 24 species) |
-| **S16** | `09_cafi_condition_feedbacks.R` | Species × trait heatmap: top 20 species (≥5 corals) × 5 condition metrics (β values + FDR p-values) |
+| **S16** | `09_cafi_condition_feedbacks.R` | Species × trait heatmap: 19 prevalent species (≥5 corals) × 5 condition metrics (β values + FDR p-values) |
 | **S17** | `09_cafi_condition_feedbacks.R` | Species × trait biplots: 9 strongest associations (scatter + regression) |
 
 **Note**: All archived/exploratory scripts are in `scripts/archive/` — they are NOT part of the manuscript or pipeline.
@@ -251,7 +251,7 @@ Each manuscript figure is created by its source analysis script with **dual save
 ```r
 source("scripts/run_full_pipeline.R")
 run_pipeline()           # Full pipeline ~12 min (core + extended)
-run_full_pipeline()      # Everything including ML exploration
+run_full_pipeline()      # Everything including archived ML scripts (if available)
 
 # Fast iteration (use these when editing figures/code):
 run_one("09")            # Single script ~5 sec (auto-loads setup + data)

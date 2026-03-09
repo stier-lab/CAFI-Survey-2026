@@ -54,7 +54,7 @@ if (!exists("community_matrix")) {
 }
 
 # Create output directories
-fig_dir <- file.path(PATHS$figures, "06_network")
+fig_dir <- PATHS$fig_06_network
 dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
 
 cat("[OK] Setup complete\n")
@@ -844,10 +844,9 @@ cat("\n============================================================\n")
 cat("PART 5: LEGACY NETWORK ANALYSIS (Supplement)\n")
 cat("============================================================\n\n")
 
-library(igraph)
+suppressPackageStartupMessages(library(igraph))
 
 # Resolve igraph namespace conflicts
-conflicted::conflict_prefer("groups", "igraph")
 conflicted::conflict_prefer("union", "base")
 conflicted::conflict_prefer("intersect", "base")
 conflicted::conflict_prefer("setdiff", "base")

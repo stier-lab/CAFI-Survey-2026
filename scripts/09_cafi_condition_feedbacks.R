@@ -40,7 +40,7 @@
 #   - output/figures/supplement/figS10_rarefaction_sensitivity.png (rarefaction depth)
 #   - output/figures/supplement/figS12_bef_variance_partitioning.png (BEF variance partitioning + path)
 #   - output/figures/supplement/figS13_condition_details.png    (a priori forest + rarefied + exploratory + scatters + bidirectional)
-#   - output/figures/supplement/figS16_species_trait_heatmap.png (top 20 species × 5 traits)
+#   - output/figures/supplement/figS16_species_trait_heatmap.png (19 prevalent species × 5 traits)
 #   - output/figures/supplement/figS17_species_trait_biplots.png (strongest associations)
 #   - output/figures/feedbacks/cafi_condition_effects.png       (all CAFI predictors forest)
 #   - output/figures/feedbacks/functional_effects_forest.png    (functional group forest)
@@ -90,24 +90,6 @@ cat("============================================================\n\n")
 
 # Load setup (packages, paths, theme)
 if (!exists("PATHS")) source(here::here("scripts/00_setup.R"))
-
-# Load additional packages for model inference and mediation analysis
-if (!requireNamespace("lmerTest", quietly = TRUE)) {
-  cat("Note: lmerTest package not available - using lme4 approximation for p-values\n")
-  LMERTEST_AVAILABLE <- FALSE
-} else {
-  suppressPackageStartupMessages(library(lmerTest))
-  LMERTEST_AVAILABLE <- TRUE
-}
-
-# Load additional packages for path analysis
-if (requireNamespace("lavaan", quietly = TRUE)) {
-  suppressPackageStartupMessages(library(lavaan))
-  LAVAAN_AVAILABLE <- TRUE
-} else {
-  LAVAAN_AVAILABLE <- FALSE
-  cat("Note: lavaan package not available - path analysis will be skipped\n")
-}
 
 # Load processed data objects (load_object adds .rds automatically)
 coral_master <- load_object("coral_master")
@@ -940,7 +922,7 @@ for (tc in transform_configs) {
   # PCA — guard against zero-variance columns when scale. = TRUE
   mat_use <- tc$mat
   if (isTRUE(tc$scale)) {
-    col_vars <- apply(mat_use, 2, var, na.rm = TRUE)
+    col_vars <- apply(mat_use, 2, stats::var, na.rm = TRUE)
     zero_var <- col_vars == 0 | is.na(col_vars)
     if (any(zero_var)) {
       mat_use <- mat_use[, !zero_var, drop = FALSE]

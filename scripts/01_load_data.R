@@ -359,18 +359,18 @@ if (nrow(physio_merged) > 20) {
 
   cat("   Correcting for: stump_length + nubbin_length (distance from tip effects)\n")
 
-  for (var in physio_vars) {
-    if (var %in% names(correction_data) && sum(!is.na(correction_data[[var]])) > 20) {
+  for (pvar in physio_vars) {
+    if (pvar %in% names(correction_data) && sum(!is.na(correction_data[[pvar]])) > 20) {
       # Correct for BOTH stump_length and nubbin_length
-      model <- lm(reformulate(c("stump_length", "nubbin_length"), response = var),
+      model <- lm(reformulate(c("stump_length", "nubbin_length"), response = pvar),
                   data = correction_data)
       resid_z <- scale(residuals(model))[, 1]
 
       var_name <- case_when(
-        var == "protein_mg_cm2"  ~ "protein_corr",
-        var == "carb_mg_cm2"     ~ "carb_corr",
-        var == "zoox_cells_cm2"  ~ "zoox_corr",
-        var == "afdw_mg_cm2"     ~ "afdw_corr"
+        pvar == "protein_mg_cm2"  ~ "protein_corr",
+        pvar == "carb_mg_cm2"     ~ "carb_corr",
+        pvar == "zoox_cells_cm2"  ~ "zoox_corr",
+        pvar == "afdw_mg_cm2"     ~ "afdw_corr"
       )
       corrected_traits[[var_name]] <- resid_z
     }

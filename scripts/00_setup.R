@@ -25,9 +25,9 @@ cat("============================================================\n\n")
 # Pre-flight check: verify all required packages are installed
 required_pkgs <- c(
   # Core
-  "here", "tidyverse", "readxl", "janitor", "conflicted",
+  "here", "tidyverse", "janitor", "conflicted",
   # Statistical
-  "vegan", "lme4", "MuMIn", "broom", "car", "moments",
+  "vegan", "car", "moments",
   # Visualization
   "patchwork", "viridis", "scales",
   # Used by downstream scripts (04, 06, 07, 09)
@@ -44,16 +44,12 @@ if (length(missing_pkgs) > 0) {
 # Core packages
 library(here)        # Project-relative paths
 library(tidyverse)   # Data manipulation & visualization
-library(readxl)      # Read Excel files
 library(janitor)     # Data cleaning helpers
 library(conflicted)  # Detect & resolve namespace conflicts
 
 # Statistical packages
 # MASS loaded on-demand via MASS::glm.nb() and MASS::theta.ml()
 library(vegan)       # Community ecology (diversity, NMDS, PERMANOVA)
-library(lme4)        # Mixed effects models (optional)
-library(MuMIn)       # R² for mixed models (r.squaredGLMM)
-library(broom)       # Tidy model outputs
 library(car)         # VIF and other diagnostics
 library(moments)     # Skewness, kurtosis
 
@@ -253,6 +249,8 @@ load_object <- function(name) {
 save_figure <- function(plot, path, width = 8, height = 6, units = "in", dpi = 600) {
   ggsave(path, plot, width = width, height = height, units = units, dpi = dpi, bg = "white")
   pdf_path <- sub("\\.[^.]+$", ".pdf", path)
+  # Remove stale PDF so we never report an old file as "(+ PDF)"
+  if (file.exists(pdf_path)) file.remove(pdf_path)
   # Try cairo_pdf first (higher quality); fall back to standard pdf
   tryCatch(
     suppressWarnings(ggsave(pdf_path, plot, width = width, height = height, units = units,
