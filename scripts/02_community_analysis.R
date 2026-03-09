@@ -1969,7 +1969,7 @@ panel_a <- ggplot() +
     guide = guide_legend(override.aes = list(fill = "gray60", shape = 21, stroke = 0.3))
   ) +
   labs(x = ax1_label, y = ax2_label) +
-  coord_fixed(ratio = 1) +
+  coord_cartesian(clip = "on") +
   theme_publication(base_size = 9) +
   theme(
     panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.8),
@@ -2091,9 +2091,9 @@ fig4_composition <- panel_a_labeled + panel_b_labeled +
   )
 
 save_figure(fig4_composition, file.path(PATHS$fig_manuscript, "fig4_composition.png"),
-            width = 183, height = 145, units = "mm")
+            width = 183, height = 110, units = "mm")
 save_figure(fig4_composition, file.path(FIG_DIR, "fig4_composition.png"),
-            width = 183, height = 145, units = "mm")
+            width = 183, height = 110, units = "mm")
 cat("  Saved: fig4_composition.png\n")
 
 # --- Generate legend and results text ---

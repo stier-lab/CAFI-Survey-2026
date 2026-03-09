@@ -41,8 +41,8 @@
 #   Extended Analyses:
 #     06_cooccurrence_analysis.R    - Null-model co-occurrence
 #     07_spatial_autocorrelation.R  - Spatial patterns
-#     08_functional_groups.R        - Functional group analysis (if exists)
-#     09_cafi_condition_feedbacks.R - CAFI-condition feedbacks (if exists)
+#     08_functional_groups.R        - Functional group analysis
+#     09_cafi_condition_feedbacks.R - CAFI-condition feedbacks
 #
 #   Machine Learning (exploratory, not in default pipeline):
 #     10_feature_engineering.R

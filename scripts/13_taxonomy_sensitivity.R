@@ -951,7 +951,7 @@ if (nrow(degree_all) > 0) {
     theme_void()
 }
 
-# --- Assemble Figure S13 ---
+# --- Assemble Figure S14 ---
 figS14 <- (p_topo | p_jaccard) /
   (p_hubs | p_degree) +
   plot_layout(heights = c(1, 1.2)) +

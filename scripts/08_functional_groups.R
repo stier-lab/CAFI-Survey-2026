@@ -55,7 +55,7 @@ if (!file.exists(scaling_file)) {
 }
 
 # Create output directories
-FIG_DIR <- file.path(PATHS$figures, "functional_groups")
+FIG_DIR <- PATHS$fig_08_functional
 dir.create(FIG_DIR, showWarnings = FALSE, recursive = TRUE)
 
 cat("Data loaded:\n")

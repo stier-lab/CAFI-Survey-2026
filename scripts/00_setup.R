@@ -57,6 +57,7 @@ library(moments)     # Skewness, kurtosis
 library(patchwork)   # Combine ggplots
 library(viridis)     # Color scales
 library(scales)      # Axis formatting
+library(ggrepel)     # Repulsive text labels
 
 # Ensure dplyr::select() always wins (safety net for any future MASS load)
 conflicted::conflict_prefer("select", "dplyr")

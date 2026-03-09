@@ -67,7 +67,7 @@ suppressPackageStartupMessages({
 cat("[OK] Spatial packages loaded\n\n")
 
 # Output directory for this script
-FIG_DIR <- file.path(PATHS$figures, "07_spatial")
+FIG_DIR <- PATHS$fig_07_spatial
 dir.create(FIG_DIR, recursive = TRUE, showWarnings = FALSE)
 
 # ============================================================================

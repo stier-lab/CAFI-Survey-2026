@@ -2154,7 +2154,7 @@ cat("  Size × Distance: p =", format.pval(int_p_dist, 3),
 # ============================================================================
 
 cat("------------------------------------------------------------\n")
-cat("PART 8: NEIGHBORHOOD COMPOSITION DIVERGENCE\n")
+cat("PART 12: NEIGHBORHOOD COMPOSITION DIVERGENCE\n")
 cat("------------------------------------------------------------\n\n")
 
 cat("Testing whether corals with more neighbors have more variable CAFI composition.\n")

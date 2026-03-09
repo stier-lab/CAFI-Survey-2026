@@ -273,7 +273,7 @@ If using these data, please cite:
 ```
 Stier AC, et al. (2026). Sublinear scaling of coral-associated fauna reveals
 propagule limitation in established reef communities.
-Marine Ecology Progress Series [submitted].
+Marine Ecology Progress Series [in preparation].
 ```
 
 Data archived at: [Dryad DOI to be assigned]

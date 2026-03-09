@@ -2318,11 +2318,11 @@ if (nrow(scaling_data) >= 30) {
     scale_fill_manual(values = SITE_COLORS, name = "Site") +
     coord_cartesian(xlim = shared_xlim, ylim = c(0.8, 500)) +
     labs(x = NULL, y = "Total CAFI abundance") +
-    annotate("text", x = 35000, y = 0.9, label = beta_label,
-             size = 3.2, color = "black", fontface = "bold", hjust = 1, parse = TRUE) +
     annotate("text", x = 70, y = 350, label = "1:1\n(Field of Dreams)",
              size = 2.3, color = "grey40", fontface = "italic", hjust = 0,
              lineheight = 0.85) +
+    annotate("text", x = 200, y = 150, label = beta_label,
+             size = 3.2, color = "black", fontface = "bold", hjust = 0, parse = TRUE) +
     theme_fig2() +
     theme(
       axis.text.x = element_blank(),
@@ -2351,9 +2351,6 @@ if (nrow(scaling_data) >= 30) {
     scale_fill_manual(values = SITE_COLORS, name = "Site") +
     coord_cartesian(xlim = shared_xlim) +
     labs(x = NULL, y = expression("CAFI density (ind. cm"^-3*")")) +
-    annotate("text", x = 35000, y = min(scaling_data_nonzero$total_cafi / scaling_data_nonzero$volume) * 1.5,
-             label = sprintf("slope == %.2f", density_slope),
-             size = 3.2, color = "black", fontface = "bold", hjust = 1, parse = TRUE) +
     theme_fig2() +
     theme(
       axis.text.x = element_blank(),
@@ -2401,9 +2398,9 @@ if (nrow(scaling_data) >= 30) {
     scale_fill_manual(values = SITE_COLORS, name = "Site") +
     coord_cartesian(xlim = shared_xlim) +
     labs(x = expression("Coral volume (cm"^3*")"), y = "Species richness") +
-    annotate("text", x = 35000, y = 1.2,
+    annotate("text", x = 40, y = 35,
              label = z_label,
-             size = 3.2, color = "black", fontface = "bold", hjust = 1, parse = TRUE) +
+             size = 3.2, color = "black", fontface = "bold", hjust = 0, parse = TRUE) +
     theme_fig2() +
     theme(legend.position = "none")
 
@@ -2493,12 +2490,8 @@ Source script: scripts/05_species_scaling_analysis.R
   cat("MANUSCRIPT FIGURE 3: Species & Taxonomic Group Scaling\n")
   cat("============================================================\n\n")
 
-  # --- Scaling class colors (shared across bottom panels) ---
-  scaling_colors <- c(
-    "Redirection"     = "#5A8FAF",
-    "Field of Dreams" = "gray55",
-    "Super-linear"    = "#D55E00"
-  )
+  # --- Scaling class colors (from 00_setup.R) ---
+  scaling_colors <- SCALING_COLORS
 
   # --- Panel A: Key species abundance vs volume (overlaid curves) ---
   # Top 10 species by prevalence (same set as old Fig 2C)
@@ -2560,10 +2553,19 @@ Source script: scripts/05_species_scaling_analysis.R
     theme_manuscript() +
     theme(
       axis.title = element_text(size = 9),
-      legend.position = "none",  # 10 species — legend info in fig3_legend_results.txt
+      legend.position = "inside",
+      legend.position.inside = c(0.02, 0.98),
+      legend.justification = c(0, 1),
+      legend.background = element_rect(fill = alpha("white", 0.85), color = NA),
+      legend.key.size = unit(3, "mm"),
+      legend.key.width = unit(6, "mm"),
+      legend.text = element_text(size = 5.5, face = "italic"),
+      legend.spacing.y = unit(0.5, "mm"),
+      legend.margin = margin(2, 4, 2, 2, "mm"),
       panel.grid.minor = element_blank(),
       plot.margin = margin(5, 8, 5, 8, "mm")
-    )
+    ) +
+    guides(color = guide_legend(ncol = 2, byrow = FALSE))
 
   # --- Panel B: Taxonomic group abundance vs volume (overlaid curves) ---
   # Reshape taxonomic groups to long format
