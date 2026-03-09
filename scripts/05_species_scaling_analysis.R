@@ -728,6 +728,27 @@ all_results$rarefied_richness <- list(
     "SAR driven by passive sampling (abundance artifact)")
 )
 
+# Save community-level scaling summary table
+scaling_community <- data.frame(
+  response = c("total_abundance", "species_richness", "rarefied_richness"),
+  family = c("Negative Binomial", "Poisson", "Gaussian (OLS)"),
+  beta = c(total_result$beta, richness_result$beta, rare_slope),
+  se = c(total_result$se, richness_result$se,
+         rare_summary$coefficients["log(volume)", "Std. Error"]),
+  ci_lower = c(total_result$ci_lower, richness_result$ci_lower,
+               confint(rare_model, "log(volume)")[1]),
+  ci_upper = c(total_result$ci_upper, richness_result$ci_upper,
+               confint(rare_model, "log(volume)")[2]),
+  z_vs_1 = c(total_result$z_vs_1, richness_result$z_vs_1, NA),
+  p_vs_1 = c(total_result$p_vs_1, richness_result$p_vs_1, NA),
+  bootstrap_p = c(total_result$p_boot_vs_1, richness_result$p_boot_vs_1, NA),
+  interpretation = c(total_result$interpretation, richness_result$interpretation,
+                     all_results$rarefied_richness$interpretation),
+  stringsAsFactors = FALSE
+)
+save_table(scaling_community, "scaling_community_level")
+cat("  Saved: scaling_community_level.csv\n")
+
 # ---- Model Diagnostics (DHARMa simulated residuals) ----
 cat("--- Model Diagnostics ---\n")
 if (requireNamespace("DHARMa", quietly = TRUE) && !is.null(total_result$model)) {
@@ -1448,6 +1469,17 @@ for (i in 1:nrow(top10_occ)) {
 # Save table
 save_table(occ_df, "occurrence_scaling_results")
 
+# Save occurrence summary counts
+save_table(
+  data.frame(
+    metric = c("n_species_tested", "n_significant_fdr05", "n_positive_significant", "n_negative_significant"),
+    value = c(nrow(occ_df), n_sig, n_pos, n_neg),
+    stringsAsFactors = FALSE
+  ),
+  "occurrence_summary"
+)
+cat("  Saved: occurrence_summary.csv\n")
+
 # Store in results
 all_results$occurrence_curves <- list(
   summary = occ_df,
@@ -1456,8 +1488,8 @@ all_results$occurrence_curves <- list(
   curves = occurrence_list
 )
 
-# ---- Figure S15: Occurrence Curves ----
-cat("\n  Generating occurrence curves figure (Fig S15)...\n")
+# ---- Figure S12: Occurrence Curves ----
+cat("\n  Generating occurrence curves figure (Fig S12)...\n")
 
 # Select species to show: all FDR-significant, plus top by |beta| up to 15 total
 show_species <- occ_df %>%
@@ -1517,7 +1549,7 @@ fig_occ <- ggplot() +
   labs(
     x = expression("Colony volume " (cm^3)),
     y = "P(occurrence)",
-    title = "Figure S15: Species occurrence probability vs. coral size"
+    title = "Figure S12: Species occurrence probability vs. coral size"
   ) +
   theme_publication(base_size = 10) +
   theme(
@@ -1537,18 +1569,18 @@ cat("  Saved: 05_scaling/occurrence_curves.png\n")
 
 supplement_dir <- file.path(PATHS$figures, "supplement")
 dir.create(supplement_dir, showWarnings = FALSE, recursive = TRUE)
-save_figure(fig_occ, file.path(supplement_dir, "figS15_occurrence_curves.png"),
+save_figure(fig_occ, file.path(supplement_dir, "figS12_occurrence_curves.png"),
             width = 250, height = occ_height, units = "mm")
-cat("  Saved: supplement/figS15_occurrence_curves.png\n\n")
+cat("  Saved: supplement/figS12_occurrence_curves.png\n\n")
 
-# ---- S15 Legend / Results Text ----
+# ---- S12 Legend / Results Text ----
 s15_legend <- paste0(
-'FIGURE S15: SPECIES OCCURRENCE PROBABILITY VS. CORAL SIZE
+'FIGURE S12: SPECIES OCCURRENCE PROBABILITY VS. CORAL SIZE
 ================================================================================
 
 FIGURE LEGEND
 -------------
-Figure S15. Occurrence probability of prevalent CAFI species as a function of
+Figure S12. Occurrence probability of prevalent CAFI species as a function of
 coral colony volume. Each panel shows one species. Blue curves: logistic GLM fit
 (P(present) ~ log(volume) + site, averaged across sites). Points: observed
 presence/absence data (jittered vertically for visibility). Species are ordered
@@ -1614,8 +1646,8 @@ Generated: ', Sys.Date(), '
 Source script: scripts/05_species_scaling_analysis.R
 ')
 
-writeLines(s15_legend, file.path(PATHS$fig_supplement, "figS15_legend_results.txt"))
-cat("  Generated: figS15_legend_results.txt\n")
+writeLines(s15_legend, file.path(PATHS$fig_supplement, "figS12_legend_results.txt"))
+cat("  Generated: figS12_legend_results.txt\n")
 
 # ############################################################################
 #                    PART 7: SUMMARY & SYNTHESIS
@@ -1791,6 +1823,42 @@ if (nrow(species_data) >= 3) {
     I2 = I2,
     n_species = nrow(species_data)
   )
+
+  # Save meta-analysis table
+  meta_table <- data.frame(
+    model = "fixed_inverse_variance",
+    beta_pooled = weighted_mean_beta,
+    ci_lower = weighted_ci_lower,
+    ci_upper = weighted_ci_upper,
+    z_stat = z_stat,
+    p_value = p_val_weighted,
+    I2_pct = I2,
+    Q_stat = Q_stat,
+    p_heterogeneity = pchisq(Q_stat, df_Q, lower.tail = FALSE),
+    tau2 = NA_real_,
+    n_species = nrow(species_data),
+    stringsAsFactors = FALSE
+  )
+  # Add random-effects row if metafor was available
+  if (exists("rma_result") && !is.null(rma_result)) {
+    meta_table <- rbind(meta_table, data.frame(
+      model = "random_effects_REML",
+      beta_pooled = rma_result$beta[1],
+      ci_lower = rma_result$ci.lb,
+      ci_upper = rma_result$ci.ub,
+      z_stat = rma_result$zval,
+      p_value = rma_result$pval,
+      I2_pct = rma_result$I2,
+      Q_stat = rma_result$QE,
+      p_heterogeneity = rma_result$QEp,
+      tau2 = rma_result$tau2,
+      n_species = nrow(species_data),
+      stringsAsFactors = FALSE
+    ))
+  }
+  save_table(meta_table, "scaling_meta_analysis")
+  cat("  Saved: scaling_meta_analysis.csv\n")
+
 } else {
   t_test <- NULL
   meta_results <- NULL
@@ -1954,7 +2022,7 @@ if (nrow(species_plot_data) > 0) {
     labs(
       x = expression("Scaling Exponent (" * beta * ")"),
       y = NULL,
-      title = "Figure S6: Species-Level Scaling of Abundance with Coral Volume",
+      title = "Figure S4: Species-Level Scaling of Abundance with Coral Volume",
       subtitle = sprintf("N = %d species | Mean β = %.2f | Test vs 1: p = %s",
                          nrow(species_plot_data),
                          mean(species_plot_data$beta),
@@ -2337,6 +2405,16 @@ if (nrow(scaling_data) >= 30) {
                     data = scaling_data_nonzero)
   density_slope <- coef(density_lm)[["log(volume)"]]
 
+  # Save density dilution table
+  save_table(
+    data.frame(metric = "per_capita_density_vs_volume",
+               slope = density_slope,
+               interpretation = "Density dilution: per-capita CAFI decreases with coral size",
+               stringsAsFactors = FALSE),
+    "density_dilution"
+  )
+  cat("  Saved: density_dilution.csv\n")
+
   panel_b_density <- ggplot(scaling_data_nonzero,
                             aes(x = volume, y = total_cafi / volume, fill = site)) +
     geom_smooth(aes(group = 1), method = "lm", formula = y ~ x,
@@ -2423,9 +2501,9 @@ if (nrow(scaling_data) >= 30) {
   # Save species scaling forest to supplement
   supplement_dir <- file.path(PATHS$figures, "supplement")
   dir.create(supplement_dir, showWarnings = FALSE, recursive = TRUE)
-  save_figure(p_species_forest, file.path(supplement_dir, "figS6_species_scaling.png"),
+  save_figure(p_species_forest, file.path(supplement_dir, "figS4_species_scaling.png"),
               width = 10, height = 8)
-  cat("  Saved: supplement/figS6_species_scaling.png\n")
+  cat("  Saved: supplement/figS4_species_scaling.png\n")
 
   # Generate fig2 legend results text
   fig2_legend <- paste0(
@@ -2800,7 +2878,7 @@ cat("    - fig2_scaling.png (MANUSCRIPT)\n")
 cat("  Figures: output/figures/manuscript/\n")
 cat("    - fig2_scaling.png\n")
 cat("  Figures: output/figures/supplement/\n")
-cat("    - figS6_species_scaling.png\n")
+cat("    - figS4_species_scaling.png\n")
 cat("  Tables: output/tables/\n")
 cat("    - scaling_results_all.csv\n")
 cat("    - scaling_summary_by_category.csv\n")

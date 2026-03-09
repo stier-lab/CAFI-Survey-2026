@@ -37,11 +37,11 @@
 #
 #   Figures (14):
 #   - output/figures/manuscript/fig5_feedbacks.png              (2-panel BEF main text figure)
-#   - output/figures/supplement/figS10_rarefaction_sensitivity.png (rarefaction depth)
-#   - output/figures/supplement/figS12_bef_variance_partitioning.png (BEF variance partitioning + path)
-#   - output/figures/supplement/figS13_condition_details.png    (a priori forest + rarefied + exploratory + scatters + bidirectional)
-#   - output/figures/supplement/figS16_species_trait_heatmap.png (19 prevalent species × 5 traits)
-#   - output/figures/supplement/figS17_species_trait_biplots.png (strongest associations)
+#   - output/figures/supplement/figS8_rarefaction_sensitivity.png (rarefaction depth)
+#   - output/figures/supplement/figS10_bef_variance_partitioning.png (BEF variance partitioning + path)
+#   - output/figures/supplement/figS11_condition_details.png    (a priori forest + rarefied + exploratory + scatters + bidirectional)
+#   - output/figures/supplement/figS13_species_trait_heatmap.png (19 prevalent species × 5 traits)
+#   - output/figures/supplement/figS14_species_trait_biplots.png (strongest associations)
 #   - output/figures/feedbacks/cafi_condition_effects.png       (all CAFI predictors forest)
 #   - output/figures/feedbacks/functional_effects_forest.png    (functional group forest)
 #   - output/figures/feedbacks/key_species_effects.png          (key species forest plot)
@@ -576,6 +576,27 @@ for (i in 1:nrow(cafi_to_condition_df)) {
 }
 cat("\n")
 
+# Save Breusch-Pagan diagnostics table
+bp_diagnostics <- do.call(rbind, lapply(seq_len(nrow(cafi_to_condition_df)), function(i) {
+  row <- cafi_to_condition_df[i, ]
+  pred_name <- row$predictor
+  mod <- cafi_to_condition_models[[pred_name]]
+  bp_stat <- NA_real_; bp_df <- NA_integer_; bp_p_val <- NA_real_
+  if (!is.null(mod) && requireNamespace("lmtest", quietly = TRUE)) {
+    bp <- lmtest::bptest(mod)
+    bp_stat <- as.numeric(bp$statistic)
+    bp_df <- as.integer(bp$parameter)
+    bp_p_val <- bp$p.value
+  }
+  data.frame(predictor = pred_name, bp_statistic = bp_stat, df = bp_df,
+             p_value = bp_p_val,
+             interpretation = ifelse(is.na(bp_p_val), "NA",
+               ifelse(bp_p_val < 0.05, "heteroscedastic", "homoscedastic")),
+             stringsAsFactors = FALSE)
+}))
+save_table(bp_diagnostics, "breusch_pagan_diagnostics")
+cat("Saved: breusch_pagan_diagnostics.csv\n")
+
 # --- Model diagnostics for CAFI -> Condition models ---
 cat("Model Diagnostics (CAFI -> Condition):\n")
 cat("--------------------------------------\n")
@@ -643,7 +664,23 @@ if (requireNamespace("pwr", quietly = TRUE)) {
   cat("  (Install 'pwr' package for formal power analysis)\n")
   # Rough approximation: for n~84, minimum detectable r ~ 0.30
   cat("  Approximate minimum detectable correlation: r ~ 0.30 (medium effect)\n\n")
+  min_partial_r2_cond <- 0.09  # approximate for n~84
+  min_f2_cond <- min_partial_r2_cond / (1 - min_partial_r2_cond)
 }
+
+# Save power analysis table
+save_table(data.frame(
+  analysis = "CAFI -> Condition (sensitivity)",
+  sample_size = n_condition,
+  alpha = 0.05,
+  power = 0.80,
+  min_detectable_r2 = round(min_partial_r2_cond, 4),
+  min_detectable_f2 = round(min_f2_cond, 4),
+  interpretation = ifelse(min_f2_cond < 0.02, "very small effect detectable",
+    ifelse(min_f2_cond < 0.15, "small-to-medium effect detectable", "medium effect detectable")),
+  stringsAsFactors = FALSE
+), "power_analysis")
+cat("Saved: power_analysis.csv\n")
 
 # ============================================================================
 # PART A2: RICHNESS-ABUNDANCE ARTIFACT TEST
@@ -764,6 +801,20 @@ if (p_raw_full < 0.1 && p_rare > 0.1) {
 }
 cat("\n")
 
+# Save richness-abundance correlation table
+cor_full <- cor(analysis_data$otu_richness, analysis_data$total_cafi)
+cor_full_test <- cor.test(analysis_data$otu_richness, analysis_data$total_cafi)
+cor_rare_test <- cor.test(analysis_data_rare$rarefied_richness, analysis_data_rare$total_cafi)
+save_table(data.frame(
+  comparison = c("Raw richness vs abundance (full sample)",
+                 "Rarefied richness vs abundance (subsample n>=20)"),
+  pearson_r = c(round(cor_full_test$estimate, 4), round(cor_rare_test$estimate, 4)),
+  p_value = c(cor_full_test$p.value, cor_rare_test$p.value),
+  n = c(nrow(analysis_data), nrow(analysis_data_rare)),
+  stringsAsFactors = FALSE
+), "richness_abundance_correlation")
+cat("Saved: richness_abundance_correlation.csv\n")
+
 # --- Save rarefied richness results to stats_results ---
 stats_results <- bind_rows(stats_results,
   create_result_row(
@@ -849,7 +900,14 @@ for (depth in c(10, 15, 20, 25, 30)) {
 }
 cat("\n")
 
-# --- Create Figure S10: Rarefaction Depth Sensitivity ---
+# Save rarefaction depth sensitivity table
+if (nrow(depth_sensitivity) > 0) {
+  depth_sensitivity$significant <- depth_sensitivity$p_value < 0.05
+  save_table(depth_sensitivity, "rarefaction_depth_sensitivity")
+  cat("Saved: rarefaction_depth_sensitivity.csv\n")
+}
+
+# --- Create Figure S8: Rarefaction Depth Sensitivity ---
 if (nrow(depth_sensitivity) >= 2) {
   p_depth_sensitivity <- ggplot(depth_sensitivity, aes(x = depth, y = p_value)) +
     geom_line(linewidth = 1) +
@@ -859,17 +917,17 @@ if (nrow(depth_sensitivity) >= 2) {
              label = expression(alpha == 0.05), hjust = 1, vjust = -0.5,
              color = "#D55E00", size = 3.5) +
     labs(x = "Rarefaction depth (individuals)", y = "p-value",
-         title = "Figure S10: Rarefaction Depth Sensitivity",
+         title = "Figure S8: Rarefaction Depth Sensitivity",
          subtitle = "Richness -> condition relationship across rarefaction depths") +
     theme_publication()
 
   dir.create(file.path(PATHS$figures, "supplement"), showWarnings = FALSE, recursive = TRUE)
   save_figure(p_depth_sensitivity,
-             file.path(PATHS$figures, "supplement", "figS10_rarefaction_sensitivity.png"),
+             file.path(PATHS$figures, "supplement", "figS8_rarefaction_sensitivity.png"),
              width = 6.7, height = 4.7)
-  cat("   Saved: figS10_rarefaction_sensitivity.png\n\n")
+  cat("   Saved: figS8_rarefaction_sensitivity.png\n\n")
 } else {
-  cat("   Skipped figS10: insufficient rarefaction depths computed\n\n")
+  cat("   Skipped figS8: insufficient rarefaction depths computed\n\n")
 }
 
 # ============================================================================
@@ -2316,7 +2374,7 @@ for (sp in species_names) {
     trait <- available_traits[j]
     label <- available_labels[j]
     complete_cases <- complete.cases(trait_corr_data[[sp]], trait_corr_data[[trait]])
-    # Spearman rank correlation (robust to zero-inflation in raw counts). See Fig S16 for regression-based analysis.
+    # Spearman rank correlation (robust to zero-inflation in raw counts). See Fig S13 for regression-based analysis.
     if (sum(complete_cases) >= 10) {
       ct <- cor.test(trait_corr_data[[sp]][complete_cases],
                      trait_corr_data[[trait]][complete_cases],
@@ -3878,7 +3936,7 @@ p_exploratory_forest <- ggplot(exploratory_forest_data,
         plot.margin = margin(5, 22, 5, 5, "mm"))
 
 # --- Supplement panels: Trapezia scatter, Galeropsis scatter, bidirectional ---
-# (kept for figS13, not in main figure)
+# (kept for figS11, not in main figure)
 
 # --- Panel H: Full bidirectional feedback panel (both directions, all predictors) ---
 bidir_all_data <- bind_rows(
@@ -3919,9 +3977,8 @@ save_figure(fig5_feedbacks,
            width = 183, height = 100, units = "mm")
 cat("   Saved: fig5_feedbacks.png (manuscript + analysis)\n")
 
-# ---- Supplement Figure S14: Additional CAFI-condition panels ----
-# ---- Supplement Figure S12: Variance partitioning + BEF diagnostics ----
-cat("\nAssembling supplement Figure S12 (BEF variance partitioning)...\n")
+# ---- Supplement Figure S10: Variance partitioning + BEF diagnostics ----
+cat("\nAssembling supplement Figure S10 (BEF variance partitioning)...\n")
 
 # Panel S12-A: Stacked bar showing variance partitioning
 vp_data <- tibble(
@@ -4006,20 +4063,20 @@ p_path <- ggplot(path_text, aes(x = label, y = beta)) +
   theme_multipanel() +
   theme(legend.position = "bottom")
 
-figS12_bef <- (p_varpart) /
+figS10_bef <- (p_varpart) /
                (p_partial | p_path) +
   plot_layout(heights = c(0.8, 1.2))
 
-save_figure(figS12_bef,
-           file.path(PATHS$fig_supplement, "figS12_bef_variance_partitioning.png"),
+save_figure(figS10_bef,
+           file.path(PATHS$fig_supplement, "figS10_bef_variance_partitioning.png"),
            width = 230, height = 220, units = "mm")
-save_figure(figS12_bef,
-           file.path(fig_dir, "figS12_bef_variance_partitioning.png"),
+save_figure(figS10_bef,
+           file.path(fig_dir, "figS10_bef_variance_partitioning.png"),
            width = 230, height = 220, units = "mm")
-cat("   Saved: figS12_bef_variance_partitioning.png (supplement + analysis)\n")
+cat("   Saved: figS10_bef_variance_partitioning.png (supplement + analysis)\n")
 
-# ---- Supplement Figure S13: Rarefied richness, exploratory predictors, species scatters ----
-cat("\nAssembling supplement Figure S13 (additional panels)...\n")
+# ---- Supplement Figure S11: Rarefied richness, exploratory predictors, species scatters ----
+cat("\nAssembling supplement Figure S11 (additional panels)...\n")
 
 # Update panel labels for supplement context
 p_apriori_forest_supp <- p_apriori_forest + labs(title = "A")
@@ -4028,28 +4085,28 @@ p_exploratory_forest_supp <- p_exploratory_forest + labs(title = "C")
 
 p_bidir_supp <- p_bidir_full + labs(title = "F") + theme(legend.position = "bottom")
 
-figS13 <- (p_apriori_forest_supp | p_rare_richness_supp) /
+figS11 <- (p_apriori_forest_supp | p_rare_richness_supp) /
            (p_exploratory_forest_supp + labs(title = "C") |
             p_trapezia + labs(title = "D")) /
            (p_galeropsis + labs(title = "E") | p_bidir_supp) +
   plot_layout(heights = c(1, 1, 1))
 
-save_figure(figS13,
-           file.path(PATHS$fig_supplement, "figS13_condition_details.png"),
+save_figure(figS11,
+           file.path(PATHS$fig_supplement, "figS11_condition_details.png"),
            width = 230, height = 300, units = "mm")
-save_figure(figS13,
-           file.path(fig_dir, "figS13_condition_details.png"),
+save_figure(figS11,
+           file.path(fig_dir, "figS11_condition_details.png"),
            width = 230, height = 300, units = "mm")
-cat("   Saved: figS13_condition_details.png (supplement + analysis)\n")
+cat("   Saved: figS11_condition_details.png (supplement + analysis)\n")
 
 # ============================================================================
-# FIGURE S16: SPECIES × TRAIT HEATMAP
+# FIGURE S13: SPECIES × TRAIT HEATMAP
 # ============================================================================
 # Shows standardized β for each species × condition trait combination.
 # Panel A: β values with significance markers; Panel B: FDR-adjusted p-values.
 # ============================================================================
 
-cat("\n--- Figure S16: Species × trait heatmap ---\n")
+cat("\n--- Figure S13: Species × trait heatmap ---\n")
 
 # Build species × trait data from existing analysis objects
 # Use the 25 species from top_species_for_corr (already defined above)
@@ -4253,29 +4310,29 @@ if (nrow(heatmap_results) > 0) {
     )
 
   # Combine heatmap panels
-  figS16_heatmap <- p_heatmap_A + p_heatmap_B +
+  figS13_heatmap <- p_heatmap_A + p_heatmap_B +
     plot_layout(widths = c(1, 1)) +
     plot_annotation(tag_levels = "A") &
     theme(plot.tag = element_text(size = 11, face = "bold"))
 
-  save_figure(figS16_heatmap,
-             file.path(PATHS$fig_supplement, "figS16_species_trait_heatmap.png"),
+  save_figure(figS13_heatmap,
+             file.path(PATHS$fig_supplement, "figS13_species_trait_heatmap.png"),
              width = 250, height = 200, units = "mm")
-  save_figure(figS16_heatmap,
-             file.path(fig_dir, "figS16_species_trait_heatmap.png"),
+  save_figure(figS13_heatmap,
+             file.path(fig_dir, "figS13_species_trait_heatmap.png"),
              width = 250, height = 200, units = "mm")
-  cat("   Saved: figS16_species_trait_heatmap.png\n")
+  cat("   Saved: figS13_species_trait_heatmap.png\n")
 }
 
 # ============================================================================
-# FIGURE S17: SPECIES × TRAIT BIPLOTS — MULTI-PAGE PDFs
+# FIGURE S14: SPECIES × TRAIT BIPLOTS — MULTI-PAGE PDFs
 # ============================================================================
 # One multi-page PDF per condition trait (5 total), showing ALL species.
 # 9 panels per page (3×3 grid), ordered by taxonomic group then prevalence.
 # Matches companion experiment Figure 7 style (Stier et al.).
 # ============================================================================
 
-cat("\n--- Figure S17: Species × trait multi-page PDFs ---\n")
+cat("\n--- Figure S14: Species × trait multi-page PDFs ---\n")
 
 if (nrow(heatmap_results) > 0) {
 
@@ -4409,9 +4466,9 @@ if (nrow(heatmap_results) > 0) {
 
     # Generate multi-page PDF
     pdf_path <- file.path(biplot_pdf_dir,
-                          paste0("figS17_biplots_", trait_file, ".pdf"))
+                          paste0("figS14_biplots_", trait_file, ".pdf"))
     pdf_path2 <- file.path(biplot_pdf_dir2,
-                           paste0("figS17_biplots_", trait_file, ".pdf"))
+                           paste0("figS14_biplots_", trait_file, ".pdf"))
 
     # Use pdf() for multi-page support (cairo_pdf is single-page only)
     pdf(pdf_path, width = page_w_mm / 25.4, height = page_h_mm / 25.4,
@@ -4469,20 +4526,20 @@ if (nrow(heatmap_results) > 0) {
   }
 
   if (length(top_panels) > 0) {
-    figS17_top <- wrap_plots(top_panels, ncol = 3) +
+    figS14_top <- wrap_plots(top_panels, ncol = 3) +
       plot_annotation(tag_levels = "A") &
       theme(
         legend.position = "none",
         plot.tag = element_text(size = 10, face = "bold")
       )
 
-    save_figure(figS17_top,
-               file.path(PATHS$fig_supplement, "figS17_species_trait_biplots.png"),
+    save_figure(figS14_top,
+               file.path(PATHS$fig_supplement, "figS14_species_trait_biplots.png"),
                width = 230, height = 225, units = "mm")
-    save_figure(figS17_top,
-               file.path(fig_dir, "figS17_species_trait_biplots.png"),
+    save_figure(figS14_top,
+               file.path(fig_dir, "figS14_species_trait_biplots.png"),
                width = 230, height = 225, units = "mm")
-    cat("   Saved: figS17_species_trait_biplots.png (top 9 hits)\n")
+    cat("   Saved: figS14_species_trait_biplots.png (top 9 hits)\n")
   }
 }
 
@@ -4526,13 +4583,13 @@ a marginal positive predictor (Hochberg p = ', sprintf("%.3f", apriori_p_hochber
 Points colored by site; lines show model fits with 95% CI shading. Richness
 and abundance are strongly correlated (r = ', sprintf("%.2f", cor_raw_abund), '); variance partitioning
 attributes 29.1% of explained variance uniquely to richness and <1% uniquely
-to abundance (see text and Fig. S12).
+to abundance (see text and Fig. S10).
 
 All models: condition_PC1 ~ predictor + log(volume) + site (fixed effect).
 OLS standard errors (primary; Breusch-Pagan confirms homoscedasticity).
 HC3 robust SEs in supplement (conservative at n < 100; Long & Ervin 2000).
-See Figure S12 for variance partitioning and path model diagnostics.
-See Figure S13 for a priori forest plot, rarefied richness, exploratory
+See Figure S10 for variance partitioning and path model diagnostics.
+See Figure S11 for a priori forest plot, rarefied richness, exploratory
 predictors, species scatter plots, and bidirectional tests.
 
 ================================================================================
@@ -4557,7 +4614,7 @@ STATISTICAL RESULTS
    Rarefied richness: r(abundance) = ', sprintf("%.2f", cor_rare_abund), ', p_condition = ', sprintf("%.3f", p_rare), '
    Note: Rarefaction is ambiguous -- may remove artifact OR the BEF mechanism
 
-6. BEF VARIANCE PARTITIONING (see Figure S12):
+6. BEF VARIANCE PARTITIONING (see Figure S10):
    Partial regression (richness | abundance): beta = ', sprintf("%.4f", richness_partial_b), ', p = ', sprintf("%.4f", richness_partial_p), '
    Partial regression (abundance | richness): beta = ', sprintf("%.4f", abundance_partial_b), ', p = ', sprintf("%.4f", abundance_partial_p), '
    Variance unique to richness:  ', sprintf("%.4f (%.1f%%)", unique_richness, 100 * unique_richness / max(total_explained, 1e-10)), '
@@ -4576,7 +4633,7 @@ RESULTS
 Both a priori BEF predictors showed positive effects on coral condition.
 Species richness significantly predicted condition (Hochberg p = ', sprintf("%.3f", apriori_p_hochberg["Species richness"]), ',
 k = 2). Total CAFI abundance was marginal (Hochberg p = ', sprintf("%.3f", apriori_p_hochberg["Total CAFI"]), ').
-Variance partitioning (Figure S12) showed that richness accounted for
+Variance partitioning (Figure S10) showed that richness accounted for
 ', sprintf("%.1f", 100 * unique_richness / max(total_explained, 1e-10)), '% of uniquely explained variance vs <1% for abundance,
 and the path model confirmed this asymmetry (beta richness = ', sprintf("%.2f", coef(path_cond)["richness_z"]), ',
 beta abundance = ', sprintf("%.2f", coef(path_cond)["abundance_z"]), ').
@@ -4946,9 +5003,9 @@ cat("    - output/figures/feedbacks/key_species_effects.png\n")
 cat("    - output/figures/feedbacks/functional_vs_key_species.png\n")
 cat("    - output/figures/feedbacks/neighborhood_effects.png\n")
 cat("    - output/figures/feedbacks/landscape_condition_effects.png\n")
-cat("    - output/figures/supplement/figS10_rarefaction_sensitivity.png\n")
-cat("    - output/figures/supplement/figS16_species_trait_heatmap.png\n")
-cat("    - output/figures/supplement/figS17_species_trait_biplots.png\n")
+cat("    - output/figures/supplement/figS8_rarefaction_sensitivity.png\n")
+cat("    - output/figures/supplement/figS13_species_trait_heatmap.png\n")
+cat("    - output/figures/supplement/figS14_species_trait_biplots.png\n")
 cat("    - output/figures/feedbacks/diagnostics_richness_model.png\n")
 cat("  Tables:\n")
 cat("    - output/tables/cafi_condition_models.csv\n")

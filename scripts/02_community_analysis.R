@@ -583,6 +583,26 @@ if ("log(volume):site" %in% rownames(perm_int_df)) {
       ", p = ", format.pval(perm_int_df["log(volume):site", "Pr(>F)"], 3), "\n\n", sep = "")
 }
 
+# Save PERMANOVA results table
+permanova_results_tbl <- data.frame(
+  model_type = c("Type_I", "Type_I", "Type_III", "Type_III", "Interaction"),
+  predictor = c("log(volume)", "site", "log(volume)", "site", "log(volume):site"),
+  R2 = c(perm_df["log(volume)", "R2"], perm_df["site", "R2"],
+         perm_margin_df["log(volume)", "R2"], perm_margin_df["site", "R2"],
+         if ("log(volume):site" %in% rownames(perm_int_df)) perm_int_df["log(volume):site", "R2"] else NA),
+  F_statistic = c(perm_df["log(volume)", "F"], perm_df["site", "F"],
+                  perm_margin_df["log(volume)", "F"], perm_margin_df["site", "F"],
+                  if ("log(volume):site" %in% rownames(perm_int_df)) perm_int_df["log(volume):site", "F"] else NA),
+  p_value = c(perm_df["log(volume)", "Pr(>F)"], perm_df["site", "Pr(>F)"],
+              perm_margin_df["log(volume)", "Pr(>F)"], perm_margin_df["site", "Pr(>F)"],
+              if ("log(volume):site" %in% rownames(perm_int_df)) perm_int_df["log(volume):site", "Pr(>F)"] else NA),
+  df = c(perm_df["log(volume)", "Df"], perm_df["site", "Df"],
+         perm_margin_df["log(volume)", "Df"], perm_margin_df["site", "Df"],
+         if ("log(volume):site" %in% rownames(perm_int_df)) perm_int_df["log(volume):site", "Df"] else NA),
+  stringsAsFactors = FALSE
+)
+save_table(permanova_results_tbl, "permanova_results")
+
 # 4.3 PERMDISP (test for homogeneity of dispersions)
 cat("4.3 PERMDISP (homogeneity of dispersions by site):\n")
 
@@ -600,6 +620,22 @@ if (!is.null(disp_test$pval) && !is.na(disp_test$pval)) {
 } else {
   cat("    Interpretation: Could not determine\n\n")
 }
+
+# Save PERMDISP results table
+permdisp_interp <- if (!is.null(disp_test$pval) && !is.na(disp_test$pval)) {
+  ifelse(disp_test$pval < 0.05,
+         "Dispersions differ between sites (interpret PERMANOVA with caution)",
+         "Dispersions homogeneous (PERMANOVA valid)")
+} else {
+  "Could not determine"
+}
+save_table(data.frame(
+  test = "PERMDISP (site)",
+  F_statistic = disp_test$statistic,
+  p_value = disp_test$pval,
+  interpretation = permdisp_interp,
+  stringsAsFactors = FALSE
+), "permdisp_results")
 
 # Figure: NMDS
 # Extract PERMANOVA results from marginal (Type III) for reporting
@@ -640,9 +676,7 @@ p_nmds_site <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2, fill = site, color 
 save_figure(p_nmds_site, file.path(FIG_DIR, "nmds_by_site.png"),
             width = 8, height = 6)
 
-# Supplement S3: NMDS ordination by site
-save_figure(p_nmds_site, file.path(supplement_dir, "figS3_nmds_ordination.png"),
-            width = 8, height = 6)
+# Supplement S3 REMOVED — NMDS ordination saved to working directory only
 
 p_nmds_size <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2, color = log_volume)) +
   geom_point(size = 3, alpha = 0.7) +
@@ -810,6 +844,32 @@ dbrda_results <- list(
   species_scores = sp_df
 )
 
+# Save db-RDA variance partitioning table
+save_table(data.frame(
+  component = c("volume_constrained", "site_conditioned", "residual",
+                "varpart_a_volume_alone", "varpart_b_shared", "varpart_c_site_alone", "varpart_d_residual"),
+  variance_pct = c(pct_volume, pct_site, pct_residual,
+                   round(vp$part$indfract$Adj.R.squared[1] * 100, 2),
+                   round(vp$part$indfract$Adj.R.squared[2] * 100, 2),
+                   round(vp$part$indfract$Adj.R.squared[3] * 100, 2),
+                   round(vp$part$indfract$Adj.R.squared[4] * 100, 2)),
+  F_statistic = c(round(dbrda_F, 2), NA, NA, NA, NA, NA, NA),
+  p_value = c(dbrda_p, NA, NA, NA, NA, NA, NA),
+  method = c(rep("dbrda_conditional", 3), rep("varpart_adj_R2", 4)),
+  stringsAsFactors = FALSE
+), "dbrda_variance_partitioning")
+
+# Save db-RDA species scores table (top 15)
+if (nrow(sp_df) > 0) {
+  top15_sp <- head(sp_df, 15)
+  save_table(data.frame(
+    species = top15_sp$species,
+    dbRDA1 = top15_sp$dbRDA1,
+    direction = ifelse(top15_sp$dbRDA1 > 0, "larger_corals", "smaller_corals"),
+    stringsAsFactors = FALSE
+  ), "dbrda_species_scores")
+}
+
 cat("\n")
 
 # ============================================================================
@@ -821,7 +881,7 @@ cat("\n")
 # ============================================================================
 
 cat("\n------------------------------------------------------------\n")
-cat("PART 4B: COMPOSITION DIVERGENCE BY SIZE (Fig S5)\n")
+cat("PART 4B: COMPOSITION DIVERGENCE BY SIZE (Fig S3)\n")
 cat("------------------------------------------------------------\n\n")
 
 cat("Testing: Do larger corals have more distinct CAFI communities?\n")
@@ -1206,7 +1266,7 @@ p_nmds_trajectory <- ggplot() +
 fig_divergence <- p_divergence_boxplot + p_nmds_trajectory +
   plot_layout(widths = c(1, 1.3)) +
   plot_annotation(
-    title = "Figure S5: Community Composition by Coral Size",
+    title = "Figure S3: Community Composition by Coral Size",
     subtitle = paste0("Do larger corals support more distinct CAFI communities? | n = ",
                       nrow(distances_df), " corals"),
     caption = paste0("Distance to centroid measures community distinctness within size class.\n",
@@ -1223,8 +1283,8 @@ fig_divergence <- p_divergence_boxplot + p_nmds_trajectory +
 save_figure(fig_divergence, file.path(FIG_DIR, "composition_divergence_by_size.png"),
             width = 14, height = 7)
 
-# Supplement S5: Composition divergence by size
-save_figure(fig_divergence, file.path(supplement_dir, "figS5_composition_divergence.png"),
+# Supplement S3: Composition divergence by size
+save_figure(fig_divergence, file.path(supplement_dir, "figS3_composition_divergence.png"),
             width = 14, height = 7)
 
 # 4B.6 Add results to stats tracking
@@ -1320,6 +1380,17 @@ if (!is.null(dbrda_vol_rare)) {
     p_value = rare_p,
     robust = !is.na(rare_p) && rare_p < 0.05
   )
+
+  # Save rarefied db-RDA table
+  save_table(data.frame(
+    metric = "rarefied_bray_curtis",
+    rarefaction_depth = min_depth,
+    variance_pct = rare_pct_vol,
+    F_statistic = round(rare_F, 2),
+    p_value = rare_p,
+    robust = !is.na(rare_p) && rare_p < 0.05,
+    stringsAsFactors = FALSE
+  ), "dbrda_rarefied")
 } else {
   cat("    [Rarefied db-RDA could not be computed]\n\n")
 }
@@ -1717,6 +1788,13 @@ nestedness_results <- list(
     "Not significantly nested or anti-nested"
   }
 )
+
+# Save nestedness NODF table
+save_table(data.frame(
+  metric = c("NODF_observed", "null_mean", "null_sd", "z_score", "p_value"),
+  value = c(nodf_value, null_mean, null_sd, nodf_z, nodf_p),
+  stringsAsFactors = FALSE
+), "nestedness_nodf")
 
 # ============================================================================
 # PART 5: COMMUNITY-LEVEL PATTERNS
@@ -2117,6 +2195,16 @@ pairwise_results <- lapply(site_pairs, function(pair) {
 pairwise_df <- do.call(rbind, pairwise_results)
 pairwise_df$p_adj <- p.adjust(pairwise_df$p_value, method = "bonferroni")
 
+# Save pairwise PERMANOVA results table
+save_table(data.frame(
+  comparison = pairwise_df$comparison,
+  R2 = pairwise_df$R2,
+  p_value = pairwise_df$p_value,
+  p_adjusted = pairwise_df$p_adj,
+  significant = pairwise_df$p_adj < 0.05,
+  stringsAsFactors = FALSE
+), "permanova_pairwise")
+
 # Use figure-specific PERMANOVA & PERMDISP stats
 fig4_site_r2 <- fig4_perm$R2[1]
 fig4_site_f <- fig4_perm$F[1]
@@ -2450,7 +2538,7 @@ results_list <- list(
     permdisp = disp_test,
     dbrda = dbrda_results
   ),
-  # Composition divergence by size (Fig S5; tests whether larger corals
+  # Composition divergence by size (Fig S3; tests whether larger corals
   divergence = divergence_results,
   # Nestedness along size gradient (NODF)
   nestedness = nestedness_results,
@@ -2484,5 +2572,5 @@ cat("  1. Abundance scales sublinearly with coral size (β =", round(slope, 2), 
 cat("  2. Site explains", round(perm_margin_df["site", "R2"] * 100, 1), "% of compositional variance (marginal)\n")
 cat("  3. Volume explains", round(perm_margin_df["log(volume)", "R2"] * 100, 1), "% of compositional variance (marginal)\n")
 cat("  4. ", round(chao1, 0), " total species estimated (", round(ncol(community_matrix)/chao1*100, 0), "% sampled)\n", sep = "")
-cat("  5. Composition divergence (Fig S5):", divergence_results$interpretation, "\n")
+cat("  5. Composition divergence (Fig S3):", divergence_results$interpretation, "\n")
 cat("  6. Balanced subsampling: site effect robust (100% significant, 500 iterations)\n\n")
