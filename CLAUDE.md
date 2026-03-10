@@ -4,7 +4,7 @@ This file provides essential context for AI assistants working with this codebas
 
 ## Project Overview
 
-**CAFI Survey Analysis** - A marine ecology research project studying how coral size and neighborhood context shape coral-associated fauna (CAFI) communities in Mo'orea, French Polynesia.
+**CAFI Survey Analysis** - A marine ecology research project studying how coral size and neighborhood context shape coral-associated fauna (CAFI) communities in Mo'orea, French Polynesia. **Target journal: Journal of Animal Ecology** — write for a broad ecological audience (community ecology, BEF, landscape ecology, conservation), using the coral system as a case study to illustrate general principles.
 
 - **Survey scope**: 114 *Pocillopora* coral colonies across 3 reef sites
 - **CAFI catalogued**: ~4,000 individual specimens spanning 243 OTUs (154 species-level, 89 genus/family/higher)
@@ -185,7 +185,7 @@ Located in `scripts/` folder. Run in order via `run_full_pipeline.R`.
 | `02_community_analysis.R` | PERMANOVA, NMDS, betadisper, rarefaction, db-RDA | Fig 4 + site/size effects |
 | `03_landscape_characterization.R` | Neighborhood metrics, spatial patterns | Landscape predictor variables |
 | `07_spatial_autocorrelation.R` | Moran's I, LISA, Mantel tests | Spatial structure diagnostics |
-| `08_functional_groups.R` | Taxonomic group scaling (loads from script 05), composition | Fig S9 + group patterns |
+| `08_functional_groups.R` | Taxonomic group scaling (loads from script 05), composition | Fig S7 + group patterns |
 
 #### Q3: FEEDBACKS (Fig 5)
 | Script | Analysis | Output |
@@ -195,13 +195,13 @@ Located in `scripts/` folder. Run in order via `run_full_pipeline.R`.
 #### SUPPORTING (Supplement)
 | Script | Analysis | Output |
 |--------|----------|--------|
-| `06_cooccurrence_analysis.R` | Null-model pairwise co-occurrence, intraspecific density | Fig S11 (co-occurrence) |
-| `04_landscape_effects.R` | GLMs: size + neighbors → abundance/diversity | Fig S7 (neighborhood null) |
+| `06_cooccurrence_analysis.R` | Null-model pairwise co-occurrence, intraspecific density | Fig S9 (co-occurrence) |
+| `04_landscape_effects.R` | GLMs: size + neighbors → abundance/diversity | Fig S5 (neighborhood null) |
 
 #### SENSITIVITY (cross-cuts Q1-Q4)
 | Script | Analysis | Output |
 |--------|----------|--------|
-| `13_taxonomy_sensitivity.R` | 5 taxonomy scenarios × 7 metrics; uses pre-built data from 01_load_data.R | Fig S8 + sensitivity tables |
+| `13_taxonomy_sensitivity.R` | 5 taxonomy scenarios × 7 metrics; uses pre-built data from 01_load_data.R | Fig S6 + sensitivity tables |
 
 ### Archived Scripts (`scripts/archive/` — NOT part of the manuscript or pipeline)
 
@@ -227,21 +227,18 @@ Each manuscript figure is created by its source analysis script with **dual save
 | **Fig 5** | `09_cafi_condition_feedbacks.R` | BEF diversity-condition: (A) richness scatter + (B) abundance scatter (2-panel) |
 | **S1** | `02_community_analysis.R` | Species accumulation curves |
 | **S2** | `02_community_analysis.R` | PERMANOVA metric sensitivity |
-| **S3** | `02_community_analysis.R` | NMDS ordination by site/size |
-| **S4** | `07_spatial_autocorrelation.R` | Spatial autocorrelation (Moran's I) |
-| **S5** | `02_community_analysis.R` | Composition divergence by size |
-| **S6** | `05_species_scaling_analysis.R` | Species-level scaling forest plot |
-| **S7** | `04_landscape_effects.R` | Neighborhood null results |
-| **S8** | `13_taxonomy_sensitivity.R` | Taxonomy sensitivity forest plot |
-| **S9** | `08_functional_groups.R` | Taxonomic group scaling and composition |
-| **S10** | `09_cafi_condition_feedbacks.R` | Rarefaction depth sensitivity for richness → condition |
-| **S11** | `06_cooccurrence_analysis.R` | Co-occurrence: pairwise SES heatmap + intraspecific density + size-dependent (3-panel) |
-| **S12** | `09_cafi_condition_feedbacks.R` | BEF variance partitioning + partial regression + path model coefficients |
-| **S13** | `09_cafi_condition_feedbacks.R` | A priori forest + rarefied richness + exploratory forest + Trapezia/Galeropsis scatter + bidirectional (6-panel) |
-| **S14** | `13_taxonomy_sensitivity.R` | Network sensitivity to taxonomic resolution |
-| **S15** | `05_species_scaling_analysis.R` | Species occurrence probability vs. coral size (logistic GLM, 24 species) |
-| **S16** | `09_cafi_condition_feedbacks.R` | Species × trait heatmap: 19 prevalent species (≥5 corals) × 5 condition metrics (β values + FDR p-values) |
-| **S17** | `09_cafi_condition_feedbacks.R` | Species × trait biplots: 9 strongest associations (scatter + regression) |
+| **S3** | `02_community_analysis.R` | Composition divergence by size |
+| **S4** | `05_species_scaling_analysis.R` | Species-level scaling forest plot |
+| **S5** | `04_landscape_effects.R` | Neighborhood null results |
+| **S6** | `13_taxonomy_sensitivity.R` | Taxonomy sensitivity forest plot |
+| **S7** | `08_functional_groups.R` | Taxonomic group scaling and composition |
+| **S8** | `09_cafi_condition_feedbacks.R` | Rarefaction depth sensitivity for richness → condition |
+| **S9** | `06_cooccurrence_analysis.R` | Co-occurrence: pairwise SES heatmap + intraspecific density + size-dependent (3-panel) |
+| **S10** | `09_cafi_condition_feedbacks.R` | BEF variance partitioning + partial regression + path model coefficients |
+| **S11** | `09_cafi_condition_feedbacks.R` | A priori forest + rarefied richness + exploratory forest + Trapezia/Galeropsis scatter + bidirectional (6-panel) |
+| **S12** | `05_species_scaling_analysis.R` | Species occurrence probability vs. coral size (logistic GLM, 24 species) |
+| **S13** | `09_cafi_condition_feedbacks.R` | Species × trait heatmap: 19 prevalent species (≥5 corals) × 5 condition metrics (β values + FDR p-values) |
+| **S14** | `09_cafi_condition_feedbacks.R` | Species × trait biplots: 9 strongest associations (scatter + regression) |
 
 **Note**: All archived/exploratory scripts are in `scripts/archive/` — they are NOT part of the manuscript or pipeline.
 

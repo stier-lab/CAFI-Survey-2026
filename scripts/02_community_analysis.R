@@ -611,10 +611,14 @@ disp <- betadisper(bray_dist, coral_for_perm$site)
 set.seed(42)
 disp_test <- permutest(disp, permutations = 999)
 
-cat("    F = ", round(disp_test$statistic, 2),
-    ", p = ", format.pval(disp_test$pval, 3), "\n", sep = "")
-if (!is.null(disp_test$pval) && !is.na(disp_test$pval)) {
-  cat("    Interpretation: ", ifelse(disp_test$pval < 0.05,
+# Extract p-value from tab (disp_test$pval can be zero-length in some vegan versions)
+permdisp_p_raw <- disp_test$tab[1, "Pr(>F)"]
+permdisp_F_raw <- disp_test$statistic
+
+cat("    F = ", round(permdisp_F_raw, 2),
+    ", p = ", format.pval(permdisp_p_raw, 3), "\n", sep = "")
+if (!is.na(permdisp_p_raw)) {
+  cat("    Interpretation: ", ifelse(permdisp_p_raw < 0.05,
                                      "Dispersions differ between sites (interpret PERMANOVA with caution)",
                                      "Dispersions homogeneous (PERMANOVA valid)"), "\n\n", sep = "")
 } else {
@@ -622,8 +626,8 @@ if (!is.null(disp_test$pval) && !is.na(disp_test$pval)) {
 }
 
 # Save PERMDISP results table
-permdisp_p <- if (length(disp_test$pval) == 1 && !is.na(disp_test$pval)) disp_test$pval else NA_real_
-permdisp_F <- if (length(disp_test$statistic) == 1) disp_test$statistic else NA_real_
+permdisp_p <- if (length(permdisp_p_raw) == 1 && !is.na(permdisp_p_raw)) permdisp_p_raw else NA_real_
+permdisp_F <- if (length(permdisp_F_raw) == 1) permdisp_F_raw else NA_real_
 permdisp_interp <- if (!is.na(permdisp_p)) {
   ifelse(permdisp_p < 0.05,
          "Dispersions differ between sites (interpret PERMANOVA with caution)",
@@ -1260,7 +1264,7 @@ p_nmds_trajectory <- ggplot() +
     x = "NMDS1",
     y = "NMDS2"
   ) +
-  coord_fixed(xlim = nmds1_lim, ylim = nmds2_lim, clip = "on") +
+  coord_fixed(xlim = nmds1_lim, ylim = nmds2_lim, clip = "off") +
   theme_publication() +
   theme(legend.position = "right")
 

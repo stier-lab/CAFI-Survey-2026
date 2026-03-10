@@ -21,7 +21,7 @@
 #
 # OUTPUTS:
 #   Figures:
-#     - output/figures/supplement/figS9_functional_groups.png
+#     - output/figures/supplement/figS7_functional_groups.png
 #     - output/figures/functional_groups/*.png (analysis figures)
 #   Tables:
 #     - output/tables/taxonomic_group_scaling.csv
@@ -1254,7 +1254,7 @@ panel_c <- if (nrow(plot_data) > 0) {
 fig4 <- (panel_a | panel_b) / panel_c +
   plot_layout(heights = c(1.15, 1), guides = "collect") +
   plot_annotation(
-    title = "Figure S9: Taxonomic Group Scaling with Coral Volume",
+    title = "Figure S7: Taxonomic Group Scaling with Coral Volume",
     caption = "Negative binomial GLM: abundance ~ log(volume) + site",
     theme = theme(
       plot.title = element_text(size = 13, face = "bold"),
@@ -1270,10 +1270,10 @@ fig4 <- (panel_a | panel_b) / panel_c +
         legend.spacing.x = unit(2, "mm"))
 
 # Save to supplement (demoted from main text to S9)
-save_figure(fig4, file.path(PATHS$fig_supplement, "figS9_functional_groups.png"),
+save_figure(fig4, file.path(PATHS$fig_supplement, "figS7_functional_groups.png"),
             width = 180, height = 165, units = "mm")
 
-cat("Saved: figS9_functional_groups.png (supplement)\n\n")
+cat("Saved: figS7_functional_groups.png (supplement)\n\n")
 
 # ############################################################################
 #                    SUMMARY AND SAVE RESULTS
@@ -1331,7 +1331,7 @@ cat("   Species in dominant group:", guild_diversity$n_species[1], "\n")
 
 cat("\nOUTPUT FILES:\n")
 cat("  Figures:\n")
-cat(paste0("    - ", file.path(PATHS$figures, "supplement", "figS9_functional_groups.png"), "\n"))
+cat(paste0("    - ", file.path(PATHS$figures, "supplement", "figS7_functional_groups.png"), "\n"))
 cat(paste0("    - ", file.path(FIG_DIR, "trapezia_scaling.png"), "\n"))
 cat(paste0("    - ", file.path(FIG_DIR, "functional_composition_by_size.png"), "\n"))
 cat(paste0("    - ", file.path(FIG_DIR, "gastropod_scaling.png"), "\n"))
@@ -1341,10 +1341,10 @@ cat(paste0("    - ", file.path(PATHS$tables, "trapezia_species.csv"), "\n"))
 cat(paste0("    - ", file.path(PATHS$tables, "gastropod_prevalence.csv"), "\n\n"))
 
 # ============================================================================
-# FIGURE S9 LEGEND & RESULTS TEXT FILE
+# FIGURE S7 LEGEND & RESULTS TEXT FILE
 # ============================================================================
 
-cat("Generating figS9_legend_results.txt...\n")
+cat("Generating figS7_legend_results.txt...\n")
 
 # Build results text from scaling_table
 scaling_lines <- paste(scaling_table$functional_group,
@@ -1369,13 +1369,13 @@ fish_beta_str <- if (!is.null(fish_scaling_result) && isTRUE(fish_scaling_result
   "beta not estimated"
 }
 
-figS9_legend <- paste0(
-'FIGURE S9: TAXONOMIC GROUP SCALING AND COMPOSITION
+figS7_legend <- paste0(
+'FIGURE S7: TAXONOMIC GROUP SCALING AND COMPOSITION
 ================================================================================
 
 FIGURE LEGEND
 -------------
-Figure S9. Scaling of coral-associated fauna (CAFI) abundance with coral volume
+Figure S7. Scaling of coral-associated fauna (CAFI) abundance with coral volume
 differs among taxonomic groups. (A) Trapezia crab abundance scales sublinearly
 with coral volume (negative binomial GLM fit with 95% CI; ', trap_beta_str, ').
 (B) Resident fish abundance scales sublinearly with coral volume (negative
@@ -1440,8 +1440,8 @@ Generated: ', format(Sys.time(), "%Y-%m-%d %H:%M:%S"), '
 Source script: scripts/08_functional_groups.R
 ')
 
-writeLines(figS9_legend, file.path(PATHS$figures, "supplement", "figS9_legend_results.txt"))
-cat("Saved: figS9_legend_results.txt\n\n")
+writeLines(figS7_legend, file.path(PATHS$figures, "supplement", "figS7_legend_results.txt"))
+cat("Saved: figS7_legend_results.txt\n\n")
 
 # Save taxonomic group analysis results object
 functional_analysis_results <- list(

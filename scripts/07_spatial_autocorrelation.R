@@ -374,7 +374,7 @@ p_spatial_overview <- ggplot(spatial_data, aes(x = long, y = lat)) +
   scale_size_continuous(range = c(2, 8), name = "CAFI\nAbundance") +
   facet_wrap(~site, scales = "free") +
   labs(
-    title = "Figure S4: Spatial Autocorrelation in CAFI Abundance",
+    title = "Spatial Autocorrelation in CAFI Abundance",
     subtitle = paste0("Global Moran's I = ", round(moran_results$morans_i[1], 3),
                     " | p = ", round(moran_results$p_value[1], 4),
                     " ", exclusion_note),
@@ -391,11 +391,6 @@ p_spatial_overview <- ggplot(spatial_data, aes(x = long, y = lat)) +
 
 save_figure(p_spatial_overview, file.path(FIG_DIR, "spatial_autocorrelation_map.png"), width = 12, height = 8)
 
-# Supplement S4: Spatial autocorrelation
-supplement_dir <- file.path(PATHS$figures, "supplement")
-dir.create(supplement_dir, showWarnings = FALSE, recursive = TRUE)
-save_figure(p_spatial_overview, file.path(supplement_dir, "figS4_spatial_autocorrelation.png"),
-            width = 12, height = 8)
 
 # ============================================================================
 # DISTANCE-DECAY ANALYSIS (MANTEL TEST)

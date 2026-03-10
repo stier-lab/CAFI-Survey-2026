@@ -106,15 +106,15 @@ CAFI-Survey-2026/
 │   ├── 05_species_scaling_analysis.R # Size-abundance scaling (Q1), Fig 2
 │   ├── 06_cooccurrence_analysis.R # Co-occurrence null models (supplement)
 │   ├── 07_spatial_autocorrelation.R # Spatial patterns (Moran's I)
-│   ├── 08_functional_groups.R     # Taxonomic group scaling, Fig S9
+│   ├── 08_functional_groups.R     # Taxonomic group scaling, Fig S7
 │   ├── 09_cafi_condition_feedbacks.R # CAFI-condition feedbacks (Q3), Fig 5
-│   ├── 13_taxonomy_sensitivity.R  # Taxonomy sensitivity analysis, Fig S8
+│   ├── 13_taxonomy_sensitivity.R  # Taxonomy sensitivity analysis, Fig S6
 │   └── archive/                   # Archived scripts (not part of manuscript or pipeline)
 │
 ├── output/                        # Generated outputs (gitignored)
 │   ├── figures/
 │   │   ├── manuscript/            # 5 publication figures (fig1-fig5) + legend files
-│   │   ├── supplement/            # Supplementary figures (figS1-S17)
+│   │   ├── supplement/            # Supplementary figures (figS1-S14)
 │   │   ├── 01_data/              # Study design figures
 │   │   ├── 02_community/         # Community analysis
 │   │   ├── 03_landscape/         # Landscape characterization
@@ -145,19 +145,19 @@ Each manuscript figure is created by its source analysis script with dual saves 
 | `00_setup.R` | Load packages, paths, ggplot theme, helpers | Global environment |
 | `00b_data_quality_audit.R` | Data quality assessment, trait integration | QC tables |
 | `01_load_data.R` | Load CSVs, clean data, create RDS objects | **Fig 1** (study design) |
-| `02_community_analysis.R` | PERMANOVA, NMDS, betadisper, rarefaction | **Fig 4**, Figs S1-S3, S5 |
+| `02_community_analysis.R` | PERMANOVA, NMDS, betadisper, rarefaction | **Fig 4**, Figs S1-S3 |
 | `03_landscape_characterization.R` | Neighborhood density, predictor selection | Landscape metrics |
-| `04_landscape_effects.R` | Size and neighborhood effects on CAFI | Fig S7, Q4 tables |
-| `05_species_scaling_analysis.R` | NB GLM scaling, bootstrap CI | **Fig 2**, **Fig 3**, Fig S6 |
+| `04_landscape_effects.R` | Size and neighborhood effects on CAFI | Fig S5, Q4 tables |
+| `05_species_scaling_analysis.R` | NB GLM scaling, bootstrap CI | **Fig 2**, **Fig 3**, Fig S4 |
 
 #### Extended Analyses (scripts 06-09, 13)
 | Script | Purpose | Output |
 |--------|---------|--------|
-| `06_cooccurrence_analysis.R` | Pairwise co-occurrence null models, intraspecific density | Fig S11 |
-| `07_spatial_autocorrelation.R` | Moran's I, LISA, Mantel tests | Fig S4 |
-| `08_functional_groups.R` | Taxonomic group scaling and composition | Fig S9 |
+| `06_cooccurrence_analysis.R` | Pairwise co-occurrence null models, intraspecific density | Fig S9 |
+| `07_spatial_autocorrelation.R` | Moran's I, LISA, Mantel tests | Table S10 |
+| `08_functional_groups.R` | Taxonomic group scaling and composition | Fig S7 |
 | `09_cafi_condition_feedbacks.R` | PCA, fixed-effect LMs, Hochberg FWER correction | **Fig 5** |
-| `13_taxonomy_sensitivity.R` | Taxonomy robustness across 5 OTU scenarios | Fig S8 |
+| `13_taxonomy_sensitivity.R` | Taxonomy robustness across 5 OTU scenarios | Fig S6 |
 
 #### Archived Scripts (`scripts/archive/` — NOT part of manuscript or pipeline)
 | Script | Purpose |
@@ -248,7 +248,7 @@ Tests whether CAFI identity provides measurable physiological benefits to host c
 
 ### Supporting: NEIGHBORHOOD (Supplement)
 
-Neighborhood density (n_neighbors within 5m) was tested as a predictor of CAFI abundance and coral condition but showed no evidence of effects (all p > 0.18). This analysis is underpowered (n=61 corals with neighborhood data) for detecting small effects and is presented in the supplement (Fig S7).
+Neighborhood density (n_neighbors within 5m) was tested as a predictor of CAFI abundance and coral condition but showed no evidence of effects (all p > 0.18). This analysis is underpowered (n=61 corals with neighborhood data) for detecting small effects and is presented in the supplement (Fig S5).
 
 ---
 
@@ -299,21 +299,18 @@ coral_master <- readRDS("output/objects/coral_master.rds")
 |--------|---------|--------|
 | S1 | Species accumulation curves | `02_community_analysis.R` |
 | S2 | PERMANOVA metric sensitivity | `02_community_analysis.R` |
-| S3 | NMDS ordination by site/size | `02_community_analysis.R` |
-| S4 | Spatial autocorrelation (Moran's I) | `07_spatial_autocorrelation.R` |
-| S5 | Composition divergence by size | `02_community_analysis.R` |
-| S6 | Species-level scaling forest plot | `05_species_scaling_analysis.R` |
-| S7 | Neighborhood null results | `04_landscape_effects.R` |
-| S8 | Taxonomy sensitivity forest plot | `13_taxonomy_sensitivity.R` |
-| S9 | Taxonomic group scaling and composition | `08_functional_groups.R` |
-| S10 | Rarefaction depth sensitivity | `09_cafi_condition_feedbacks.R` |
-| S11 | Co-occurrence: pairwise SES heatmap + intraspecific density + size-dependent (3-panel) | `06_cooccurrence_analysis.R` |
-| S12 | BEF variance partitioning + partial regression + path model | `09_cafi_condition_feedbacks.R` |
-| S13 | A priori forest + rarefied richness + exploratory forest + species scatters + bidirectional | `09_cafi_condition_feedbacks.R` |
-| S14 | Network sensitivity to taxonomic resolution | `13_taxonomy_sensitivity.R` |
-| S15 | Species occurrence probability vs. coral size | `05_species_scaling_analysis.R` |
-| S16 | Species × trait heatmap: 19 prevalent species (≥5 corals) × 5 condition metrics | `09_cafi_condition_feedbacks.R` |
-| S17 | Species × trait biplots: strongest associations | `09_cafi_condition_feedbacks.R` |
+| S3 | Composition divergence by size | `02_community_analysis.R` |
+| S4 | Species-level scaling forest plot | `05_species_scaling_analysis.R` |
+| S5 | Neighborhood null results | `04_landscape_effects.R` |
+| S6 | Taxonomy sensitivity forest plot | `13_taxonomy_sensitivity.R` |
+| S7 | Taxonomic group scaling and composition | `08_functional_groups.R` |
+| S8 | Rarefaction depth sensitivity | `09_cafi_condition_feedbacks.R` |
+| S9 | Co-occurrence: pairwise SES heatmap + intraspecific density + size-dependent (3-panel) | `06_cooccurrence_analysis.R` |
+| S10 | BEF variance partitioning + partial regression + path model | `09_cafi_condition_feedbacks.R` |
+| S11 | A priori forest + rarefied richness + exploratory forest + species scatters + bidirectional | `09_cafi_condition_feedbacks.R` |
+| S12 | Species occurrence probability vs. coral size | `05_species_scaling_analysis.R` |
+| S13 | Species × trait heatmap: 19 prevalent species (≥5 corals) × 5 condition metrics | `09_cafi_condition_feedbacks.R` |
+| S14 | Species × trait biplots: strongest associations | `09_cafi_condition_feedbacks.R` |
 
 ### Statistical Tables (`output/tables/`)
 

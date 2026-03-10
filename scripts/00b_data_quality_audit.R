@@ -425,7 +425,6 @@ cat("\n5. Generating data quality report...\n")
 coral_clean <- coral_raw %>%
   mutate(
     volume = coalesce(volume_lab, volume_field),
-    depth_m = suppressWarnings(as.numeric(depth)),
     site_code = case_when(
       str_detect(coral_id, "^MRB") ~ "MRB",
       str_detect(coral_id, "^HAU") ~ "HAU",
@@ -448,12 +447,6 @@ summary_stats <- coral_clean %>%
     volume_max = round(max(volume, na.rm = TRUE), 2),
     volume_median = round(median(volume, na.rm = TRUE), 2),
 
-    # Depth statistics
-    depth_n = sum(!is.na(depth_m)),
-    depth_mean = round(mean(depth_m, na.rm = TRUE), 2),
-    depth_sd = round(sd(depth_m, na.rm = TRUE), 2),
-    depth_min = min(depth_m, na.rm = TRUE),
-    depth_max = max(depth_m, na.rm = TRUE)
   )
 
 # Reshape for report
@@ -461,16 +454,12 @@ quality_report <- tibble(
   metric = c(
     "Total corals",
     "Corals with volume", "Volume mean (cm3)", "Volume SD",
-    "Volume min", "Volume max", "Volume median",
-    "Corals with depth", "Depth mean (m)", "Depth SD",
-    "Depth min (m)", "Depth max (m)"
+    "Volume min", "Volume max", "Volume median"
   ),
   value = c(
     summary_stats$n_corals,
     summary_stats$volume_n, summary_stats$volume_mean, summary_stats$volume_sd,
-    summary_stats$volume_min, summary_stats$volume_max, summary_stats$volume_median,
-    summary_stats$depth_n, summary_stats$depth_mean, summary_stats$depth_sd,
-    summary_stats$depth_min, summary_stats$depth_max
+    summary_stats$volume_min, summary_stats$volume_max, summary_stats$volume_median
   )
 )
 
@@ -496,16 +485,13 @@ detect_outliers_iqr <- function(x, multiplier = 1.5) {
 # Check for outliers in key variables
 outlier_flags <- coral_clean %>%
   mutate(
-    volume_outlier = detect_outliers_iqr(volume),
-    depth_outlier = detect_outliers_iqr(depth_m)
+    volume_outlier = detect_outliers_iqr(volume)
   ) %>%
-  dplyr::select(coral_id, site_code, volume, volume_outlier, depth_m, depth_outlier) %>%
-  filter(volume_outlier | depth_outlier)
+  dplyr::select(coral_id, site_code, volume, volume_outlier) %>%
+  filter(volume_outlier)
 
 cat("   Volume outliers:", sum(coral_clean$volume > 0 &
                                detect_outliers_iqr(coral_clean$volume), na.rm = TRUE), "\n")
-cat("   Depth outliers:", sum(detect_outliers_iqr(coral_clean$depth_m), na.rm = TRUE), "\n")
-
 if (nrow(outlier_flags) > 0) {
   cat("\n   Flagged records:\n")
   print(head(outlier_flags, 10))

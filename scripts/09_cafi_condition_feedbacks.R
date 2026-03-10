@@ -193,7 +193,7 @@ analysis_data <- condition_scores %>%
   dplyr::select(coral_id, site, condition_score, any_of(c("protein_corr", "carb_corr",
                                                      "zoox_corr", "afdw_corr"))) %>%
   left_join(functional_predictors, by = "coral_id") %>%
-  left_join(coral_master %>% dplyr::select(coral_id, volume, morphotype, depth_m, any_of(c("pc1_cafi", "pc2_cafi"))),
+  left_join(coral_master %>% dplyr::select(coral_id, volume, morphotype, any_of(c("pc1_cafi", "pc2_cafi"))),
             by = "coral_id") %>%
   filter(!is.na(condition_score), !is.na(total_cafi), !is.na(volume)) %>%
   mutate(
@@ -3052,7 +3052,7 @@ cat("    =====================================================================\n
 # ############################################################################
 # PART H: LANDSCAPE-ONLY EFFECTS ON CORAL CONDITION
 # ############################################################################
-# Analyze how abiotic/landscape factors (size, neighborhood, site, depth)
+# Analyze how abiotic/landscape factors (size, neighborhood, site)
 # affect coral physiological condition WITHOUT including CAFI predictors.
 #
 # Response variables:
@@ -3065,14 +3065,13 @@ cat("    =====================================================================\n
 #   - mean_neighbor_dist: proximity to neighbors
 #   - total_neighbor_volume: neighborhood biomass
 #   - site: reef location (fixed effect)
-#   - depth_m: water depth
 # ############################################################################
 
 cat("============================================================\n")
 cat("PART H: LANDSCAPE-ONLY EFFECTS ON CORAL CONDITION\n")
 cat("============================================================\n\n")
 
-cat("Analyzing how landscape factors (size, neighborhood, depth, site)\n")
+cat("Analyzing how landscape factors (size, neighborhood, site)\n")
 cat("affect coral condition WITHOUT including CAFI predictors.\n")
 cat("This isolates abiotic/spatial drivers of coral health.\n\n")
 
@@ -3082,7 +3081,7 @@ landscape_condition <- condition_scores %>%
   dplyr::select(coral_id, site, condition_score,
                 any_of(c("protein_corr", "carb_corr", "zoox_corr", "afdw_corr"))) %>%
   left_join(
-    coral_master %>% dplyr::select(coral_id, volume, depth_m,
+    coral_master %>% dplyr::select(coral_id, volume,
                                     n_neighbors, mean_neighbor_dist,
                                     total_neighbor_volume, mean_neighbor_volume),
     by = "coral_id"
@@ -3115,12 +3114,9 @@ landscape_condition <- landscape_condition %>%
 
 n_landscape <- nrow(landscape_condition)
 n_with_neighbors <- sum(!is.na(landscape_condition$n_neighbors))
-n_with_depth <- sum(!is.na(landscape_condition$depth_m))
-
 cat("H.1 Sample sizes:\n")
 cat("    Corals with condition data:", n_landscape, "\n")
-cat("    With neighborhood data:", n_with_neighbors, "\n")
-cat("    With depth data:", n_with_depth, "\n\n")
+cat("    With neighborhood data:", n_with_neighbors, "\n\n")
 
 # H.2 Individual condition measures vs landscape predictors
 cat("H.2 INDIVIDUAL CONDITION MEASURES vs LANDSCAPE\n")
@@ -4028,7 +4024,8 @@ p_partial <- ggplot(partial_data, aes(x = richness_resid, y = condition_resid)) 
   annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 1.5,
            label = sprintf("p = %.3f", richness_partial_p),
            size = 3, fontface = "bold", color = "gray20") +
-  theme_multipanel()
+  theme_multipanel() +
+  theme(plot.margin = margin(5, 5, 8, 12, "mm"))
 
 # Panel S12-C: Path model diagram (text-based visualization)
 path_text <- tibble(

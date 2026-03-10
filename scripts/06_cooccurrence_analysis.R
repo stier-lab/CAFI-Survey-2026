@@ -21,7 +21,7 @@
 #
 # OUTPUTS:
 #   Figures:
-#     - output/figures/supplement/figS11_cooccurrence.png (3-panel)
+#     - output/figures/supplement/figS9_cooccurrence.png (3-panel)
 #   Tables:
 #     - output/tables/pairwise_cooccurrence.csv
 #     - output/tables/intraspecific_density.csv
@@ -796,23 +796,23 @@ if (nrow(size_dep_table) > 0) {
 
 # --- Compose Supplementary Co-occurrence Figure ---
 
-figS11_cooccurrence <- (p_heatmap / (p_density | p_size)) +
+figS9_cooccurrence <- (p_heatmap / (p_density | p_size)) +
   plot_layout(heights = c(0.9, 1)) +
   plot_annotation(tag_levels = "A")
 
-save_figure(figS11_cooccurrence,
-            file.path(PATHS$fig_supplement, "figS11_cooccurrence.png"),
+save_figure(figS9_cooccurrence,
+            file.path(PATHS$fig_supplement, "figS9_cooccurrence.png"),
             width = 300, height = 260, units = "mm")
-save_figure(figS11_cooccurrence,
-            file.path(fig_dir, "figS11_cooccurrence.png"),
+save_figure(figS9_cooccurrence,
+            file.path(fig_dir, "figS9_cooccurrence.png"),
             width = 300, height = 260, units = "mm")
 
-# Co-occurrence is supplement-only (Fig S11)
-cat("   Co-occurrence saved to supplement only (figS11)\n")
+# Co-occurrence is supplement-only (Fig S9)
+cat("   Co-occurrence saved to supplement only (figS9)\n")
 
 # Write legend/results text
 legend_text <- paste0(
-  "Figure S11. Null-model co-occurrence analysis of coral-associated fauna.\n\n",
+  "Figure S9. Null-model co-occurrence analysis of coral-associated fauna.\n\n",
   "(A) Pairwise co-occurrence heatmap showing standardized effect sizes (SES) ",
   "from a volume-weighted null model (", format(N_ITER, big.mark = ","),
   " iterations). Red = positive association (co-occurrence more frequent than expected); ",
@@ -831,7 +831,7 @@ legend_text <- paste0(
   size_ses_results[["Medium"]]$n_corals, "), Large (n = ",
   size_ses_results[["Large"]]$n_corals, ")."
 )
-writeLines(legend_text, file.path(PATHS$fig_supplement, "figS11_cooccurrence_legend_results.txt"))
+writeLines(legend_text, file.path(PATHS$fig_supplement, "figS9_cooccurrence_legend_results.txt"))
 
 cat("  Legend text saved.\n")
 
@@ -1009,7 +1009,7 @@ cat("  ", nrow(size_dep_table), "pair × size-class comparisons\n\n")
 
 cat("Outputs:\n")
 cat("  Figures:\n")
-cat("    output/figures/supplement/figS11_cooccurrence.png\n")
+cat("    output/figures/supplement/figS9_cooccurrence.png\n")
 cat("  Tables:\n")
 cat("    output/tables/pairwise_cooccurrence.csv\n")
 cat("    output/tables/intraspecific_density.csv\n")

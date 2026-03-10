@@ -28,7 +28,7 @@
 #   4. mean_neighbor_dist     - Spatial isolation
 #
 # OUTPUTS:
-#   - Figures: output/figures/04_effects/ (working), output/figures/supplement/figS7_neighborhood.png
+#   - Figures: output/figures/04_effects/ (working), output/figures/supplement/figS5_neighborhood.png
 #   - Tables: output/tables/landscape_full_model_results.csv, landscape_power_analysis.csv
 #   - Statistical summaries with effect sizes, p-values, df
 #
@@ -808,11 +808,13 @@ save_figure(p_neighbor_count, file.path(FIG_DIR, "abundance_vs_neighbors.png"),
 supplement_dir <- file.path(PATHS$figures, "supplement")
 dir.create(supplement_dir, showWarnings = FALSE, recursive = TRUE)
 p_neighbor_count_s7 <- p_neighbor_count +
-  labs(title = "Figure S7: Neighborhood Density and CAFI Abundance") +
+  labs(title = "Figure S5: Neighborhood Density and CAFI Abundance",
+       subtitle = paste0("\u03B2 = ", round(coef(m_neighbors)["n_neighbors"], 3),
+                         ", p = ", format.pval(m_neigh_summary$coefficients["n_neighbors", "Pr(>|z|)"], 2))) +
   scale_color_manual(values = SITE_COLORS, name = "Site") +
   guides(color = guide_legend(override.aes = list(size = 3, alpha = 1))) +
   theme(legend.position = "bottom")
-save_figure(p_neighbor_count_s7, file.path(supplement_dir, "figS7_neighborhood_null.png"),
+save_figure(p_neighbor_count_s7, file.path(supplement_dir, "figS5_neighborhood_null.png"),
             width = 7, height = 5.5)
 
 save_figure(p_neighbor_vol, file.path(FIG_DIR, "abundance_vs_neighbor_volume.png"),

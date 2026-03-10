@@ -50,7 +50,7 @@
 #     12_model_evaluation.R
 #
 #   Note: Manuscript figures are created by their respective analysis scripts
-#     (01 → Fig 1, 05 → Figs 2+3, 02 → Fig 4, 09 → Fig 5, 06 → S11, 08 → S9)
+#     (01 → Fig 1, 05 → Figs 2+3, 02 → Fig 4, 09 → Fig 5, 06 → S9, 08 → S7)
 #
 # OUTPUTS:
 #   - output/pipeline.log          - Detailed execution log
@@ -122,8 +122,7 @@ EXPECTED_OUTPUTS <- list(
     "output/figures/manuscript/fig4_composition.png",
     "output/figures/supplement/figS1_species_accumulation.png",
     "output/figures/supplement/figS2_permanova_sensitivity.png",  # PL2
-    "output/figures/supplement/figS3_nmds_ordination.png",        # PL2
-    "output/figures/supplement/figS5_composition_divergence.png", # PL2
+    "output/figures/supplement/figS3_composition_divergence.png",  # PL2
     "output/tables/permanova_subsampling_summary.csv"
   ),
   "03_landscape_characterization.R" = c(
@@ -132,7 +131,7 @@ EXPECTED_OUTPUTS <- list(
   ),
   "04_landscape_effects.R" = c(
     "output/tables/landscape_full_model_results.csv",
-    "output/figures/supplement/figS7_neighborhood_null.png"       # PL2
+    "output/figures/supplement/figS5_neighborhood_null.png"       # PL2
   ),
   "05_species_scaling_analysis.R" = c(
     "output/objects/scaling_analysis_results.rds",
@@ -140,8 +139,8 @@ EXPECTED_OUTPUTS <- list(
     "output/tables/occurrence_scaling_results.csv",
     "output/figures/manuscript/fig2_scaling.png",
     "output/figures/manuscript/fig3_species_group_scaling.png",
-    "output/figures/supplement/figS6_species_scaling.png",        # PL2
-    "output/figures/supplement/figS15_occurrence_curves.png"
+    "output/figures/supplement/figS4_species_scaling.png",        # PL2
+    "output/figures/supplement/figS12_occurrence_curves.png"
   ),
   "06_cooccurrence_analysis.R" = c(
     "output/objects/cooccurrence_results.rds",
@@ -151,24 +150,23 @@ EXPECTED_OUTPUTS <- list(
     "output/tables/size_dependent_cooccurrence.csv",
     "output/tables/network_metrics.csv",
     "output/tables/hub_species.csv",
-    "output/figures/supplement/figS11_cooccurrence.png"
+    "output/figures/supplement/figS9_cooccurrence.png"
   ),
   "07_spatial_autocorrelation.R" = c(
-    "output/tables/morans_i_results.csv",
-    "output/figures/supplement/figS4_spatial_autocorrelation.png" # PL2
+    "output/tables/morans_i_results.csv"
   ),
   "08_functional_groups.R" = c(
-    "output/figures/supplement/figS9_functional_groups.png",
+    "output/figures/supplement/figS7_functional_groups.png",
     "output/tables/taxonomic_group_scaling.csv",
     "output/objects/functional_analysis_results.rds"
   ),
   "09_cafi_condition_feedbacks.R" = c(
     "output/figures/manuscript/fig5_feedbacks.png",
-    "output/figures/supplement/figS10_rarefaction_sensitivity.png",
-    "output/figures/supplement/figS12_bef_variance_partitioning.png",
-    "output/figures/supplement/figS13_condition_details.png",
-    "output/figures/supplement/figS16_species_trait_heatmap.png",     # PL2
-    "output/figures/supplement/figS17_species_trait_biplots.png",     # PL2
+    "output/figures/supplement/figS8_rarefaction_sensitivity.png",
+    "output/figures/supplement/figS10_bef_variance_partitioning.png",
+    "output/figures/supplement/figS11_condition_details.png",
+    "output/figures/supplement/figS13_species_trait_heatmap.png",     # PL2
+    "output/figures/supplement/figS14_species_trait_biplots.png",     # PL2
     "output/tables/cafi_condition_models.csv",
     "output/tables/key_species_effects.csv",                         # PL5
     "output/tables/species_trait_correlations.csv"                    # PL5
@@ -179,8 +177,7 @@ EXPECTED_OUTPUTS <- list(
     "output/tables/network_topology_sensitivity.csv",
     "output/tables/network_edge_overlap.csv",
     "output/tables/network_hub_stability.csv",
-    "output/figures/supplement/figS8_taxonomy_sensitivity.png",
-    "output/figures/supplement/figS14_network_sensitivity.png"
+    "output/figures/supplement/figS6_taxonomy_sensitivity.png"
   )
 )
 
@@ -653,7 +650,7 @@ ensure_setup_and_data <- function(script_name) {
 #' @examples
 #'   run_one("09")    # CAFI-condition feedbacks (Fig 5)
 #'   run_one("06")    # Co-occurrence analysis (Fig S11)
-#'   run_one("13")    # Taxonomy sensitivity (Fig S8, S14)
+#'   run_one("13")    # Taxonomy sensitivity (Fig S6)
 run_one <- function(script) {
   script_name <- resolve_script(script)
   cat("\n=== Running:", script_name, "===\n\n")

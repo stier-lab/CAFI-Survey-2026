@@ -31,8 +31,7 @@
 #   - output/tables/network_topology_sensitivity.csv
 #   - output/tables/network_edge_overlap.csv
 #   - output/tables/network_hub_stability.csv
-#   - output/figures/supplement/figS8_taxonomy_sensitivity.png
-#   - output/figures/supplement/figS14_network_sensitivity.png
+#   - output/figures/supplement/figS6_taxonomy_sensitivity.png
 #
 # Author: CAFI Survey Analysis Pipeline
 # Last Updated: 2026-03-04
@@ -655,7 +654,7 @@ for (i in seq_len(nrow(results_df))) {
 }
 
 # ============================================================================
-# NETWORK SENSITIVITY DEEP ANALYSIS (Fig S14)
+# NETWORK SENSITIVITY DEEP ANALYSIS
 # ============================================================================
 # Detailed comparison of co-occurrence networks across taxonomy scenarios:
 #   A. Topology comparison (density, transitivity, etc.)
@@ -951,26 +950,10 @@ if (nrow(degree_all) > 0) {
     theme_void()
 }
 
-# --- Assemble Figure S14 ---
-figS14 <- (p_topo | p_jaccard) /
-  (p_hubs | p_degree) +
-  plot_layout(heights = c(1, 1.2)) +
-  plot_annotation(
-    title = "Figure S14: Network Sensitivity to Taxonomic Resolution",
-    subtitle = paste0("Co-occurrence networks reconstructed under ", length(scenario_names),
-                      " taxonomy scenarios across ", nrow(coral_master), " corals"),
-    theme = theme(
-      plot.title = element_text(size = 13, face = "bold"),
-      plot.subtitle = element_text(size = 10)
-    )
-  )
-
-save_figure(figS14, file.path(fig_dir, "figS14_network_sensitivity.png"),
-            width = 14, height = 11)
-cat("  Saved: figS14_network_sensitivity.png\n\n")
+# (S14 figure removed — network diagnostics retained for internal use only)
 
 # ============================================================================
-# FIGURE: Forest-Plot Style Comparison (Fig S8)
+# FIGURE: Forest-Plot Style Comparison (Fig S6)
 # ============================================================================
 
 cat("============================================================\n")
@@ -1054,7 +1037,7 @@ p_d <- ggplot(panel_d_data %>% filter(!is.na(beta)),
 
 p_combined <- (p_a | p_b) / (p_c | p_d) +
   plot_annotation(
-    title = "Figure S8: Sensitivity of Key Results to Taxonomic Resolution",
+    title = "Figure S6: Sensitivity of Key Results to Taxonomic Resolution",
     subtitle = paste0("5 scenarios tested across ", nrow(coral_master), " corals, ",
                       nrow(cafi_clean), " CAFI records"),
     theme = theme(
@@ -1063,9 +1046,9 @@ p_combined <- (p_a | p_b) / (p_c | p_d) +
     )
   )
 
-save_figure(p_combined, file.path(fig_dir, "figS8_taxonomy_sensitivity.png"),
+save_figure(p_combined, file.path(fig_dir, "figS6_taxonomy_sensitivity.png"),
             width = 10, height = 7)
-cat("  Saved: figS8_taxonomy_sensitivity.png\n\n")
+cat("  Saved: figS6_taxonomy_sensitivity.png\n\n")
 
 # ============================================================================
 # SUMMARY
@@ -1093,7 +1076,6 @@ cat("  Table: output/tables/taxonomy_sensitivity_species_scaling.csv\n")
 cat("  Table: output/tables/network_topology_sensitivity.csv\n")
 cat("  Table: output/tables/network_edge_overlap.csv\n")
 cat("  Table: output/tables/network_hub_stability.csv\n")
-cat("  Figure: output/figures/supplement/figS8_taxonomy_sensitivity.png\n")
-cat("  Figure: output/figures/supplement/figS14_network_sensitivity.png\n\n")
+cat("  Figure: output/figures/supplement/figS6_taxonomy_sensitivity.png\n\n")
 
 cat("Script 13 complete.\n\n")
