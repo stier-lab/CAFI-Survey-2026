@@ -80,10 +80,10 @@ This **observational survey** complements a parallel **experimental study** that
 
 **Key findings:**
 - Strong site effects on composition (PERMANOVA site R² ≈ 0.06, volume R² ≈ 0.08, p < 0.01; varies by permutation run)
-- db-RDA: volume explains 7.8% of composition (F=9.74, p=0.001); survives rarefaction (2.6%, p=0.001); *T. punctimanus* loads most strongly toward larger corals
+- db-RDA: volume explains 7.8% of composition (F=9.74, p=0.001); survives rarefaction (2.4%, p=0.001); *T. punctimanus* loads most strongly toward smaller corals (score = -2.95)
 - Size-divergence (categorical) NOT significant after rarefaction (p=0.61; Fig. S5) — abundance artifact
 - Nestedness (NODF): 18.37, z=−1.09, p=0.277 — **not nested**; small-coral faunas are not subsets of large-coral faunas
-- Pairwise co-occurrence: 0 of 528 pairs significant after FDR correction; two pairs approach significance (p_FDR ≈ 0.053)
+- Pairwise co-occurrence: 1 of 528 pairs significant after FDR correction (H. beaupresii–P. modestus, p_FDR < 0.001); H. beaupresii–H. spinigera p_FDR = 0.16
 - Intraspecific density patterns tested for mating-pair hypothesis (Stier et al. 2012)
 - Conclusion: site pools and continuous size gradient shape composition; co-occurrence is largely explained by volume + site
 
@@ -289,7 +289,7 @@ The following quality measures are implemented:
 | Model diagnostics (LM) | Shapiro-Wilk normality; Breusch-Pagan homoscedasticity (BP p > 0.5); OLS primary, HC3 supplement | `09_cafi_condition_feedbacks.R` |
 | Poisson overdispersion | Pearson X²/df check; auto-switch to quasipoisson | `02`, `04` |
 | Heteroscedasticity (count predictors) | OLS primary (BP confirms homoscedasticity); HC3 as supplement sensitivity | `09_cafi_condition_feedbacks.R` |
-| Mediation bootstrap | 1000 bootstrap iterations via mediation::mediate() | `09_cafi_condition_feedbacks.R` |
+| Mediation bootstrap | 1000 bootstrap iterations via mediation::mediate() (computed but not reported in manuscript) | `09_cafi_condition_feedbacks.R` |
 | Community matrix (zero-CAFI corals) | Added zero-abundance rows for all corals | `01_load_data.R` |
 | Log volume bias | Removed +1 offset (volume > 0 guaranteed) | `01_load_data.R` |
 | Tissue sampling artifact (condition) | Regress physio traits on stump_length + nubbin_length | `01_load_data.R` |
