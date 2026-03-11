@@ -111,7 +111,7 @@ This **observational survey** complements a parallel **experimental study** that
 
 **Key findings:**
 - **Species richness → condition**: OLS p = 0.018, **Hochberg p = 0.036** — **SIGNIFICANT**
-  - Richness correlates strongly with total CAFI abundance (r = 0.77)
+  - Richness correlates strongly with total CAFI abundance (r = 0.84)
   - **Rarefied richness** (n=20) shows NO relationship (p = 0.50), but this test is **AMBIGUOUS**:
     rarefaction may remove abundance artifact OR the BEF mechanism itself (diversity→abundance→condition)
 - **Total CAFI abundance → condition**: OLS p = 0.048, Hochberg p = 0.048 — marginal
@@ -304,7 +304,7 @@ The following quality measures are implemented:
 | FDR family vs global | Both family-wise and global FDR reported; global as sensitivity | `09_cafi_condition_feedbacks.R` |
 | BEF variance partitioning | Hierarchical R² decomposition: unique richness, unique abundance, shared | `09_cafi_condition_feedbacks.R` |
 | BEF path model | piecewiseSEM DAG: volume→richness→condition, volume→abundance→condition | `09_cafi_condition_feedbacks.R` |
-| BEF partial regression | Richness + abundance in same model; VIF check (VIF ≈ 2.4) | `09_cafi_condition_feedbacks.R` |
+| BEF partial regression | Richness + abundance in same model; VIF check (VIF ≈ 6.2) | `09_cafi_condition_feedbacks.R` |
 | Position correction sensitivity | Raw vs corrected condition scores compared | `09_cafi_condition_feedbacks.R` |
 | Bootstrap fallback logging | BCa→percentile CI fallback logged with warning | `05_species_scaling_analysis.R` |
 | Bootstrap p vs β=1 | Proportion-based p-value from bootstrap replicates (complements Wald z) | `05_species_scaling_analysis.R` |
