@@ -2,7 +2,7 @@
 
 ## Study system and survey design
 
-We surveyed 114 *Pocillopora* coral colonies across three reef habitats on Mo'orea, French Polynesia (17°30'S, 149°50'W) during June–August 2019 (Fig. 1A). Sites were selected to span the range of reef environments: Hauru (HAU; fringing reef, north shore; n = 38), Maatea (MAT; lagoon/back reef, east shore; n = 39), and Maharepa (MRB; barrier reef, north shore; n = 35). At each site, colonies were haphazardly selected to span the full available size range. Two colonies lacked volume measurements and were excluded from size-dependent analyses (final n = 112).
+We surveyed 114 *Pocillopora* coral colonies across three reef habitats on Mo'orea, French Polynesia (17°30'S, 149°50'W) during June–August 2019 (Fig. 1A). Sites were selected to span the range of reef environments: Hauru (HAU; fringing reef, north shore; n = 38), Maatea (MAT; lagoon/back reef, east shore; n = 39), and Maharepa (MRB; barrier reef, north shore; n = 37). At each site, colonies were haphazardly selected to span the full available size range. Two MRB colonies lacked volume measurements and were excluded from size-dependent analyses (final n = 112; MRB n = 35).
 
 ## Coral measurements
 
@@ -72,4 +72,4 @@ We tested whether neighborhood density affects CAFI abundance and coral conditio
 
 ### Sensitivity analyses
 
-Results were tested for robustness across five taxonomic resolution scenarios: baseline (243 taxa), species-only (154 taxa), merge-up (higher-level IDs merged to nearest named taxon), lump-down (all IDs resolved to genus), and rare-excluded (singletons removed). Seven metrics were evaluated per scenario: abundance β, richness z, PERMANOVA R², betadisper F, Shannon diversity, rarefied richness–condition relationship, and pairwise co-occurrence SES (Fig. S6; Table S9). Spatial autocorrelation was assessed using Moran's I on CAFI abundance, richness, and Shannon diversity (Table S10).
+Results were tested for robustness across five taxonomic resolution scenarios: baseline (243 taxa), species-only (154 taxa), merge-up (higher-level IDs merged to nearest named taxon), lump-down (all IDs resolved to genus), and rare-excluded (singletons removed). Seven metrics were evaluated per scenario: abundance scaling exponent (β), richness scaling exponent (z), Shannon scaling slope, PERMANOVA R² (site and volume), network modularity (Q), and rarefied richness–condition slope (Fig. S6; Table S9). Spatial autocorrelation was assessed using Moran's I on CAFI abundance, richness, and Shannon diversity (Table S10).
