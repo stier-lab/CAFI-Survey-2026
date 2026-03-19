@@ -644,7 +644,7 @@ if (requireNamespace("pwr", quietly = TRUE)) {
   # Minimum detectable f2 at alpha=0.05, power=0.80
   pwr_result_cond <- pwr::pwr.f2.test(
     u = 1,  # numerator df (1 predictor being tested)
-    v = n_condition - n_predictors_cond - 2,  # denominator df
+    v = n_condition - n_predictors_cond - 1,  # denominator df = n - p_total = n - (u + q + 1)
     f2 = NULL,
     sig.level = 0.05,
     power = 0.80
@@ -764,14 +764,14 @@ cat(sprintf("  β = %.4f, SE = %.4f, p = %.4f %s\n\n",
     ifelse(p_rare < 0.05, "*", "")))
 
 # Model 4: Abundance on subset
-m_abund_sub <- lm(condition_score ~ total_cafi + log_volume + site, data = analysis_data_rare)
+m_abund_sub <- lm(condition_score ~ sqrt(total_cafi) + log_volume + site, data = analysis_data_rare)
 s_abund_sub <- summary(m_abund_sub)
-p_abund_sub <- s_abund_sub$coefficients["total_cafi", "Pr(>|t|)"]
+p_abund_sub <- s_abund_sub$coefficients["sqrt(total_cafi)", "Pr(>|t|)"]
 
 cat(sprintf("ABUNDANCE (subsample, n=%d):\n", nrow(analysis_data_rare)))
 cat(sprintf("  β = %.4f, SE = %.4f, p = %.4f %s\n\n",
-    coef(m_abund_sub)["total_cafi"],
-    s_abund_sub$coefficients["total_cafi", "Std. Error"],
+    coef(m_abund_sub)["sqrt(total_cafi)"],
+    s_abund_sub$coefficients["sqrt(total_cafi)", "Std. Error"],
     p_abund_sub,
     ifelse(p_abund_sub < 0.05, "*", "")))
 
@@ -849,8 +849,8 @@ richness_comparison_df <- tibble(
     cor_raw_abund, cor_rare_abund)
 ) %>%
   mutate(
-    ci_lower = estimate - qt(0.975, n - 4) * se,
-    ci_upper = estimate + qt(0.975, n - 4) * se,
+    ci_lower = estimate - qt(0.975, n - 5) * se,
+    ci_upper = estimate + qt(0.975, n - 5) * se,
     significant = p_value < 0.05,
     type = factor(type, levels = type)
   )
@@ -2490,12 +2490,14 @@ for (i in seq_along(physio_traits)) {
       list(se = coefs[pred, "Std. Error"], p = coefs[pred, "Pr(>|t|)"])
     })
 
+    raw_estimate <- coefs[pred, "Estimate"]
+    raw_se <- robust_se$se
     individual_physio_results <- bind_rows(individual_physio_results, data.frame(
       trait = trait_name,
       predictor = pred_name,
-      estimate = round(coefs[pred, "Estimate"], 4),
-      se = round(robust_se$se, 4),
-      t_value = round(coefs[pred, "Estimate"] / robust_se$se, 2),
+      estimate = round(raw_estimate, 4),
+      se = round(raw_se, 4),
+      t_value = round(raw_estimate / raw_se, 2),
       p_value = round(robust_se$p, 4),
       n = nrow(data_complete),
       stringsAsFactors = FALSE
@@ -2763,13 +2765,13 @@ if (nrow(neighborhood_condition) >= 20) {
   cat("  (What effect could this study detect at 80% power?)\n")
 
   n_cond <- nrow(neighborhood_condition)
-  n_predictors_neigh <- 4  # log_volume, n_neighbors, interaction, 2 site dummies = 4 non-intercept
+  n_predictors_neigh <- 5  # log_volume, n_neighbors, interaction, 2 site dummies = 5 non-intercept
 
   if (requireNamespace("pwr", quietly = TRUE)) {
     # Minimum detectable f2 at alpha=0.05, power=0.80
     pwr_result_neigh <- pwr::pwr.f2.test(
       u = 1,  # numerator df (1 predictor being tested)
-      v = n_cond - n_predictors_neigh - 2,  # denominator df
+      v = n_cond - n_predictors_neigh - 1,  # denominator df = n - p_total = n - (u + q + 1)
       f2 = NULL,
       sig.level = 0.05,
       power = 0.80
@@ -3829,7 +3831,7 @@ p_apriori_forest <- ggplot(apriori_forest_data,
   coord_flip(clip = "off") +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.40))) +
   labs(title = "A priori BEF hypotheses (Hochberg, k = 2)",
-       x = "", y = "Effect on condition (standardized \u03B2)") +
+       x = "", y = "Effect on condition (unstandardized \u03B2)") +
   theme_multipanel() +
   theme(legend.position = "none",
         plot.margin = margin(5, 8, 5, 5, "mm"))
@@ -3925,7 +3927,7 @@ p_exploratory_forest <- ggplot(exploratory_forest_data,
     title = "D",
     subtitle = "Exploratory predictors (BH-FDR, k = 4)",
     x = "",
-    y = "Effect on condition (standardized \u03B2)"
+    y = "Effect on condition (unstandardized \u03B2)"
   ) +
   theme_multipanel() +
   theme(legend.position = "none",

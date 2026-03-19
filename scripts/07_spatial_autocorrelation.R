@@ -232,7 +232,7 @@ for (i in seq_along(test_vars)) {
   values <- spatial_data[[var]]
 
   # Moran's I test with permutation
-  moran_test <- moran.test(values, weights, randomisation = TRUE)
+  moran_test <- moran.test(values, weights, randomisation = TRUE, zero.policy = TRUE)
 
   # Monte Carlo test for robust p-value
   moran_mc <- moran.mc(values, weights, nsim = 999, zero.policy = TRUE)

@@ -195,7 +195,7 @@ fit_permanova <- function(comm_mat, coral_master_df) {
 }
 
 # --- E. Network modularity ---
-fit_network <- function(comm_mat, coral_master_df, cafi_df, return_full = FALSE) {
+fit_network <- function(comm_mat, coral_master_df, return_full = FALSE) {
   empty_full <- list(modularity_Q = NA, n_modules = NA, n_species_network = NA,
                      n_edges = NA, mean_degree = NA, density = NA, transitivity = NA,
                      graph = NULL, edge_list = NULL, centrality = NULL,
@@ -514,7 +514,7 @@ for (scenario_name in scenario_names) {
 
   # E. Network modularity
   cat("    [E] Network modularity... ")
-  net_result <- fit_network(comm_mat, coral_master, cafi_modified, return_full = TRUE)
+  net_result <- fit_network(comm_mat, coral_master, return_full = TRUE)
   network_objects[[scenario_name]] <- net_result
   cat("Q =", round(net_result$modularity_Q, 3),
       ", modules =", net_result$n_modules, "\n")

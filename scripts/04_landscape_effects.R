@@ -143,7 +143,8 @@ safe_lrt_extract <- function(lrt) {
 if (requireNamespace("pwr", quietly = TRUE)) {
   # Cohen's f² for NB GLM approximation
   # Full model: log_volume + n_neighbors + log(neighbor_vol) + mean_dist + 2 site dummies = 6 params
-  # Testing u=3 neighborhood predictors jointly; denominator df = n - 6 - 1 = n - 7
+  # Testing u=3 neighborhood predictors jointly (n_neighbors, log(neighbor_vol), mean_dist)
+  # denominator df = n - 6 - 1 = n - 7
   n_landscape <- sum(!is.na(coral_master$n_neighbors))
   power_medium <- pwr::pwr.f2.test(u = 3, v = n_landscape - 7, f2 = 0.10/0.90, sig.level = 0.05)
   power_small <- pwr::pwr.f2.test(u = 3, v = n_landscape - 7, f2 = 0.05/0.95, sig.level = 0.05)
@@ -1097,11 +1098,14 @@ if (!is.null(abund_anova) && "site" %in% rownames(abund_anova)) {
   cat("    Site effect: included as fixed covariate\n")
 }
 # Approximate ICC from site coefficient variance
+# NOTE: ICC approximation uses logistic formula (pi^2/3); not strictly valid for
+# NB/Poisson log-link models. With only k=3 sites, fixed effects are used
+# regardless, so this ICC is for reference only.
 site_coefs_abund <- coef(glmm_abundance_reduced)[grep("^site", names(coef(glmm_abundance_reduced)))]
 icc_abund <- ifelse(length(site_coefs_abund) > 0,
                     var(c(0, site_coefs_abund)) / (var(c(0, site_coefs_abund)) + pi^2/3),
                     0)
-cat("    Approximate ICC:", round(icc_abund, 3), "\n\n")
+cat("    Approximate ICC:", round(icc_abund, 3), "(reference only; see code note)\n\n")
 
 cat("  RICHNESS MODEL (reduced):\n")
 rich_anova <- tryCatch(
@@ -1116,11 +1120,14 @@ if (!is.null(rich_anova) && "site" %in% rownames(rich_anova)) {
 } else {
   cat("    Site effect: included as fixed covariate\n")
 }
+# NOTE: ICC approximation uses logistic formula (pi^2/3); not strictly valid for
+# NB/Poisson log-link models. With only k=3 sites, fixed effects are used
+# regardless, so this ICC is for reference only.
 site_coefs_rich <- coef(glmm_richness_reduced)[grep("^site", names(coef(glmm_richness_reduced)))]
 icc_rich <- ifelse(length(site_coefs_rich) > 0,
                    var(c(0, site_coefs_rich)) / (var(c(0, site_coefs_rich)) + pi^2/3),
                    0)
-cat("    Approximate ICC:", round(icc_rich, 3), "\n\n")
+cat("    Approximate ICC:", round(icc_rich, 3), "(reference only; see code note)\n\n")
 
 # ---- 9C.3 Overdispersion Check ----
 cat("9C.3 Overdispersion Diagnostics:\n\n")
@@ -1353,8 +1360,8 @@ loocv_abund <- tryCatch({
     train_data <- landscape_data_scaled[-i, ]
     test_data <- landscape_data_scaled[i, , drop = FALSE]
 
-    # Fit on training data
-    m_cv <- MASS::glm.nb(total_cafi ~ log_vol_scaled + site, data = train_data)
+    # Fit on training data using the AIC-reduced model formula
+    m_cv <- MASS::glm.nb(formula(glmm_abundance_reduced), data = train_data)
 
     # Predict on held-out observation
     preds[i] <- predict(m_cv, newdata = test_data, type = "response")
@@ -1384,7 +1391,8 @@ loocv_rich <- tryCatch({
     train_data <- landscape_data_scaled[-i, ]
     test_data <- landscape_data_scaled[i, , drop = FALSE]
 
-    m_cv <- glm(otu_richness ~ log_vol_scaled + site, family = poisson, data = train_data)
+    # Fit on training data using the AIC-reduced model formula
+    m_cv <- glm(formula(glmm_richness_reduced), family = poisson, data = train_data)
     preds[i] <- predict(m_cv, newdata = test_data, type = "response")
   }
 
@@ -1437,13 +1445,17 @@ extract_reduced_coefs <- function(model, response) {
   display_names <- name_map[pred_rows]
   display_names[is.na(display_names)] <- pred_rows[is.na(display_names)]
 
+  # Handle both "z value" (NB/Poisson) and "t value" (quasipoisson/LM) column names
+  stat_col <- if ("z value" %in% colnames(coefs)) "z value" else "t value"
+  p_col <- if ("Pr(>|z|)" %in% colnames(coefs)) "Pr(>|z|)" else "Pr(>|t|)"
+
   tibble(
     Response = response,
     Predictor = display_names,
     Beta = coefs[pred_rows, "Estimate"],
     SE = coefs[pred_rows, "Std. Error"],
-    z_value = coefs[pred_rows, "z value"],
-    p_value = coefs[pred_rows, "Pr(>|z|)"]
+    z_value = coefs[pred_rows, stat_col],
+    p_value = coefs[pred_rows, p_col]
   )
 }
 
@@ -2125,9 +2137,10 @@ cat("  Neighborhood adds:", round(delta_r2 * 100, 2), "% additional R²\n\n")
 
 cat("  Power analysis for neighborhood effects (n =", n_neighborhood, "):\n")
 if (requireNamespace("pwr", quietly = TRUE)) {
-  n_params <- 3  # log_volume + 2 site dummies
+  # u=3: testing 3 neighborhood predictors jointly (n_neighbors, log(neighbor_vol), mean_dist)
+  # v = n - total_params - 1 = n - 7 (intercept + log_volume + 3 neighborhood + 2 site dummies)
   pwr_result <- pwr::pwr.f2.test(
-    u = 1, v = n_neighborhood - n_params - 2,
+    u = 3, v = n_neighborhood - 7,
     f2 = NULL, sig.level = 0.05, power = 0.80
   )
   min_f2 <- pwr_result$f2

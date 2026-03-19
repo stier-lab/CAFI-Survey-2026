@@ -25,13 +25,13 @@ This **observational survey** complements a parallel **experimental study** that
 |----------|--------|------------|
 | **Q1: SCALING** | `05_species_scaling_analysis.R` | Abundance β=0.52 (sublinear, Redirection); Richness z=0.34 (sublinear); density dilution |
 | **Q2: COMPOSITION** | `02_community_analysis.R` | Site pools + size gradient structure composition; db-RDA confirms size effect survives rarefaction |
-| **Q3: FEEDBACKS** | `09_cafi_condition_feedbacks.R` | Species richness predicts condition (BEF framework, Hochberg p=0.036); variance partitioning: 29% unique to richness, <1% to abundance |
+| **Q3: FEEDBACKS** | `09_cafi_condition_feedbacks.R` | Species richness predicts condition (BEF framework, p=0.018); variance partitioning: 29% unique to richness, <1% to abundance |
 
 ### Supporting Analyses (Supplement)
 
 | Analysis | Script | Key Result |
 |----------|--------|------------|
-| **Co-occurrence** | `06_cooccurrence_analysis.R` | Volume-weighted null model; pairwise associations mostly explained by volume + site (Fig S11) |
+| **Co-occurrence** | `06_cooccurrence_analysis.R` | Volume-weighted null model; pairwise associations mostly explained by volume + site (Fig S9) |
 | **Neighborhood** | `04_landscape_effects.R` | n_neighbors NOT significant (underpowered, n=61); supplement only |
 
 ---
@@ -52,7 +52,7 @@ This **observational survey** complements a parallel **experimental study** that
 **Key findings:**
 - Total CAFI abundance: β = 0.52 [0.44, 0.62] — **sublinear (Propagule Redirection)**
 - Species richness (SAR): z = 0.34 [0.27, 0.42] — **sublinear (Redirection)**
-- Rarefied richness (n=20): slope=0.14, p=0.64 — **not significant (passive sampling)**; raw SAR is abundance artifact
+- Rarefied richness (n=20): slope=−0.07, p=0.50 — **not significant (passive sampling)**; raw SAR is abundance artifact
 - Species occurrence curves: 14/24 prevalent species have significant size-dependent occurrence (FDR<0.05)
 - Density dilution: per-capita CAFI density decreases with size (slope = -0.48)
 - 11/21 species: Redirection (β < 1); 10/21: Field of Dreams (CI spans 1); 0/21: super-linear
@@ -83,7 +83,7 @@ This **observational survey** complements a parallel **experimental study** that
 - db-RDA: volume explains 7.8% of composition (F=9.74, p=0.001); survives rarefaction (2.4%, p=0.001); *T. punctimanus* loads most strongly toward smaller corals (score = -2.95)
 - Size-divergence (categorical) NOT significant after rarefaction (p=0.61; Fig. S5) — abundance artifact
 - Nestedness (NODF): 18.37, z=−1.09, p=0.277 — **not nested**; small-coral faunas are not subsets of large-coral faunas
-- Pairwise co-occurrence: 1 of 528 pairs significant after FDR correction (H. beaupresii–P. modestus, p_FDR < 0.001); H. beaupresii–H. spinigera p_FDR = 0.16
+- Pairwise co-occurrence: 0 of 528 pairs significant after FDR correction; strongest signals: H. beaupresii–P. modestus (SES = −3.43, p_FDR = 0.11), H. beaupresii–H. spinigera (SES = −3.42, p_FDR = 0.21)
 - Intraspecific density patterns tested for mating-pair hypothesis (Stier et al. 2012)
 - Conclusion: site pools and continuous size gradient shape composition; co-occurrence is largely explained by volume + site
 
@@ -99,27 +99,24 @@ This **observational survey** complements a parallel **experimental study** that
 - PCA on CAFI abundances → PC1_CAFI; PCA on physiology → PC1_Coral
 - **Position correction**: Physiological traits regressed on stump_length + nubbin_length before PCA (removes tissue gradient sampling artifact)
 - Linear models with fixed-effect site: condition ~ CAFI predictors + log_volume + site
-- **Three-tier multiple testing correction**:
-  - A priori BEF (k=2): Hochberg FWER — Species richness + Total CAFI
-  - Exploratory (k=4): BH-FDR — Shannon, Trapezia, Fish, Galeropsis
-  - Supplement composition (k=1): PC1_CAFI tested separately
+- **Multiple testing**: A priori BEF predictors (richness, abundance) tested without correction (pre-specified hypotheses); exploratory (k=4) BH-FDR; PC1_CAFI tested separately in supplement
 - **OLS standard errors** (primary; Breusch-Pagan confirms homoscedasticity, BP p > 0.5)
 - **HC3 robust SEs** reported as supplement sensitivity (conservative at n < 100; Long & Ervin 2000)
 - **BEF analysis (Part A4)**: Partial regression, variance partitioning, path model (piecewiseSEM)
-- Key species models: condition ~ species abundance + log(volume) + site (Hochberg-corrected, up to 10 species; those with n_present < 5 excluded at runtime)
+- Key species models: condition ~ species abundance + log(volume) + site (FDR-corrected, up to 10 species; those with n_present < 5 excluded at runtime)
 - Note: 3 sites insufficient for random intercepts (Bolker et al. 2009)
 
 **Key findings:**
-- **Species richness → condition**: OLS p = 0.018, **Hochberg p = 0.036** — **SIGNIFICANT**
+- **Species richness → condition**: p = 0.018 — **SIGNIFICANT** (pre-specified a priori hypothesis)
   - Richness correlates strongly with total CAFI abundance (r = 0.84)
   - **Rarefied richness** (n=20) shows NO relationship (p = 0.50), but this test is **AMBIGUOUS**:
     rarefaction may remove abundance artifact OR the BEF mechanism itself (diversity→abundance→condition)
-- **Total CAFI abundance → condition**: OLS p = 0.048, Hochberg p = 0.048 — marginal
+- **Total CAFI abundance → condition**: p = 0.048 — marginal (pre-specified a priori hypothesis)
 - **Variance partitioning**: 29.1% unique to richness, <1% unique to abundance, 70.8% shared
 - **Path model**: β(richness→condition) = 0.55, β(abundance→condition) = 0.02
 - PC1_CAFI does NOT predict condition (supplement; p > 0.10)
 - Exploratory functional groups: directions match expectations (Trapezia +, Fish +) but none survives BH-FDR
-- Key species (10 tested): directions mostly match experiment but none survive Hochberg
+- Key species (10 tested): directions mostly match experiment but none survive FDR correction
 - Reverse direction (condition→CAFI): non-significant
 - **Landscape factors (size, neighborhood, site) also do NOT predict condition** (all p > 0.30)
 
@@ -179,7 +176,7 @@ Located in `scripts/` folder. Run in order via `run_full_pipeline.R`.
 |--------|----------|--------|
 | `05_species_scaling_analysis.R` | Species + taxonomic group NB GLMs, forest plots | Fig 3 (2×2: curves + β estimates) |
 
-#### Q2: COMPOSITION (Fig 4: NMDS + Composition)
+#### Q2: COMPOSITION (Fig 4: db-RDA + Composition)
 | Script | Analysis | Output |
 |--------|----------|--------|
 | `02_community_analysis.R` | PERMANOVA, NMDS, betadisper, rarefaction, db-RDA | Fig 4 + site/size effects |
@@ -221,9 +218,9 @@ Each manuscript figure is created by its source analysis script with **dual save
 | Figure | Script | Description |
 |--------|--------|-------------|
 | **Fig 1** | `01_load_data.R` | Study design + representative CAFI: satellite map + distributions + species photos (6-panel) |
-| **Fig 2** | `05_species_scaling_analysis.R` | Scaling: abundance + richness + density dilution (3 vertical panels) |
+| **Fig 2** | `05_species_scaling_analysis.R` | Scaling: (A) abundance + (B) density dilution + (C) richness (3 vertical panels) |
 | **Fig 3** | `05_species_scaling_analysis.R` | Species + taxonomic group scaling (2×2: curves + β forest plots) |
-| **Fig 4** | `02_community_analysis.R` | Composition: NMDS ordination + taxonomic barchart by site |
+| **Fig 4** | `02_community_analysis.R` | Composition: (A) db-RDA biplot + (B) taxonomic barchart by site |
 | **Fig 5** | `09_cafi_condition_feedbacks.R` | BEF diversity-condition: (A) richness scatter + (B) abundance scatter (2-panel) |
 | **S1** | `02_community_analysis.R` | Species accumulation curves |
 | **S2** | `02_community_analysis.R` | PERMANOVA metric sensitivity |
@@ -274,7 +271,7 @@ The following quality measures are implemented:
 
 | Issue | Fix | Script |
 |-------|-----|--------|
-| Multiple testing (feedbacks) | Three-tier: Hochberg FWER (a priori BEF k=2), BH-FDR (exploratory k=4), uncorrected (PC1_CAFI k=1) | `09_cafi_condition_feedbacks.R` |
+| Multiple testing (feedbacks) | A priori BEF predictors (richness, abundance) uncorrected (pre-specified hypotheses); BH-FDR (exploratory k=4); uncorrected (PC1_CAFI k=1) | `09_cafi_condition_feedbacks.R` |
 | Multiple testing (scaling) | FDR correction within category (species/group) | `05_species_scaling_analysis.R` |
 | Multiple testing (co-occurrence) | FDR correction across all pairwise SES tests | `06_cooccurrence_analysis.R` |
 | Abundance confound (composition) | Iterated rarefaction (100 draws, averaged) | `02_community_analysis.R` |
@@ -296,7 +293,7 @@ The following quality measures are implemented:
 | PERMANOVA Type I confound | Marginal (Type III) PERMANOVA | `02_community_analysis.R` |
 | Colorblind inaccessibility | Okabe-Ito palette; Fig 2 site colors shifted to avoid scaling-class overlap | All figure scripts |
 | Count predictor skew | sqrt() applied to count-based CAFI predictors in condition models | `09_cafi_condition_feedbacks.R` |
-| Key species FWER correction | Hochberg (FWER) for species-level tests (matches experiment) | `09_cafi_condition_feedbacks.R` |
+| Key species FDR correction | BH-FDR for species-level tests | `09_cafi_condition_feedbacks.R` |
 | Community transform sensitivity | 3 transforms + filtered PCA tested for PC1→condition | `09_cafi_condition_feedbacks.R` |
 | PERMANOVA site-size robustness | Balanced site subsampling (500 iter, min_n per site) | `02_community_analysis.R` |
 | Power analysis (feedbacks) | Prospective power for Q3 (n=84); medium effects detectable | `09_cafi_condition_feedbacks.R` |
@@ -331,13 +328,13 @@ output/
 │   │   ├── fig4_legend_results.txt     (from 02_community_analysis.R)
 │   │   ├── fig5_feedbacks.png          (from 09_cafi_condition_feedbacks.R; 2-panel BEF: richness scatter + abundance scatter)
 │   │   └── fig5_legend_results.txt     (from 09_cafi_condition_feedbacks.R)
-│   ├── supplement/          # Supplementary figures (figS1-S17)
+│   ├── supplement/          # Supplementary figures (figS1-S14)
 │   ├── 01_data/             # Study design (1 figure)
 │   ├── 02_community/        # Community analysis (~13 figures)
 │   ├── 03_landscape/        # Landscape characterization (3 figures)
 │   ├── 04_effects/          # Landscape effects (~12 figures + 2 HTML tables)
 │   ├── 05_scaling/          # Species-area scaling (~10 figures)
-│   ├── 06_network/          # Co-occurrence analysis (supplement only: figS11, ~8 figures)
+│   ├── 06_network/          # Co-occurrence analysis (supplement only: figS9)
 │   ├── feedbacks/           # CAFI-condition feedbacks (~13 figures)
 │   └── functional_groups/   # Taxonomic group analysis (7 figures)
 ├── tables/                  # ~66 CSV statistical results
@@ -395,14 +392,168 @@ output/
 
   Site palette deliberately avoids blue and orange/vermillion to prevent confusion with scaling-class semantics.
 
-## Load Pre-computed Objects
+## Helper Functions & Object Loading
+
+### Loading Objects
 ```r
 coral_master <- load_object("coral_master")
 cafi_clean <- load_object("cafi_clean")
 community_matrix <- load_object("community_matrix")
 ```
 
+### Utility Functions (defined in `00_setup.R`)
+
+| Function | Purpose |
+|----------|---------|
+| `save_object(obj, name)` | Saves RDS to `output/objects/name.rds` |
+| `load_object(name)` | Loads RDS from `output/objects/name.rds` (errors if missing) |
+| `save_figure(plot, path, width, height, units, dpi)` | Saves PNG + PDF dual format |
+| `save_table(df, name)` | Saves CSV to `output/tables/name.csv` |
+| `calc_pseudo_r2(model, null_model)` | McFadden's pseudo-R² for GLMs. Pass null_model explicitly inside functions (scoping). |
+| `flag_influential(model, threshold)` | Flags Cook's D > 4/n |
+| `theme_publication(base_size)` | Publication-ready ggplot theme |
+| `theme_multipanel(base_size)` | Compact theme for dense multi-panel figures |
+
+### Global Color Palettes (defined in `00_setup.R`)
+
+| Variable | Colors |
+|----------|--------|
+| `SITE_COLORS` | HAU=#9B7EB8, MAT=#7B9BAE, MRB=#7AAC6D |
+| `SCALING_COLORS` | Redirection=#5A8FAF, FoD=gray55, SuperLinear=#D55E00 |
+| `FUNC_GROUP_COLORS` | Trapezia, Fish, Gastropod, Shrimp, Other Crab, Other |
+| `TYPE_COLORS` | Broad taxonomic groups |
+
+## Script Dependency Matrix
+
+Scripts 00 and 01 must always run first. After that, most scripts can run independently.
+
+| Script | Loads Objects From | Creates Objects | Needs Prior Script? |
+|--------|--------------------|-----------------|---------------------|
+| `00_setup.R` | — | PATHS, themes, helpers | Always first |
+| `01_load_data.R` | PATHS | coral_master, community_matrix, condition_scores, cafi_pca_results, otu_taxonomy, taxonomy_scenario_data | Always second |
+| `02_community_analysis.R` | coral_master, community_matrix | community_analysis_results | No |
+| `03_landscape_characterization.R` | coral_master | landscape_selected_predictors | No |
+| `04_landscape_effects.R` | coral_master, community_matrix | — | No |
+| `05_species_scaling_analysis.R` | coral_master | scaling_analysis_results | No |
+| `06_cooccurrence_analysis.R` | coral_master, community_matrix | cooccurrence_results, cafi_network | No |
+| `07_spatial_autocorrelation.R` | coral_master, landscape_selected_predictors | — | Yes: needs 03 |
+| `08_functional_groups.R` | coral_master, scaling_analysis_results | — | Yes: needs 05 |
+| `09_cafi_condition_feedbacks.R` | coral_master, condition_scores, cafi_pca_results | — | No |
+| `13_taxonomy_sensitivity.R` | coral_master, taxonomy_scenario_data | — | No |
+
+## Data Schema Quick Reference
+
+### survey_cafi_data_w_taxonomy_summer2019_v5.csv (3,989 rows)
+Key columns: `coral_id`, `genus`, `species`, `type`, `cafi_size_mm`, `family`
+Note: `site` column unreliable — always extract site from `coral_id` prefix (first 3 chars: HAU/MAT/MRB)
+
+### survey_coral_characteristics_merged_v2.csv (114 rows)
+Key columns: `coral_id`, `site`, `volume`, `depth`, `branch_width`, `lat`, `long`, `number_of_neighbors`
+Critical: Two survey types — `neighborhood` (n=61) has neighbor data, `size` (n=53) has NA for neighbor columns
+Join key: `coral_id`
+
+### survey_master_phys_data_v3.csv (108 rows)
+Key columns: `coral_id`, `nub`, `protein_mg_cm2`, `carb_mg_cm2`, `zooxDensity`, `afdw_mg_cm2`, `stump_length`, `nubbin_length`
+Note: Position-corrected values created in script 01 by regressing traits on stump_length + nubbin_length
+
+### Join Logic
+- All joins on `coral_id` (format: "SITE-POC##", e.g., "HAU-POC29")
+- CAFI → Coral: aggregate CAFI by coral_id first, then left_join to coral characteristics
+- Physiology subset: only 108/114 corals have physiology; condition PCA uses n=84 (complete cases)
+
+## Known Issues & Troubleshooting
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `Error in dplyr::select()` / MASS conflict | MASS loaded before dplyr | Already handled in 00_setup.R via `conflicted::conflict_prefer("select", "dplyr")` |
+| `object 'PATHS' not found` | Setup not sourced | Always run `source("scripts/00_setup.R")` first |
+| `object 'coral_master' not found` | Data not loaded | Always run `source("scripts/01_load_data.R")` second |
+| `NB convergence failure` (script 04) | Negative binomial GLM won't converge | Automatic fallback to Poisson with console warning |
+| `Cairo PDF failed` | Cairo device unavailable | `save_figure()` falls back to standard PDF device |
+| PERMANOVA p-values vary between runs | Uses permutation randomness | Expected; set `set.seed()` before script 02 for exact reproducibility |
+
+### Data Quirks
+- **CAFI site column unreliable**: Extract site from `coral_id` prefix, not the `site` column
+- **Neighborhood data NA for 53 corals**: survey_type="size" corals have no neighborhood surveys — not "isolated," just not surveyed
+- **Morphotype is putative**: Not genetically confirmed; some cryptic species complexes may be present
+
+## Manuscript Editing Workflow
+
+### Editing Section Text
+
+1. Edit the section file: `manuscript/introduction.md`, `methods.md`, `results.md`, or `discussion.md`
+2. Manually update `combined_manuscript.md`: replace the corresponding section between headers
+3. Preserve all other sections (Abstract, Keywords, Figure Legends, References)
+4. Verify inline figure paths: `![](../output/figures/manuscript/figN_*.png)`
+5. Commit both files together to keep them in sync
+
+### Regenerating Figures
+
+1. Run the source script: `run_one("05")` (e.g., to regenerate Fig 2-3)
+2. Figures auto-update in `output/figures/manuscript/` (PNG + PDF)
+3. Legend files also regenerate: `figN_legend_results.txt`
+4. Inline image paths in `combined_manuscript.md` don't change — they auto-reference updated PNGs
+
+### Pending Before Submission
+- 1 BibTeX placeholder: StierInReview (companion experimental paper — update when published)
+- Repository URL/DOI placeholders in Methods Data Accessibility section
+
 ---
+
+## Manuscript
+
+### Combined Manuscript
+
+The full assembled manuscript lives in `manuscript/combined_manuscript.md`. This is the **single authoritative document** for submission preparation. It contains all sections in JAE order:
+
+1. Title page (with placeholder co-authors)
+2. Abstract (~230 words)
+3. Keywords
+4. Introduction
+5. Methods
+6. Results
+7. Discussion
+8. Acknowledgements (placeholder)
+9. Author Contributions (placeholder)
+10. Conflict of Interest
+11. Figure Legends (all 5 main figures, with inline figure images)
+12. References (→ `manuscript/references.bib`, 82 BibTeX entries)
+13. Supplement pointer (→ `manuscript/combined_supplement.md`)
+
+**Figures are embedded inline** at the point of first reference in the text (markdown `![](...)` syntax with relative paths to `output/figures/manuscript/`). Figure legends also appear with images in the Legends section.
+
+**One placeholder remains**: `[cite MCR-LTER / Edmunds / emerging work]` in the Discussion heatwave paragraph.
+
+### Section Source Files
+
+Individual section files remain in `manuscript/` for editing convenience. **After editing any section file, re-assemble into `combined_manuscript.md`.**
+
+| File | Status |
+|------|--------|
+| `manuscript/combined_manuscript.md` | **Authoritative** — full assembly with inline figures |
+| `manuscript/combined_supplement.md` | Complete supplement: 14 figures (inline) + 11 tables + methods |
+| `manuscript/references.bib` | BibTeX file (81 entries, 70 with DOIs; 1 placeholder: StierInReview) |
+| `manuscript/figure_index.md` | Standalone figure inventory (all 19 figures with panels + descriptions) |
+| `manuscript/introduction.md` | Section source file for editing |
+| `manuscript/methods.md` | Section source file for editing |
+| `manuscript/results.md` | Section source file for editing |
+| `manuscript/discussion.md` | Section source file for editing |
+| `manuscript/nlm_literature_notes.md` | Literature scaffold (8 thematic queries from NotebookLM) |
+| `manuscript/nlm_paper_index.md` | 146 source summaries (auto-generated reference) |
+| `manuscript/key citations/` | 3 PDFs (Stier & Osenberg 2010, 2024a, 2024b) + experimental paper docx files |
+
+### Figure Legend Files
+
+Legend files in `output/figures/manuscript/` contain **publication-ready captions only** — no embedded methods, results, statistics, or color scheme sections. Format: `figN_legend_results.txt`.
+
+### Figure Panel Order (verified from scripts)
+
+| Figure | Panel A | Panel B | Panel C | Panel D |
+|--------|---------|---------|---------|---------|
+| Fig 2 | Abundance scaling | Density dilution | Species richness | — |
+| Fig 3 | Species curves | Group curves | Species β forest | Group β forest |
+| Fig 4 | db-RDA biplot | Taxonomic barchart | — | — |
+| Fig 5 | Richness scatter | Abundance scatter | — | — |
 
 ## File Ownership (parallel work)
 - `scripts/` — analysis scripts (00-13); can be edited independently

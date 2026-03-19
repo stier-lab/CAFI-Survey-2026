@@ -658,10 +658,20 @@ run_one <- function(script) {
   ensure_setup_and_data(script_name)
 
   start <- Sys.time()
-  source(file.path("scripts", script_name), local = FALSE)
+  result <- tryCatch({
+    source(file.path("scripts", script_name), local = FALSE)
+    TRUE
+  }, error = function(e) {
+    cat(sprintf("\nERROR in %s: %s\n", script_name, conditionMessage(e)))
+    FALSE
+  })
   elapsed <- as.numeric(difftime(Sys.time(), start, units = "secs"))
 
-  cat(sprintf("\n=== %s completed in %s ===\n", script_name, format_time(elapsed)))
+  if (result) {
+    cat(sprintf("\n=== %s completed in %s ===\n", script_name, format_time(elapsed)))
+  } else {
+    cat(sprintf("\n=== %s FAILED after %s ===\n", script_name, format_time(elapsed)))
+  }
   invisible(elapsed)
 }
 
@@ -685,9 +695,16 @@ run_from <- function(script) {
   for (s in scripts_to_run) {
     cat("--- Running:", s, "---\n")
     start <- Sys.time()
-    source(file.path("scripts", s), local = FALSE)
+    ok <- tryCatch({
+      source(file.path("scripts", s), local = FALSE)
+      TRUE
+    }, error = function(e) {
+      cat(sprintf("\nERROR in %s: %s\n", s, conditionMessage(e)))
+      FALSE
+    })
     elapsed <- as.numeric(difftime(Sys.time(), start, units = "secs"))
-    cat(sprintf("    %s: %s\n\n", s, format_time(elapsed)))
+    status_label <- if (ok) format_time(elapsed) else paste("FAILED after", format_time(elapsed))
+    cat(sprintf("    %s: %s\n\n", s, status_label))
   }
 
   total_elapsed <- as.numeric(difftime(Sys.time(), total_start, units = "secs"))
@@ -727,9 +744,16 @@ run_quick <- function() {
   for (s in fast_scripts) {
     cat("--- Running:", s, "---\n")
     start <- Sys.time()
-    source(file.path("scripts", s), local = FALSE)
+    ok <- tryCatch({
+      source(file.path("scripts", s), local = FALSE)
+      TRUE
+    }, error = function(e) {
+      cat(sprintf("\nERROR in %s: %s\n", s, conditionMessage(e)))
+      FALSE
+    })
     elapsed <- as.numeric(difftime(Sys.time(), start, units = "secs"))
-    cat(sprintf("    %s: %s\n\n", s, format_time(elapsed)))
+    status_label <- if (ok) format_time(elapsed) else paste("FAILED after", format_time(elapsed))
+    cat(sprintf("    %s: %s\n\n", s, status_label))
   }
 
   total_elapsed <- as.numeric(difftime(Sys.time(), total_start, units = "secs"))

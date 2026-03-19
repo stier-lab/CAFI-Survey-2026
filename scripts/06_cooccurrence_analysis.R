@@ -233,7 +233,9 @@ for (iter in seq_len(N_ITER)) {
 
 # Compute SES and p-values
 null_mean <- null_cooccur_sum / N_ITER
-null_sd <- sqrt(null_cooccur_sq / N_ITER - null_mean^2)
+# Guard against floating-point negative values under sqrt (can occur when
+# variance is near zero and E[X^2] - E[X]^2 underflows slightly negative)
+null_sd <- sqrt(pmax(null_cooccur_sq / N_ITER - null_mean^2, 0))
 
 ses_matrix <- matrix(0, nrow = n_sp, ncol = n_sp)
 colnames(ses_matrix) <- rownames(ses_matrix) <- focal_species
@@ -246,8 +248,10 @@ for (i in 1:(n_sp - 1)) {
       ses_matrix[i, j] <- (obs_cooccur[i, j] - null_mean[i, j]) / null_sd[i, j]
       ses_matrix[j, i] <- ses_matrix[i, j]
     }
-    p_positive[i, j] <- null_exceed[i, j] / N_ITER
-    p_negative[i, j] <- null_below[i, j] / N_ITER
+    # Standard permutation p-value with +1 correction (Phipson & Smyth 2010):
+    # ensures p > 0 and accounts for the observed value as one realization
+    p_positive[i, j] <- (null_exceed[i, j] + 1) / (N_ITER + 1)
+    p_negative[i, j] <- (null_below[i, j] + 1) / (N_ITER + 1)
     p_positive[j, i] <- p_positive[i, j]
     p_negative[j, i] <- p_negative[i, j]
   }
@@ -541,7 +545,8 @@ for (sc in size_classes) {
   }
 
   null_mean_sc <- null_sum_sc / N_ITER
-  null_sd_sc <- sqrt(null_sq_sc / N_ITER - null_mean_sc^2)
+  # Guard against floating-point negative values under sqrt (see Part 1 note)
+  null_sd_sc <- sqrt(pmax(null_sq_sc / N_ITER - null_mean_sc^2, 0))
 
   ses_sc <- matrix(0, nrow = n_sp_sc, ncol = n_sp_sc)
   colnames(ses_sc) <- rownames(ses_sc) <- sp_sc

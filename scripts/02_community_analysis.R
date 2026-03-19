@@ -365,7 +365,7 @@ cat("    Overdispersion ratio (Pearson X²/df):", round(dispersion_ratio, 2),
     ifelse(dispersion_ratio > 1.5, " [OVERDISPERSED - use quasipoisson]", " [OK]"), "\n")
 if (dispersion_ratio > 1.5) {
   # Refit with quasipoisson for corrected SEs
-  m_rich_vol_qp <- glm(otu_richness ~ log(volume), family = quasipoisson, data = coral_master)
+  m_rich_vol_qp <- glm(otu_richness ~ log(volume) + site, family = quasipoisson, data = coral_master)
   m_rich_qp_summary <- summary(m_rich_vol_qp)
   cat("    Quasi-Poisson corrected: β = ", round(coef(m_rich_vol_qp)[2], 3),
       ", t = ", round(m_rich_qp_summary$coefficients[2, "t value"], 2),
@@ -374,7 +374,7 @@ if (dispersion_ratio > 1.5) {
 cat("\n")
 
 # Shannon vs volume
-m_shan_vol <- lm(shannon ~ log(volume), data = coral_master)
+m_shan_vol <- lm(shannon ~ log(volume) + site, data = coral_master)
 m_shan_summary <- summary(m_shan_vol)
 
 cat("    Shannon ~ log(Volume):\n")
@@ -479,7 +479,8 @@ comm_hell <- decostand(community_matrix, method = "hellinger")
 cat("4.1 NMDS Ordination:\n")
 
 set.seed(42)
-nmds <- metaMDS(comm_hell, distance = "bray", k = 2, trymax = 100, trace = 0)
+nmds <- metaMDS(comm_hell, distance = "bray", k = 2, trymax = 100, trace = 0,
+                autotransform = FALSE)  # autotransform = FALSE: data already Hellinger-transformed
 
 cat("    Stress: ", round(nmds$stress, 3), "\n", sep = "")
 cat("    Interpretation: ", ifelse(nmds$stress < 0.05, "Excellent",
@@ -1476,6 +1477,7 @@ metric_sensitivity_results <- lapply(names(distance_configs), function(metric_na
   disp_F <- NA_real_
 
   if (!is.null(disp_result)) {
+    set.seed(42)
     disp_test_res <- tryCatch(permutest(disp_result, permutations = 999), error = function(e) NULL)
     if (!is.null(disp_test_res)) disp_F <- disp_test_res$statistic
 
@@ -1607,14 +1609,15 @@ subsample_once <- function(metric_name, dist_full, metadata) {
   # Subset distance matrix
   dist_mat_full <- as.matrix(dist_full)
   dist_sub <- as.dist(dist_mat_full[subs_ids, subs_ids])
-  meta_sub <- metadata %>% filter(coral_id %in% subs_ids)
+  meta_sub <- metadata %>% filter(coral_id %in% subs_ids) %>%
+    arrange(match(coral_id, subs_ids))  # Enforce same row order as distance matrix
 
   # PERMDISP (dispersion homogeneity)
   bd <- betadisper(dist_sub, meta_sub$site)
+  set.seed(42)
   permdisp_p <- permutest(bd, permutations = 999)$tab[1, "Pr(>F)"]
 
   # PERMANOVA (marginal test for site effect)
-  set.seed(42)
   adonis_res <- adonis2(dist_sub ~ log(volume) + site,
                         data = meta_sub, permutations = 999, by = "margin")
   # Site row (row 2 in marginal output: volume is row 1, site is row 2)
@@ -1854,6 +1857,7 @@ if (requireNamespace("indicspecies", quietly = TRUE)) {
   comm_filtered <- community_matrix[common_ids, colSums(community_matrix[common_ids, ] > 0) >= 5]
 
   tryCatch({
+    set.seed(42)
     indval <- multipatt(comm_filtered, coral_for_perm$site, control = how(nperm = 999))
     sig_indicators <- indval$sign[indval$sign$p.value < 0.05, ]
     if (nrow(sig_indicators) > 0) {

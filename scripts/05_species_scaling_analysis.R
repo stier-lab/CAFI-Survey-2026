@@ -837,11 +837,12 @@ if (nrow(shannon_data) >= 15) {
   shannon_p <- shannon_summary$coefficients["log(volume)", "Pr(>|t|)"]
 
   # Test vs β = 0 (does Shannon diversity scale with volume at all?)
-  # Note: Testing vs β=1 is meaningless for Shannon H' because it is already
-
-  # log-transformed (H' = -Σ pi*ln(pi)). The relevant null is β=0 (no scaling).
   shannon_t_vs_0 <- shannon_t  # standard t-test from lm() is already vs 0
   shannon_p_vs_0 <- shannon_p
+
+  # Test vs β = 1 (consistent with other scaling metrics)
+  shannon_z_vs_1 <- (shannon_beta - 1) / shannon_se
+  shannon_p_vs_1 <- 2 * pnorm(abs(shannon_z_vs_1), lower.tail = FALSE)
 
   cat("Results:\n")
   cat("  Scaling exponent β =", round(shannon_beta, 3), "\n")
@@ -861,8 +862,8 @@ if (nrow(shannon_data) >= 15) {
     ci_upper = shannon_ci[2],
     z_value = shannon_t,
     p_value = shannon_p,
-    z_vs_1 = shannon_t_vs_0,
-    p_vs_1 = shannon_p_vs_0,
+    z_vs_1 = shannon_z_vs_1,
+    p_vs_1 = shannon_p_vs_1,
     p_boot_vs_1 = NA_real_,
     interpretation = ifelse(shannon_p_vs_0 < 0.05 && shannon_beta > 0,
                            "Positive scaling (β > 0)",
@@ -2415,11 +2416,19 @@ if (nrow(scaling_data) >= 30) {
   )
   cat("  Saved: density_dilution.csv\n")
 
+  # Predict from the log-log density model in raw space for overlay
+
+  density_vol_seq <- data.frame(volume = exp(seq(log(min(scaling_data_nonzero$volume)),
+                                                 log(max(scaling_data_nonzero$volume)),
+                                                 length.out = 100)))
+  density_vol_seq$density_pred <- exp(predict(density_lm,
+                                              newdata = data.frame(volume = density_vol_seq$volume)))
+
   panel_b_density <- ggplot(scaling_data_nonzero,
                             aes(x = volume, y = total_cafi / volume, fill = site)) +
-    geom_smooth(aes(group = 1), method = "lm", formula = y ~ x,
-                se = TRUE, color = smooth_color, fill = smooth_fill,
-                linewidth = smooth_lwd, alpha = smooth_alpha) +
+    geom_line(data = density_vol_seq, aes(x = volume, y = density_pred),
+              inherit.aes = FALSE,
+              color = smooth_color, linewidth = smooth_lwd) +
     geom_point(alpha = point_alpha, size = point_size,
                shape = 21, color = "white", stroke = 0.3) +
     geom_hline(yintercept = mean(scaling_data_nonzero$total_cafi / scaling_data_nonzero$volume),
@@ -2599,16 +2608,22 @@ Source script: scripts/05_species_scaling_analysis.R
   top10_data_all <- top10_data_all %>%
     mutate(species_label = factor(species_label, levels = rev(sp_order)))
 
-  # Generate NB GLM predictions for each species (avoids zero-inflation display issues)
+  # Generate NB GLM predictions for each species (marginalized over site)
   vol_grid <- data.frame(volume = exp(seq(log(50), log(40000), length.out = 100)))
 
   sp_pred_list <- lapply(top10_species$response, function(sp) {
     sp_data <- top10_data_all %>% filter(otu == sp)
-    fit <- tryCatch(MASS::glm.nb(abundance ~ log(volume), data = sp_data),
+    fit <- tryCatch(MASS::glm.nb(abundance ~ log(volume) + site, data = sp_data),
                     error = function(e) NULL)
     if (is.null(fit)) return(NULL)
-    pred <- predict(fit, newdata = vol_grid, type = "response")
-    data.frame(volume = vol_grid$volume, abundance = pred,
+    # Average predictions across site levels
+    site_levels <- unique(sp_data$site)
+    preds_by_site <- lapply(site_levels, function(s) {
+      nd <- data.frame(volume = vol_grid$volume, site = s)
+      predict(fit, newdata = nd, type = "response")
+    })
+    avg_pred <- Reduce("+", preds_by_site) / length(preds_by_site)
+    data.frame(volume = vol_grid$volume, abundance = avg_pred,
                species_label = gsub("_", " ", sp))
   })
   sp_pred_df <- do.call(rbind, Filter(Negate(is.null), sp_pred_list))
@@ -2658,14 +2673,20 @@ Source script: scripts/05_species_scaling_analysis.R
   tax_palette <- c("Crabs" = "#E69F00", "Shrimps" = "#56B4E9",
                    "Fishes" = "#009E73", "Snails" = "#CC79A7")
 
-  # Generate NB GLM predictions for each taxonomic group
+  # Generate NB GLM predictions for each taxonomic group (marginalized over site)
   tax_pred_list <- lapply(unique(tax_long$group), function(g) {
     g_data <- tax_long %>% filter(group == g)
-    fit <- tryCatch(MASS::glm.nb(abundance ~ log(volume), data = g_data),
+    fit <- tryCatch(MASS::glm.nb(abundance ~ log(volume) + site, data = g_data),
                     error = function(e) NULL)
     if (is.null(fit)) return(NULL)
-    pred <- predict(fit, newdata = vol_grid, type = "response")
-    data.frame(volume = vol_grid$volume, abundance = pred, group = g)
+    # Average predictions across site levels
+    site_levels <- unique(g_data$site)
+    preds_by_site <- lapply(site_levels, function(s) {
+      nd <- data.frame(volume = vol_grid$volume, site = s)
+      predict(fit, newdata = nd, type = "response")
+    })
+    avg_pred <- Reduce("+", preds_by_site) / length(preds_by_site)
+    data.frame(volume = vol_grid$volume, abundance = avg_pred, group = g)
   })
   tax_pred_df <- do.call(rbind, Filter(Negate(is.null), tax_pred_list))
 

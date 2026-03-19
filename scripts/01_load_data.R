@@ -210,7 +210,8 @@ coral_clean <- coral_raw %>%
     survey_type = if ("survey_type" %in% names(.)) survey_type else NA_character_,
 
     # Volume
-    volume     = coalesce(volume_lab, volume_field, length_lab * width_lab * height_lab),
+    # Ellipsoidal formula for fallback: V = (4/3) * pi * (l/2) * (w/2) * (h/2)
+    volume     = coalesce(volume_lab, volume_field, (4/3) * pi * (length_lab/2) * (width_lab/2) * (height_lab/2)),
     log_volume = log(volume),  # natural log; volume > 0 guaranteed by filter
 
     # Dimensions
@@ -218,7 +219,7 @@ coral_clean <- coral_raw %>%
     width  = coalesce(width_lab, width_field),
     length = coalesce(length_lab, length_field),
 
-    # Sampling position
+    # Sampling position (prefer nub1; use nub2 only if nub1 is NA)
     stump_length  = coalesce(nub1_stump_length, nub2_stump_length),
     nubbin_length = coalesce(nub1_nubbin_length, nub2_nubbin_length),
 
@@ -235,6 +236,14 @@ if (length(dropped_corals) > 0) {
   cat("  WARNING: Dropped", length(dropped_corals), "corals with missing volume:",
       paste(dropped_corals, collapse = ", "), "\n")
 }
+
+# Verify: how many corals used each volume source?
+vol_source_raw <- coral_raw %>% distinct(coral_id, .keep_all = TRUE)
+n_vol_lab      <- sum(!is.na(vol_source_raw$volume_lab))
+n_vol_field    <- sum(is.na(vol_source_raw$volume_lab) & !is.na(vol_source_raw$volume_field))
+n_vol_fallback <- sum(is.na(vol_source_raw$volume_lab) & is.na(vol_source_raw$volume_field) &
+                      !is.na(vol_source_raw$length_lab) & !is.na(vol_source_raw$width_lab) & !is.na(vol_source_raw$height_lab))
+cat("  Volume sources: lab =", n_vol_lab, ", field =", n_vol_field, ", ellipsoidal fallback =", n_vol_fallback, "\n")
 
 cat("   Clean records:", nrow(coral_clean), "\n")
 cat("   Sites:", paste(unique(coral_clean$site), collapse = ", "), "\n")
@@ -269,7 +278,7 @@ coral_master <- coral_clean %>%
     isolation_index = mean_neighbor_dist / (volume^(1/3) + 1),
     crowding_index  = total_neighbor_volume / (mean_neighbor_dist + 1),
     relative_size   = volume / (mean_neighbor_volume + 1),
-    cafi_density    = total_cafi / volume * 1000,
+    cafi_density    = total_cafi / volume * 1000,  # individuals per liter (volume in cm³, ×1000 converts to L⁻¹)
 
     # Alias names
     species_richness  = otu_richness,
@@ -335,7 +344,7 @@ cat("    After join with coral data:", nrow(physio_merged), "\n")
 cat("    Lost to missing volume:", sum(is.na(physio_merged$volume)), "\n")
 
 physio_merged <- physio_merged %>%
-  filter(!is.na(stump_length) | !is.na(nubbin_length))
+  filter(!is.na(stump_length), !is.na(nubbin_length))
 
 cat("    After position filter (stump/nubbin):", nrow(physio_merged), "\n")
 
@@ -344,7 +353,7 @@ if (nrow(physio_merged) > 20) {
   n_before_dropna <- nrow(physio_merged)
   correction_data <- physio_merged %>%
     dplyr::select(coral_id, site, volume, stump_length, nubbin_length, any_of(physio_vars)) %>%
-    drop_na()
+    drop_na(stump_length, nubbin_length, all_of(physio_vars))
 
   n_dropped_condition <- n_before_dropna - nrow(correction_data)
   cat("    Lost to missing physio vars:", n_dropped_condition, "\n")

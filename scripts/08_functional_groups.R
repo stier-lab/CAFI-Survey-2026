@@ -292,23 +292,26 @@ if (nrow(trapezia) > 0) {
   }
 
   # Create marginal prediction curve by averaging across all sites
-  vol_seq_trap <- seq(min(trap_data$volume), max(trap_data$volume), length.out = 100)
-  trap_pred_list <- lapply(levels(factor(trap_data$site)), function(s) {
-    nd <- data.frame(volume = vol_seq_trap, site = s)
-    nd$pred <- predict(trap_scaling_result$model, newdata = nd, type = "response")
-    nd
-  })
-  trap_pred_data <- data.frame(
-    volume = vol_seq_trap,
-    fit = Reduce("+", lapply(trap_pred_list, function(x) x$pred)) / length(trap_pred_list)
-  )
+  if (!is.null(trap_scaling_result$model)) {
+    vol_seq_trap <- seq(min(trap_data$volume), max(trap_data$volume), length.out = 100)
+    trap_pred_list <- lapply(levels(factor(trap_data$site)), function(s) {
+      nd <- data.frame(volume = vol_seq_trap, site = s)
+      nd$pred <- predict(trap_scaling_result$model, newdata = nd, type = "response")
+      nd
+    })
+    trap_pred_data <- data.frame(
+      volume = vol_seq_trap,
+      fit = Reduce("+", lapply(trap_pred_list, function(x) x$pred)) / length(trap_pred_list)
+    )
+  }
 
   # Create Trapezia scaling figure
   p_trap_scaling <- trap_data %>%
     ggplot(aes(x = volume, y = n_trapezia, color = site)) +
     geom_point(alpha = 0.7, size = 2.5) +
-    geom_line(data = trap_pred_data, aes(x = volume, y = fit),
-              inherit.aes = FALSE, color = "black", linewidth = 1) +
+    {if (!is.null(trap_scaling_result$model))
+      geom_line(data = trap_pred_data, aes(x = volume, y = fit),
+                inherit.aes = FALSE, color = "black", linewidth = 1)} +
     scale_x_log10(labels = scales::comma) +
     scale_y_continuous(trans = scales::pseudo_log_trans()) +
     scale_color_manual(values = SITE_COLORS, name = "Site") +
@@ -569,23 +572,26 @@ if (nrow(resident_fish) > 0) {
   }
 
   # Create marginal prediction curve by averaging across all sites
-  vol_seq_fish <- seq(min(fish_data$volume), max(fish_data$volume), length.out = 100)
-  fish_pred_list <- lapply(levels(factor(fish_data$site)), function(s) {
-    nd <- data.frame(volume = vol_seq_fish, site = s)
-    nd$pred <- predict(fish_scaling_result$model, newdata = nd, type = "response")
-    nd
-  })
-  fish_pred_data <- data.frame(
-    volume = vol_seq_fish,
-    fit = Reduce("+", lapply(fish_pred_list, function(x) x$pred)) / length(fish_pred_list)
-  )
+  if (!is.null(fish_scaling_result$model)) {
+    vol_seq_fish <- seq(min(fish_data$volume), max(fish_data$volume), length.out = 100)
+    fish_pred_list <- lapply(levels(factor(fish_data$site)), function(s) {
+      nd <- data.frame(volume = vol_seq_fish, site = s)
+      nd$pred <- predict(fish_scaling_result$model, newdata = nd, type = "response")
+      nd
+    })
+    fish_pred_data <- data.frame(
+      volume = vol_seq_fish,
+      fit = Reduce("+", lapply(fish_pred_list, function(x) x$pred)) / length(fish_pred_list)
+    )
+  }
 
   # Fish scaling plot
   p_fish_scaling <- fish_data %>%
     ggplot(aes(x = volume, y = n_fish, color = site)) +
     geom_point(alpha = 0.7, size = 2.5) +
-    geom_line(data = fish_pred_data, aes(x = volume, y = fit),
-              inherit.aes = FALSE, color = "black", linewidth = 1) +
+    {if (!is.null(fish_scaling_result$model))
+      geom_line(data = fish_pred_data, aes(x = volume, y = fit),
+                inherit.aes = FALSE, color = "black", linewidth = 1)} +
     scale_x_log10(labels = scales::comma) +
     scale_y_continuous(trans = scales::pseudo_log_trans()) +
     scale_color_manual(values = SITE_COLORS, name = "Site") +
@@ -843,23 +849,26 @@ if (nrow(coral_eating_snails) > 0) {
   }
 
   # Create marginal prediction curve by averaging across all sites
-  vol_seq_snail <- seq(min(gastropod_data$volume), max(gastropod_data$volume), length.out = 100)
-  snail_pred_list <- lapply(levels(factor(gastropod_data$site)), function(s) {
-    nd <- data.frame(volume = vol_seq_snail, site = s)
-    nd$pred <- predict(snail_scaling_result$model, newdata = nd, type = "response")
-    nd
-  })
-  snail_pred_data <- data.frame(
-    volume = vol_seq_snail,
-    fit = Reduce("+", lapply(snail_pred_list, function(x) x$pred)) / length(snail_pred_list)
-  )
+  if (!is.null(snail_scaling_result$model)) {
+    vol_seq_snail <- seq(min(gastropod_data$volume), max(gastropod_data$volume), length.out = 100)
+    snail_pred_list <- lapply(levels(factor(gastropod_data$site)), function(s) {
+      nd <- data.frame(volume = vol_seq_snail, site = s)
+      nd$pred <- predict(snail_scaling_result$model, newdata = nd, type = "response")
+      nd
+    })
+    snail_pred_data <- data.frame(
+      volume = vol_seq_snail,
+      fit = Reduce("+", lapply(snail_pred_list, function(x) x$pred)) / length(snail_pred_list)
+    )
+  }
 
   # Gastropod patterns figure
   p_snails <- gastropod_data %>%
     ggplot(aes(x = volume, y = n_corallivore, color = site)) +
     geom_point(alpha = 0.7, size = 2.5) +
-    geom_line(data = snail_pred_data, aes(x = volume, y = fit),
-              inherit.aes = FALSE, color = "black", linewidth = 1) +
+    {if (!is.null(snail_scaling_result$model))
+      geom_line(data = snail_pred_data, aes(x = volume, y = fit),
+                inherit.aes = FALSE, color = "black", linewidth = 1)} +
     scale_x_log10(labels = scales::comma) +
     scale_y_continuous(trans = scales::pseudo_log_trans()) +
     scale_color_manual(values = SITE_COLORS, name = "Site") +
@@ -907,7 +916,7 @@ guild_diversity <- cafi_clean %>%
     n_individuals = n(),
     n_corals = n_distinct(coral_id),
     shannon_guild = vegan::diversity(table(otu)),
-    evenness = shannon_guild / log(n_distinct(otu)),
+    evenness = ifelse(n_distinct(otu) > 1, shannon_guild / log(n_distinct(otu)), NA_real_),
     dominant_species = names(sort(table(otu), decreasing = TRUE))[1],
     .groups = "drop"
   ) %>%
