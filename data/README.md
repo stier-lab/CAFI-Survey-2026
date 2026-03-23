@@ -15,6 +15,7 @@ This directory contains all raw and supporting data for the coral-associated fau
 | Coral physiology measurements | `survey_master_phys_data_v3.csv` |
 | Species-association mapping | `association_lookup.csv` |
 | Obligate vs facultative classification | `facultative_obligate.csv` |
+| Symbiodiniaceae haplotype assignments | `survey_coral_haplotypes_v1.csv` |
 
 ---
 
@@ -112,6 +113,29 @@ This directory contains all raw and supporting data for the coral-associated fau
 
 ---
 
+### 4. survey_coral_haplotypes_v1.csv
+
+**What it is**: Symbiodiniaceae ITS2 haplotype assignments for all 114 survey corals, determined via PCR amplification.
+
+| Property | Value |
+|----------|-------|
+| Rows | 114 (one per coral colony) |
+| Key join column | `coral_id` |
+| File size | 4 KB |
+
+**Key columns**:
+
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| `coral_id` | text | Unique coral colony ID | "HAU-POC01" |
+| `site` | text | Site code (HAU, MAT, MRB) | "HAU" |
+| `haplotype` | text | Symbiodiniaceae ITS2 haplotype | "1a_Pm", "1a_Pe", "Did not amplify" |
+| `dna_collection_date` | date | Date tissue sampled for DNA | "2019-07-04" |
+
+**Notes**: 101 of 114 corals have valid haplotype assignments (88.6%). Two dominant haplotypes: `1a_Pe` (49 corals) and `1a_Pm` (32 corals). See `README_survey_haplotype_metadata_v1.md` for full haplotype key and provenance.
+
+---
+
 ## Lookup Tables
 
 ### association_lookup.csv
@@ -138,6 +162,7 @@ These files document the original data collection protocols:
 | `README_survey_cafi_metadata_v1.xlsx` | Column definitions for CAFI data |
 | `README_survey_coral_characteristics_metadata_v2.xlsx` | Column definitions for coral data |
 | `README_survey_physio_metadata_v4.xlsx` | Column definitions for physiology data |
+| `README_survey_haplotype_metadata_v1.md` | Haplotype data provenance, column definitions, haplotype key |
 | `README_survey_project_overview.docx` | Project overview and field methods |
 | `README_tip_stump_comparison_dec_2019.docx` | Sampling position comparison documentation |
 

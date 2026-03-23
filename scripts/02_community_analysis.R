@@ -1034,6 +1034,13 @@ cat("    β = ", round(coef(trend_model)[2], 3),
     ", p = ", format.pval(trend_summary$coefficients[2, "Pr(>|t|)"], 3), "\n", sep = "")
 cat("    R² = ", round(trend_summary$r.squared, 3), "\n", sep = "")
 
+# Site-controlled model
+trend_model_site <- lm(distance_to_centroid ~ log(volume) + site, data = distances_df)
+trend_summary_site <- summary(trend_model_site)
+cat("    Site-controlled: β = ", round(coef(trend_model_site)["log(volume)"], 3),
+    ", p = ", format.pval(trend_summary_site$coefficients["log(volume)", "Pr(>|t|)"], 3),
+    ", adj R² = ", round(trend_summary_site$adj.r.squared, 3), "\n", sep = "")
+
 # Interpretation
 trend_direction <- ifelse(coef(trend_model)[2] > 0, "INCREASES", "DECREASES")
 trend_sig <- ifelse(trend_summary$coefficients[2, "Pr(>|t|)"] < 0.05, "significantly", "not significantly")
@@ -1269,30 +1276,43 @@ p_nmds_trajectory <- ggplot() +
   theme_publication() +
   theme(legend.position = "right")
 
+# Panel C: Continuous scatter — distance-to-centroid vs log(volume)
+p_convergence_scatter <- ggplot(distances_df, aes(x = log(volume), y = distance_to_centroid)) +
+  geom_point(aes(color = site), alpha = 0.6, size = 2) +
+  geom_smooth(method = "lm", color = "black", linewidth = 0.8, se = TRUE, alpha = 0.15) +
+  scale_color_manual(values = SITE_COLORS, name = "Site") +
+  annotate("text", x = min(log(distances_df$volume)) + 0.5,
+           y = max(distances_df$distance_to_centroid) - 0.02,
+           label = paste0("\u03B2 = ", round(coef(trend_model)[2], 3),
+                          ", R\u00B2 = ", round(trend_summary$r.squared, 2),
+                          ", p < 0.001"),
+           hjust = 0, size = 3.5) +
+  labs(
+    title = "C. Continuous Convergence Trend",
+    x = "ln(Colony Volume, cm\u00B3)",
+    y = "Distance to Centroid (Bray-Curtis)"
+  ) +
+  theme_publication() +
+  theme(legend.position = "bottom")
+
 # Combine panels
-fig_divergence <- p_divergence_boxplot + p_nmds_trajectory +
-  plot_layout(widths = c(1, 1.3)) +
+fig_divergence <- (p_divergence_boxplot + p_nmds_trajectory + p_convergence_scatter) +
+  plot_layout(widths = c(1, 1.3, 1)) +
   plot_annotation(
     title = "Figure S3: Community Composition by Coral Size",
-    subtitle = paste0("Do larger corals support more distinct CAFI communities? | n = ",
-                      nrow(distances_df), " corals"),
-    caption = paste0("Distance to centroid measures community distinctness within size class.\n",
-                     "Original: significant (p < 0.001). After rarefaction (n\u2265 5): NOT significant (p = ",
-                     sprintf("%.2f", trend_summary_rarefied$coefficients[2, "Pr(>|t|)"]),
-                     "). Size-divergence is an abundance artifact."),
+    subtitle = paste0("n = ", nrow(distances_df), " corals"),
     theme = theme(
       plot.title = element_text(face = "bold", size = 14),
-      plot.subtitle = element_text(size = 11),
-      plot.caption = element_text(size = 9, hjust = 0, color = "gray40")
+      plot.subtitle = element_text(size = 11)
     )
   )
 
 save_figure(fig_divergence, file.path(FIG_DIR, "composition_divergence_by_size.png"),
-            width = 14, height = 7)
+            width = 18, height = 7)
 
 # Supplement S3: Composition divergence by size
 save_figure(fig_divergence, file.path(supplement_dir, "figS3_composition_divergence.png"),
-            width = 14, height = 7)
+            width = 18, height = 7)
 
 # 4B.6 Add results to stats tracking
 cat("4B.6 Recording Statistical Results:\n")
@@ -2560,14 +2580,37 @@ save_object(results_list, "community_analysis_results")
 
 # Save divergence stats as CSV for manuscript
 divergence_stats_df <- data.frame(
-  test = c("PERMDISP (size classes)", "Linear trend (Small→Large)"),
-  statistic = c(round(disp_size_test$statistic, 3), round(trend_summary$coefficients[2, "t value"], 3)),
-  df = c(paste(disp_size_test$df, collapse = ", "), trend_summary$df[2]),
-  p_value = c(disp_size_test$pval, trend_summary$coefficients[2, "Pr(>|t|)"]),
-  effect_size = c(NA, round(coef(trend_model)[2], 3)),
-  interpretation = c(
-    ifelse(disp_size_test$pval < 0.05, "Dispersions differ by size", "No difference"),
-    paste0("β = ", round(coef(trend_model)[2], 3), ": ", trend_direction, " ", trend_sig)
+  test = c("PERMDISP (size classes)", "Linear trend (raw)",
+           "Linear trend (site-controlled)", "Linear trend (rarefied)"),
+  statistic = c(
+    round(disp_size_test$statistic, 3),
+    round(trend_summary$coefficients[2, "t value"], 3),
+    round(trend_summary_site$coefficients["log(volume)", "t value"], 3),
+    round(trend_summary_rarefied$coefficients[2, "t value"], 3)
+  ),
+  df = c(
+    paste(disp_size_test$df, collapse = ", "),
+    trend_summary$df[2],
+    trend_summary_site$df[2],
+    trend_summary_rarefied$df[2]
+  ),
+  p_value = c(
+    disp_size_test$pval,
+    trend_summary$coefficients[2, "Pr(>|t|)"],
+    trend_summary_site$coefficients["log(volume)", "Pr(>|t|)"],
+    trend_summary_rarefied$coefficients[2, "Pr(>|t|)"]
+  ),
+  effect_size = c(
+    NA,
+    round(coef(trend_model)[2], 4),
+    round(coef(trend_model_site)["log(volume)"], 4),
+    round(coef(trend_model_rarefied)[2], 4)
+  ),
+  r_squared = c(
+    NA,
+    round(trend_summary$r.squared, 3),
+    round(trend_summary_site$adj.r.squared, 3),
+    round(trend_summary_rarefied$r.squared, 3)
   )
 )
 save_table(divergence_stats_df, "composition_divergence_stats")

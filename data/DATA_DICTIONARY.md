@@ -46,6 +46,30 @@ This data dictionary describes all data files associated with the manuscript "Su
 
 ---
 
+### 1b. survey_coral_haplotypes_v1.csv
+
+**Description**: Symbiodiniaceae ITS2 haplotype assignments for all 114 survey corals.
+
+**Rows**: 114 colonies
+**Location**: `data/`
+
+| Variable | Type | Description | Units/Values | Missing |
+|----------|------|-------------|--------------|---------|
+| coral_id | character | Unique coral colony identifier | Format: "SITE-POC##" | None |
+| site | character | Study site code | HAU, MAT, MRB | None |
+| haplotype | character | Symbiodiniaceae ITS2 haplotype | 1a, 1a_Pe, 1a_Pm, 3a, 3b, 3f, 3h, 8a, 10, "Did not amplify", "No sample" | None (but 13 non-valid) |
+| dna_collection_date | date | Date tissue sampled for DNA extraction | YYYY-MM-DD | 7 records |
+
+**Haplotype Notes**:
+- 101 valid haplotype assignments (88.6% amplification success)
+- 11 samples: "Did not amplify" (PCR failure)
+- 2 samples: "No sample" (tissue not collected)
+- Dominant haplotypes: `1a_Pe` (49, *P. eydouxi*-type) and `1a_Pm` (32, *P. meandrina*-type)
+- ITS2 haplotypes identify Symbiodiniaceae clades, not coral host species
+- mtORF restriction fragment data available in archived metadata (CAFI_2025 repo)
+
+---
+
 ### 2. survey_coral_characteristics_merged_v2.csv
 
 **Description**: Coral colony morphological characteristics and GPS coordinates.

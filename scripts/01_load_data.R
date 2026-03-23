@@ -252,6 +252,36 @@ cat("      neighborhood (5m surveys):", sum(coral_clean$survey_type == "neighbor
 cat("      size (CAFI only):", sum(coral_clean$survey_type == "size", na.rm = TRUE), "\n\n")
 
 # ============================================================================
+# 3b. LOAD HAPLOTYPE DATA
+# ============================================================================
+
+cat("3b. Loading haplotype data...\n")
+
+haplotypes <- read_csv(file.path(PATHS$data, "survey_coral_haplotypes_v1.csv"),
+                        show_col_types = FALSE)
+
+# Assign species based on Johnston, Cunning & Burgess (2022) Molecular Ecology
+haplotypes <- haplotypes %>%
+  dplyr::select(coral_id, haplotype, dna_collection_date) %>%
+  mutate(
+    haplotype_valid = !haplotype %in% c("Did not amplify", "No sample"),
+    poc_species = case_when(
+      haplotype == "1a_Pe" ~ "P. grandis",
+      haplotype %in% c("1a_Pm", "8a") ~ "P. meandrina",
+      haplotype == "10" ~ "P. tuahiniensis",
+      haplotype %in% c("3a", "3b", "3f", "3h") ~ "P. verrucosa",
+      haplotype == "1a" ~ "P. meandrina/grandis",
+      TRUE ~ NA_character_
+    )
+  )
+
+cat("   Haplotype records:", nrow(haplotypes), "\n")
+cat("   Successfully genotyped:", sum(haplotypes$haplotype_valid), "\n")
+cat("   Species distribution:\n")
+print(table(haplotypes$poc_species, useNA = "ifany"))
+cat("\n")
+
+# ============================================================================
 # 4. CREATE MASTER DATASET
 # ============================================================================
 
@@ -259,6 +289,7 @@ cat("4. Creating master coral dataset...\n")
 
 coral_master <- coral_clean %>%
   left_join(cafi_by_coral, by = c("coral_id", "site")) %>%
+  left_join(haplotypes, by = "coral_id") %>%
   mutate(
     # Fill NAs with 0 for CAFI counts only
     # IMPORTANT: Preserve NA for neighborhood metrics (n_neighbors, total_neighbor_volume, etc.)

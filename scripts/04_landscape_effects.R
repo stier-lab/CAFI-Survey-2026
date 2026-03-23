@@ -470,6 +470,77 @@ cat("      F(", m_shan_full_summary$fstatistic[2], ",",
     round(m_shan_full_summary$fstatistic[1], 2), "\n\n")
 
 # ============================================================================
+# PART 5B: RAREFIED RICHNESS VS NEIGHBOR DISTANCE
+# ============================================================================
+# Tests whether the distance-richness finding is genuine species accumulation
+# or a passive sampling artifact (closer neighbors → more CAFI → more species).
+# If rarefied richness still correlates with distance, the effect is real.
+# ============================================================================
+
+cat("------------------------------------------------------------\n")
+cat("PART 5B: RAREFIED RICHNESS VS MEAN NEIGHBOR DISTANCE\n")
+cat("------------------------------------------------------------\n\n")
+
+# Compute rarefied richness on the fly if not already present
+if (!"rarefied_richness" %in% names(landscape_data)) {
+  if (exists("community_matrix")) {
+    comm_sub <- community_matrix[rownames(community_matrix) %in% landscape_data$coral_id, ]
+    rare_min <- 20
+    row_totals <- rowSums(comm_sub)
+    rare_vals <- rep(NA_real_, nrow(comm_sub))
+    eligible <- row_totals >= rare_min
+    if (sum(eligible) > 0) {
+      rare_vals[eligible] <- vegan::rarefy(comm_sub[eligible, ], sample = rare_min)
+    }
+    rare_lookup <- tibble(coral_id = rownames(comm_sub), rarefied_richness = rare_vals)
+    landscape_data <- landscape_data %>% left_join(rare_lookup, by = "coral_id")
+    cat("  Computed rarefied richness (n=20) for", sum(!is.na(landscape_data$rarefied_richness)), "corals\n")
+  }
+}
+
+if ("rarefied_richness" %in% names(landscape_data)) {
+  rare_dist_data <- landscape_data %>% filter(!is.na(rarefied_richness))
+  cat("  Sample size (rarefied richness available):", nrow(rare_dist_data), "\n")
+
+  if (nrow(rare_dist_data) >= 20) {
+    m_rare_dist <- lm(rarefied_richness ~ mean_neighbor_dist + log(volume) + site,
+                      data = rare_dist_data)
+    s_rare_dist <- summary(m_rare_dist)
+    rare_beta <- coef(m_rare_dist)["mean_neighbor_dist"]
+    rare_p <- s_rare_dist$coefficients["mean_neighbor_dist", "Pr(>|t|)"]
+
+    cat("  Rarefied richness ~ mean_neighbor_dist + log(volume) + site:\n")
+    cat("    β =", round(rare_beta, 5),
+        ", t =", round(s_rare_dist$coefficients["mean_neighbor_dist", "t value"], 2),
+        ", p =", format.pval(rare_p, 3), "\n")
+    cat("    Adj R²:", round(s_rare_dist$adj.r.squared, 3), "\n")
+    cat("    Interpretation:", ifelse(rare_p < 0.05,
+        "Distance predicts rarefied richness — genuine species accumulation, not passive sampling",
+        "Distance does NOT predict rarefied richness — likely an abundance artifact"), "\n\n")
+
+    save_table(
+      tibble(
+        predictor = "mean_neighbor_dist",
+        response = "rarefied_richness",
+        beta = round(rare_beta, 5),
+        t_value = round(s_rare_dist$coefficients["mean_neighbor_dist", "t value"], 2),
+        p_value = round(rare_p, 4),
+        adj_r2 = round(s_rare_dist$adj.r.squared, 3),
+        n = nrow(rare_dist_data)
+      ),
+      "landscape_rarefied_richness_distance"
+    )
+    cat("  Saved: landscape_rarefied_richness_distance.csv\n\n")
+  } else {
+    cat("  Insufficient sample with rarefied richness (n < 20)\n\n")
+    rare_p <- NA_real_
+  }
+} else {
+  cat("  rarefied_richness not in landscape_data — skipping\n\n")
+  rare_p <- NA_real_
+}
+
+# ============================================================================
 # PART 6: HIERARCHICAL MODEL COMPARISON
 # ============================================================================
 
@@ -687,10 +758,14 @@ cat("------------------------------------------------------------\n\n")
 # NOTE: These 4 functional group tests are exploratory and not corrected for multiple testing.
 functional_groups <- c("n_trapezia", "n_resident_fish", "n_corallivore", "n_shrimp")
 
+fg_distance_results <- list()
+
 for (fg in functional_groups) {
   if (fg %in% names(landscape_data) && sum(landscape_data[[fg]] > 0) > 10) {
-    cat(paste0("8.", which(functional_groups == fg), " ", gsub("n_", "", fg), ":\n"))
+    fg_label <- gsub("n_", "", fg)
+    cat(paste0("8.", which(functional_groups == fg), " ", fg_label, ":\n"))
 
+    # Model with n_neighbors
     fg_model <- tryCatch({
       MASS::glm.nb(as.formula(paste(fg, "~ log(volume) + n_neighbors + site")),
              data = landscape_data)
@@ -709,9 +784,38 @@ for (fg in functional_groups) {
 
     cat("    Volume effect: β =", round(vol_coef, 3),
         ", p =", format.pval(vol_p, 3), "\n")
-    cat("    Neighbor effect: β =", round(neigh_coef, 4),
-        ", p =", format.pval(neigh_p, 3), "\n\n")
+    cat("    Neighbor count effect: β =", round(neigh_coef, 4),
+        ", p =", format.pval(neigh_p, 3), "\n")
+
+    # Model with mean_neighbor_dist
+    fg_dist_model <- tryCatch({
+      MASS::glm.nb(as.formula(paste(fg, "~ log(volume) + mean_neighbor_dist + site")),
+             data = landscape_data)
+    }, error = function(e) {
+      glm(as.formula(paste(fg, "~ log(volume) + mean_neighbor_dist + site")),
+          family = poisson, data = landscape_data)
+    })
+
+    fg_dist_summary <- summary(fg_dist_model)
+    dist_coef <- coef(fg_dist_model)["mean_neighbor_dist"]
+    dist_p <- fg_dist_summary$coefficients["mean_neighbor_dist", ncol(fg_dist_summary$coefficients)]
+
+    cat("    Neighbor distance effect: β =", round(dist_coef, 5),
+        ", p =", format.pval(dist_p, 3), "\n\n")
+
+    fg_distance_results[[fg_label]] <- tibble(
+      group = fg_label,
+      vol_beta = round(vol_coef, 4), vol_p = round(vol_p, 4),
+      count_beta = round(neigh_coef, 4), count_p = round(neigh_p, 4),
+      dist_beta = round(dist_coef, 5), dist_p = round(dist_p, 4)
+    )
   }
+}
+
+if (length(fg_distance_results) > 0) {
+  fg_dist_table <- bind_rows(fg_distance_results)
+  save_table(fg_dist_table, "landscape_functional_group_distance")
+  cat("  Saved: landscape_functional_group_distance.csv\n\n")
 }
 
 # ============================================================================
@@ -804,19 +908,95 @@ save_figure(p_size_abund, file.path(FIG_DIR, "abundance_vs_volume.png"),
 save_figure(p_neighbor_count, file.path(FIG_DIR, "abundance_vs_neighbors.png"),
             width = 7, height = 5)
 
-# Supplement S7: Neighborhood null results
-# Remove panel label "D." from multi-panel layout for standalone supplementary figure
+# Supplement S5: Expanded 6-panel neighborhood effects figure
+# 3 responses (abundance, richness, Shannon) × 2 predictors (n_neighbors, mean_neighbor_dist)
 supplement_dir <- file.path(PATHS$figures, "supplement")
 dir.create(supplement_dir, showWarnings = FALSE, recursive = TRUE)
-p_neighbor_count_s7 <- p_neighbor_count +
-  labs(title = "Figure S5: Neighborhood Density and CAFI Abundance",
-       subtitle = paste0("\u03B2 = ", round(coef(m_neighbors)["n_neighbors"], 3),
-                         ", p = ", format.pval(m_neigh_summary$coefficients["n_neighbors", "Pr(>|z|)"], 2))) +
-  scale_color_manual(values = SITE_COLORS, name = "Site") +
-  guides(color = guide_legend(override.aes = list(size = 3, alpha = 1))) +
-  theme(legend.position = "bottom")
-save_figure(p_neighbor_count_s7, file.path(supplement_dir, "figS5_neighborhood_null.png"),
-            width = 7, height = 5.5)
+
+# Helper: annotation text from model results
+ann_text <- function(beta, p) {
+  paste0("\u03B2 = ", round(beta, 4), ", p = ",
+         ifelse(p < 0.001, "<0.001", round(p, 3)))
+}
+
+# Panel A: Abundance vs n_neighbors (NS)
+pS5_A <- ggplot(landscape_data, aes(x = n_neighbors, y = total_cafi, color = site)) +
+  geom_jitter(alpha = 0.6, width = 0.3, size = 2) +
+  scale_y_sqrt() + scale_color_manual(values = SITE_COLORS) +
+  annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 1.3, size = 3,
+           label = ann_text(coef(m_abund_full)["n_neighbors"],
+                            m_abund_full_summary$coefficients["n_neighbors", "Pr(>|z|)"])) +
+  labs(x = "Number of neighbors (5 m)", y = "CAFI abundance", title = "A") +
+  theme(legend.position = "none")
+
+# Panel B: Abundance vs mean_neighbor_dist (NS)
+pS5_B <- ggplot(landscape_data, aes(x = mean_neighbor_dist / 100, y = total_cafi, color = site)) +
+  geom_point(alpha = 0.6, size = 2) +
+  scale_y_sqrt() + scale_color_manual(values = SITE_COLORS) +
+  annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 1.3, size = 3,
+           label = ann_text(coef(m_abund_full)["mean_neighbor_dist"],
+                            m_abund_full_summary$coefficients["mean_neighbor_dist", "Pr(>|z|)"])) +
+  labs(x = "Mean neighbor distance (m)", y = "CAFI abundance", title = "B") +
+  theme(legend.position = "none")
+
+# Panel C: Richness vs n_neighbors (NS)
+pS5_C <- ggplot(landscape_data, aes(x = n_neighbors, y = otu_richness, color = site)) +
+  geom_jitter(alpha = 0.6, width = 0.3, size = 2) +
+  scale_color_manual(values = SITE_COLORS) +
+  annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 1.3, size = 3,
+           label = ann_text(coef(m_rich_full)["n_neighbors"],
+                            m_rich_full_summary$coefficients["n_neighbors", "Pr(>|z|)"])) +
+  labs(x = "Number of neighbors (5 m)", y = "Species richness", title = "C") +
+  theme(legend.position = "none")
+
+# Panel D: Richness vs mean_neighbor_dist (SIGNIFICANT)
+pS5_D <- ggplot(landscape_data, aes(x = mean_neighbor_dist / 100, y = otu_richness, color = site)) +
+  geom_point(alpha = 0.6, size = 2) +
+  geom_smooth(aes(group = 1), method = "glm", formula = y ~ x,
+              method.args = list(family = poisson), se = TRUE, color = "black", linewidth = 0.8) +
+  scale_color_manual(values = SITE_COLORS) +
+  annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 1.3, size = 3, fontface = "bold",
+           label = ann_text(coef(m_rich_full)["mean_neighbor_dist"],
+                            m_rich_full_summary$coefficients["mean_neighbor_dist", "Pr(>|z|)"])) +
+  labs(x = "Mean neighbor distance (m)", y = "Species richness", title = "D") +
+  theme(legend.position = "none")
+
+# Panel E: Shannon vs n_neighbors (NS)
+pS5_E <- ggplot(landscape_data, aes(x = n_neighbors, y = shannon, color = site)) +
+  geom_jitter(alpha = 0.6, width = 0.3, size = 2) +
+  scale_color_manual(values = SITE_COLORS) +
+  annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 1.3, size = 3,
+           label = ann_text(coef(m_shan_full)["n_neighbors"],
+                            m_shan_full_summary$coefficients["n_neighbors", "Pr(>|t|)"])) +
+  labs(x = "Number of neighbors (5 m)", y = "Shannon H\u2032", title = "E") +
+  theme(legend.position = "none")
+
+# Panel F: Shannon vs mean_neighbor_dist (SIGNIFICANT)
+pS5_F <- ggplot(landscape_data, aes(x = mean_neighbor_dist / 100, y = shannon, color = site)) +
+  geom_point(alpha = 0.6, size = 2) +
+  geom_smooth(aes(group = 1), method = "lm", formula = y ~ x,
+              se = TRUE, color = "black", linewidth = 0.8) +
+  scale_color_manual(values = SITE_COLORS) +
+  annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 1.3, size = 3, fontface = "bold",
+           label = ann_text(coef(m_shan_full)["mean_neighbor_dist"],
+                            m_shan_full_summary$coefficients["mean_neighbor_dist", "Pr(>|t|)"])) +
+  labs(x = "Mean neighbor distance (m)", y = "Shannon H\u2032", title = "F") +
+  theme(legend.position = "none")
+
+# Assemble 6-panel S5
+figS5 <- (pS5_A | pS5_B) / (pS5_C | pS5_D) / (pS5_E | pS5_F) +
+  plot_layout(guides = "collect") +
+  plot_annotation(
+    title = "Neighborhood effects on CAFI communities",
+    subtitle = paste0("n = ", nrow(landscape_data),
+                      " corals with 5-m neighborhood surveys | Trend lines shown for significant relationships only"),
+    theme = theme(plot.title = element_text(size = 13, face = "bold"),
+                  plot.subtitle = element_text(size = 10))
+  )
+
+save_figure(figS5, file.path(supplement_dir, "figS5_neighborhood.png"),
+            width = 170, height = 200, units = "mm")
+cat("  Saved: figS5_neighborhood.png (6-panel)\n")
 
 save_figure(p_neighbor_vol, file.path(FIG_DIR, "abundance_vs_neighbor_volume.png"),
             width = 7, height = 5)

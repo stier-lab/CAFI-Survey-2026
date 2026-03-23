@@ -10,20 +10,46 @@ This file provides essential context for AI assistants working with this codebas
 - **CAFI catalogued**: ~4,000 individual specimens spanning 243 OTUs (154 species-level, 89 genus/family/higher)
 - **Research focus**: How coral size structures CAFI abundance, richness, and composition (scaling + community assembly)
 
-## Relationship to Experimental Study
+## Companion Repos (CAFI Trilogy + Supporting)
 
-This **observational survey** complements a parallel **experimental study** that manipulated coral density (1, 3, 6 corals per 25m² reef). The two studies test the same hypotheses using different approaches:
+This project is **Paper 3** of a three-paper series. All use the same CAFI system in Mo'orea but manipulate different habitat axes:
 
-| Approach | Lever | Strength |
-|----------|-------|----------|
-| **Experiment** | Coral density (manipulated) | Causal inference, colonization dynamics |
-| **Survey** | Coral size + neighborhood (natural variation) | Ecological realism, established communities |
+| Paper | Repo (local) | GitHub | Lever | Status |
+|-------|-------------|--------|-------|--------|
+| **1. CAFI136 / MRB Amount** (experiment) | `~/Stier-2025-CAFI136-MRB-AMOUNT` | `adrianstier/Stier-2025-CAFI136-MRB-AMOUNT` + `adrianstier/coral-cafi-density-experiment` | Coral density (1, 3, 6 per 25m²) | Publication-ready, Zenodo archived (DOI: 10.5281/zenodo.18239647) |
+| **2. Maatea Size** (observational) | `~/Stier-CAFI-Size-Maatea-2026` | `stier-lab/Stier-CAFI-Size-Maatea-2026` | Coral size + branch spacing (60 colonies, 39 survivors) | Analysis pipeline built, manuscript drafting |
+| **3. CAFI Survey 2026** (this repo) | `~/CAFI-Survey-2026` | `stier-lab/CAFI-Survey-2026` | Coral size + neighborhood (natural variation, 114 colonies) | Manuscript drafting |
+
+### Supporting Repos
+
+| Repo | Local | GitHub | Purpose | Status |
+|------|-------|--------|---------|--------|
+| **CAFI_2025** (monorepo) | `~/CAFI_2025` | `stier-lab/CAFI_2025` | Original monorepo with all 3 study pipelines (MRB + Maatea + Survey) | BCO-DMO data submission stage |
+| **moorea-cafi-data** (data archive) | `~/moorea-cafi-data` | — | BCO-DMO compliant data package: 23 data files across all 3 studies | BCO-DMO submission-ready |
+
+**Cross-repo notes:**
+- `CAFI_2025` is the original monorepo containing all three study pipelines. This repo (`CAFI-Survey-2026`) extracted and refined the Survey component; `Stier-CAFI-Size-Maatea-2026` extracted and refined the Maatea component.
+- `Stier-2025-CAFI136-MRB-AMOUNT` is the archival repo for Paper 1 (the density experiment). The manuscript references it as `StierInReview` in `references.bib`.
+- `Stier-CAFI-Size-Maatea-2026` is Paper 2 — examines how coral size and interbranch distance drive CAFI community assembly at the Maatea reef site (60 *Pocillopora* colonies, with growth tracked to May 2021).
+- `moorea-cafi-data` is the BCO-DMO data submission package for the NSF final report — contains cleaned, metadata-documented versions of all raw data files across all three studies.
+- Shared data heritage: raw survey data in `data/` here originated from `CAFI_2025/data/Survey/`.
+- Cross-study comparisons (species scaling concordance, condition sign concordance) reference Paper 1 results directly.
+
+## Relationship to Companion Studies
+
+The three papers form a complementary trilogy testing how habitat structure shapes CAFI communities using different approaches:
+
+| Paper | Approach | Lever | Strength |
+|-------|----------|-------|----------|
+| **1. MRB Amount** | Experiment | Coral density (manipulated) | Causal inference, colonization dynamics |
+| **2. Maatea Size** | Observational | Coral size + branch morphology (natural) | Morphological mechanisms, growth feedbacks |
+| **3. Survey** (this repo) | Observational | Coral size + neighborhood (natural) | Ecological realism, landscape context, established communities |
 
 ## Three Core Research Questions (Q1-Q3)
 
 | Question | Script | Key Result |
 |----------|--------|------------|
-| **Q1: SCALING** | `05_species_scaling_analysis.R` | Abundance β=0.52 (sublinear, Redirection); Richness z=0.34 (sublinear); density dilution |
+| **Q1: SCALING + NEIGHBORHOOD** | `05_species_scaling_analysis.R`, `04_landscape_effects.R` | Abundance β=0.52 (sublinear, Redirection); Richness z=0.34 (sublinear); density dilution; neighbor distance predicts richness (p=0.001) and rarefied richness (p=0.005) |
 | **Q2: COMPOSITION** | `02_community_analysis.R` | Site pools + size gradient structure composition; db-RDA confirms size effect survives rarefaction |
 | **Q3: FEEDBACKS** | `09_cafi_condition_feedbacks.R` | Species richness predicts condition (BEF framework, p=0.018); variance partitioning: 29% unique to richness, <1% to abundance |
 
@@ -32,7 +58,7 @@ This **observational survey** complements a parallel **experimental study** that
 | Analysis | Script | Key Result |
 |----------|--------|------------|
 | **Co-occurrence** | `06_cooccurrence_analysis.R` | Volume-weighted null model; pairwise associations mostly explained by volume + site (Fig S9) |
-| **Neighborhood** | `04_landscape_effects.R` | n_neighbors NOT significant (underpowered, n=61); supplement only |
+| **Neighborhood (count/volume)** | `04_landscape_effects.R` | n_neighbors and total_neighbor_volume NOT significant (all p>0.37); distance effect in main text under Q1 |
 
 ---
 
@@ -122,22 +148,28 @@ This **observational survey** complements a parallel **experimental study** that
 
 **Note on *Galeropsis monodonta***: This coralliophiline snail (Muricidae) dominates gastropod assemblages (73% of all gastropods = 356/489 individuals). It feeds on coral tissue (subfamily Coralliophilinae). Used as species-level predictor `n_galeropsis` instead of all gastropods combined.
 
-### Q4: Neighborhood — Does local coral density affect CAFI recruitment?
+### Neighborhood context (reported under Q1 in main text)
 
 **Hypotheses tested:**
-- **Neighborhood recruitment**: More neighbors → more CAFI (spillover/source-sink)
-- **Neighborhood condition**: More neighbors → better coral condition (facilitation)
+- **Proximity enhancement**: Corals closer to neighbors harbour more species (shared propagule pool)
+- **Density recruitment**: More neighbors → more CAFI (spillover/source-sink)
 
 **Methods:**
-- NB GLM: `total_cafi ~ log_volume * n_neighbors + site`
-- LM: `condition_score ~ log_volume * n_neighbors + site` (fixed effect)
-- Available on 61/114 corals (5m survey subset, after volume filter)
+- Full model: `response ~ log(volume) + n_neighbors + log(total_neighbor_volume+1) + mean_neighbor_dist + site`
+- AIC backward elimination; rarefied richness vs distance; functional group distance effects
+- Available on 61/114 corals (5m survey subset); rarefied richness available for 39/61
 
 **Key findings:**
-- n_neighbors NOT significant for CAFI abundance (p = 0.37)
-- n_neighbors NOT significant for coral condition (p = 0.78)
-- Volume remains the dominant predictor in all models
-- **Neighborhood density does not explain CAFI or condition variation**
+- **mean_neighbor_dist → richness: β = −0.005, z = −3.20, p = 0.001 (SIGNIFICANT)**
+- **mean_neighbor_dist → Shannon: β = −0.007, t = −3.49, p = 0.001 (SIGNIFICANT)**
+- **Rarefied richness → distance: β = −0.041, t = −2.97, p = 0.005 (survives rarefaction)**
+- mean_neighbor_dist → abundance: p = 0.78 (NS)
+- n_neighbors NOT significant for any response (all p > 0.37)
+- total_neighbor_volume NOT significant for any response (all p > 0.79)
+- No size × neighborhood interactions (all p_FDR > 0.22)
+- No functional group shows significant distance response (all p > 0.44)
+- Compositional variability: betadisper trend p = 0.53 (no continuous relationship)
+- **Interpretation: proximity matters, raw count does not; genuine species accumulation (not passive sampling)**
 
 ---
 
@@ -148,6 +180,8 @@ This **observational survey** complements a parallel **experimental study** that
 | `data/survey_cafi_data_w_taxonomy_summer2019_v5.csv` | CAFI specimen records with taxonomy | 3,989 rows |
 | `data/survey_coral_characteristics_merged_v2.csv` | Coral colony attributes (size, position, neighbors) | 114 rows |
 | `data/survey_master_phys_data_v3.csv` | Coral physiology measurements | 108 rows |
+| `data/survey_coral_haplotypes_v1.csv` | Coral mtORF haplotype assignments (species ID) | 114 rows |
+| `data/genetic_references/Johnston2022_Pocillopora_tree.nex` | Published Pocillopora phylogeny (7 tips) | — |
 | `data/traits/cafi_traits_final.csv` | CAFI trait database (size, depth, trophic) | varies |
 
 **Join key**: `coral_id` (format: "SITE-POC##", e.g., "HAU-POC29")
@@ -199,6 +233,7 @@ Located in `scripts/` folder. Run in order via `run_full_pipeline.R`.
 | Script | Analysis | Output |
 |--------|----------|--------|
 | `13_taxonomy_sensitivity.R` | 5 taxonomy scenarios × 7 metrics; uses pre-built data from 01_load_data.R | Fig S6 + sensitivity tables |
+| `14_supplementary_sensitivity.R` | 11+ sensitivity analyses (4 in supplement: betapart, mediation, morphotype, missing data; Parts 8b-8f: haplotype concordance, scaling-by-species, composition-by-species, phylogenetic distance, symbiont identity; 7 archived: envfit, IndVal, iNEXT, CWM, nonlinear BEF, C-score, MuMIn) | Tables S11–S15+ |
 
 ### Archived Scripts (`scripts/archive/` — NOT part of the manuscript or pipeline)
 
@@ -210,6 +245,7 @@ These scripts are retained for reference only. Do not run, edit, or cite them wh
 | `archive/10_feature_engineering.R` | Exploratory ML feature creation, VIF selection |
 | `archive/11_machine_learning.R` | Exploratory Random Forest, XGBoost models |
 | `archive/12_model_evaluation.R` | Exploratory cross-validation, diagnostics |
+| `archive/15_reviewer_response_analyses.R` | Pre-built code for reviewer requests: mvabund, GDM, TITAN2, Bayesian SEM, LOOCV, Bayesian multilevel scaling, cross-study meta-analysis. Set `if(FALSE)` blocks to `TRUE` to run. |
 
 ### Publication Figures (embedded in analysis scripts — no separate figure script)
 
@@ -228,14 +264,12 @@ Each manuscript figure is created by its source analysis script with **dual save
 | **S4** | `05_species_scaling_analysis.R` | Species-level scaling forest plot |
 | **S5** | `04_landscape_effects.R` | Neighborhood null results |
 | **S6** | `13_taxonomy_sensitivity.R` | Taxonomy sensitivity forest plot |
-| **S7** | `08_functional_groups.R` | Taxonomic group scaling and composition |
+| **S7** | `08_functional_groups.R` | *Archived* — taxonomic group scaling (redundant with Fig 3D) |
 | **S8** | `09_cafi_condition_feedbacks.R` | Rarefaction depth sensitivity for richness → condition |
 | **S9** | `06_cooccurrence_analysis.R` | Co-occurrence: pairwise SES heatmap + intraspecific density + size-dependent (3-panel) |
 | **S10** | `09_cafi_condition_feedbacks.R` | BEF variance partitioning + partial regression + path model coefficients |
-| **S11** | `09_cafi_condition_feedbacks.R` | A priori forest + rarefied richness + exploratory forest + Trapezia/Galeropsis scatter + bidirectional (6-panel) |
-| **S12** | `05_species_scaling_analysis.R` | Species occurrence probability vs. coral size (logistic GLM, 24 species) |
-| **S13** | `09_cafi_condition_feedbacks.R` | Species × trait heatmap: 19 prevalent species (≥5 corals) × 5 condition metrics (β values + FDR p-values) |
-| **S14** | `09_cafi_condition_feedbacks.R` | Species × trait biplots: 9 strongest associations (scatter + regression) |
+| **S11** | `09_cafi_condition_feedbacks.R` | A priori forest + rarefied richness + bidirectional (trimmed from 6 to 3 panels) |
+| **S12–S14** | `05`, `09` | *Archived* — occurrence curves, species×trait heatmap, species×trait biplots |
 
 **Note**: All archived/exploratory scripts are in `scripts/archive/` — they are NOT part of the manuscript or pipeline.
 
@@ -309,6 +343,22 @@ The following quality measures are implemented:
 | Cross-study power comparison | Survey powered to detect experiment's effect sizes (R²≈0.12) | `09_cafi_condition_feedbacks.R` |
 | Species scaling concordance | Survey vs experiment scaling patterns for overlapping species | `05_species_scaling_analysis.R` |
 | Neighborhood composition divergence | Betadisper: compositional variability by neighbor density | `04_landscape_effects.R` |
+| Beta diversity partitioning | betapart: 81% turnover, 19% nestedness; turnover decreases with volume | `14_supplementary_sensitivity.R` |
+| Envfit species vectors | Formal permutation-tested R² for species-NMDS associations | `14_supplementary_sensitivity.R` |
+| Indicator species by size class | IndVal for small/medium/large corals (41 significant) | `14_supplementary_sensitivity.R` |
+| Coverage-based rarefaction (iNEXT) | Hill q=0,1,2 by size class; per-coral scaling exponents | `14_supplementary_sensitivity.R` |
+| CWM obligate-mutualist fraction | Functional identity does not predict condition (p=0.54) | `14_supplementary_sensitivity.R` |
+| Nonlinear BEF sensitivity | Linear best (dAIC=0 vs log dAIC=3.9, poly dAIC=1.0) | `14_supplementary_sensitivity.R` |
+| Missing data characterization | Only site (MRB) predicts dropout; richness/volume NS | `14_supplementary_sensitivity.R` |
+| Morphotype confound | Adding morphotype absorbs richness signal (p goes from 0.015→0.27) | `14_supplementary_sensitivity.R` |
+| Mediation (richness→abundance→condition) | ACME NS (p=0.69); richness effect is direct, not abundance-mediated | `14_supplementary_sensitivity.R` |
+| C-score community co-occurrence | SES=2.60, p=0.017; weak community-wide segregation under quasiswap null | `14_supplementary_sensitivity.R` |
+| Morphotype-haplotype concordance | Chi-square/Fisher's exact, Cramer's V | `14_supplementary_sensitivity.R` |
+| BEF haplotype covariate | Richness survives adding genetic species (p=0.010 vs 0.008) | `14_supplementary_sensitivity.R` |
+| Scaling by species | Volume x species interaction NS (p=0.39); beta consistent across species | `14_supplementary_sensitivity.R` |
+| Composition by species | Marginal PERMANOVA: species R²=0.098, p=0.001 | `14_supplementary_sensitivity.R` |
+| Phylogenetic distance | Mantel r=0.12, p=0.013; partial Mantel r=0.13, p=0.002 | `14_supplementary_sensitivity.R` |
+| Symbiont identity | PERMANOVA R²=0.038, p=0.001; symbiont->condition beta=1.28, p=0.008 | `14_supplementary_sensitivity.R` |
 
 ## Output Structure
 
@@ -372,7 +422,7 @@ output/
 - **Join key**: `coral_id` links all datasets
 - **Site codes**: HAU (Hauru), MAT (Maatea), MRB (Maharepa barrier reef)
 - **Volume**: Use `volume` (field estimate)
-- **Key columns**: `n_galeropsis` (Galeropsis count per coral), `n_corallivore` (all gastropods)
+- **Key columns**: `n_galeropsis` (Galeropsis count per coral), `n_corallivore` (all gastropods), `poc_species` (genetic species: P. grandis, P. meandrina, P. tuahiniensis, P. verrucosa), `haplotype` (mtORF haplotype code: 1a_Pe, 1a_Pm, 10, 3a, 3b, 3f, 3h, 8a), `haplotype_valid` (TRUE for 101 successfully genotyped colonies)
 - **Packages**: Use `dplyr::select()` explicitly (MASS conflict); car::vif(), DHARMa, sandwich/lmtest for diagnostics
 - **Colors**: Two semantic palettes, chosen to avoid cross-figure confusion:
 
@@ -440,6 +490,7 @@ Scripts 00 and 01 must always run first. After that, most scripts can run indepe
 | `08_functional_groups.R` | coral_master, scaling_analysis_results | — | Yes: needs 05 |
 | `09_cafi_condition_feedbacks.R` | coral_master, condition_scores, cafi_pca_results | — | No |
 | `13_taxonomy_sensitivity.R` | coral_master, taxonomy_scenario_data | — | No |
+| `14_supplementary_sensitivity.R` | coral_master, community_matrix, condition_scores, cafi_clean | — | No |
 
 ## Data Schema Quick Reference
 
@@ -454,7 +505,11 @@ Join key: `coral_id`
 
 ### survey_master_phys_data_v3.csv (108 rows)
 Key columns: `coral_id`, `nub`, `protein_mg_cm2`, `carb_mg_cm2`, `zooxDensity`, `afdw_mg_cm2`, `stump_length`, `nubbin_length`
-Note: Position-corrected values created in script 01 by regressing traits on stump_length + nubbin_length
+Note: Position-corrected values created in script 01 by regressing traits on stump_length + nubbin_length. Also contains a `haplotype` column (mtORF), but only for 108/114 corals — use `survey_coral_haplotypes_v1.csv` for complete coverage including `poc_species` and `haplotype_valid`.
+
+### survey_coral_haplotypes_v1.csv (114 rows)
+Key columns: `coral_id`, `site`, `haplotype`, `poc_species`, `haplotype_valid`
+Coral mtORF haplotype assignments for all 114 survey corals. 101 successfully genotyped (`haplotype_valid=TRUE`), 11 did not amplify, 2 no sample. Haplotype-to-species mapping: 1a_Pe→P. grandis (n=49), 1a_Pm→P. meandrina (n=34), 3a/3b/3f/3h→P. verrucosa (n=10), 10→P. tuahiniensis (n=7), 8a→P. acuta (n=1). Provenance: extracted from CAFI_2025 physiology master + original genotype file. Full metadata in `data/README_survey_haplotype_metadata_v1.md`.
 
 ### Join Logic
 - All joins on `coral_id` (format: "SITE-POC##", e.g., "HAU-POC29")
@@ -475,7 +530,7 @@ Note: Position-corrected values created in script 01 by regressing traits on stu
 ### Data Quirks
 - **CAFI site column unreliable**: Extract site from `coral_id` prefix, not the `site` column
 - **Neighborhood data NA for 53 corals**: survey_type="size" corals have no neighborhood surveys — not "isolated," just not surveyed
-- **Morphotype is putative**: Not genetically confirmed; some cryptic species complexes may be present
+- **Morphotype is putative but now genetically confirmed**: mtORF haplotyping resolved 101/114 colonies to 4 species (P. grandis n=49, P. meandrina n=34, P. tuahiniensis n=7, P. verrucosa n=10). Field morphotype shows 33-94% concordance with genetic species (Table S15). Haplotype data loaded in script 01.
 
 ## Manuscript Editing Workflow
 
