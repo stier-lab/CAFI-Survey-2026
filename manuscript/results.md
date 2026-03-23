@@ -8,7 +8,9 @@ Sublinear scaling extended to individual species: 11 of 21 prevalent species sho
 
 Five of six taxonomic groups scaled sublinearly (β range 0.43–0.74; Fig. 3B,D); gastropods were the sole exception (β = 0.94, CI spanning 1.0). Size-dependent occurrence reinforced these patterns: 14 of 24 prevalent species showed significant occurrence–volume relationships (logistic GLM, FDR < 0.05). All results were robust to taxonomic resolution (Fig. S6).
 
-Among the 61 colonies with neighborhood surveys (5-m radius), closer neighbors predicted higher richness (β = −0.005, z = −3.20, p = 0.001) and Shannon diversity (p = 0.001), but not total abundance (p = 0.78; Fig. S5; Table S4). Neither neighbor count nor total neighbor volume predicted any response (all p > 0.37; minimum detectable R² = 0.13 at 80% power with n = 61). The distance–richness relationship survived rarefaction (n = 39, p = 0.005), confirming genuine species accumulation rather than a passive sampling artifact.
+### Neighborhood context
+
+Among the 61 colonies with neighborhood surveys (5-m radius), closer neighbors predicted higher richness (β = −0.005, z = −3.20, p = 0.001) and Shannon diversity (p = 0.001), but not total abundance (p = 0.78; Fig. S5; Table S4). Neither neighbor count nor total neighbor volume predicted any response (all p > 0.37). The distance–richness relationship survived rarefaction (n = 39, p = 0.005), confirming genuine species accumulation rather than a passive sampling artifact.
 
 ## Q2: Site pools and coral size structure community composition
 
