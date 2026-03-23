@@ -2599,14 +2599,39 @@ Source script: scripts/05_species_scaling_analysis.R
     arrange(beta) %>%
     pull(species_label)
 
-  # Assign colors: use a qualitative palette for species, ordered by beta
-  sp_palette <- c("#E69F00", "#56B4E9", "#009E73", "#0072B2", "#D55E00",
-                  "#CC79A7", "#882255", "#44AA99", "#999933", "#332288")
-  names(sp_palette) <- sp_order[1:min(length(sp_order), 10)]
+  # Map species to broad taxonomic groups (matching Panel B/D colors)
+  species_to_group <- c(
+    "Trapezia serenei" = "Crabs", "Trapezia bidentata" = "Crabs",
+    "Calcinus nitidus" = "Crabs",
+    "Alpheus lottini" = "Shrimps", "Harpiliopsis beaupresii" = "Shrimps",
+    "Synalpheus charon" = "Shrimps", "Fennera" = "Shrimps",
+    "Harpiliopsis spinigera" = "Shrimps",
+    "Galeropsis monodonta" = "Snails",
+    "Paracirrhites arcatus" = "Fishes"
+  )
+
+  # Group color palette (shared across panels A, B, C, D)
+  group_palette <- c("Crabs" = "#E69F00", "Shrimps" = "#56B4E9",
+                     "Fishes" = "#009E73", "Snails" = "#CC79A7")
+
+  # Assign linetypes within each group (up to 5 species per group)
+  ltype_pool <- c("solid", "dashed", "dotted", "dotdash", "longdash")
+  sp_linetypes <- character()
+  for (grp in unique(group_palette)) {
+    grp_name <- names(group_palette)[group_palette == grp]
+    grp_spp <- names(species_to_group)[species_to_group == grp_name]
+    grp_spp <- grp_spp[grp_spp %in% sp_order]  # only those in top 10
+    for (i in seq_along(grp_spp)) {
+      sp_linetypes[grp_spp[i]] <- ltype_pool[i]
+    }
+  }
 
   # Apply factor levels to data so legend matches Panel C order (top = highest beta)
   top10_data_all <- top10_data_all %>%
-    mutate(species_label = factor(species_label, levels = rev(sp_order)))
+    mutate(
+      species_label = factor(species_label, levels = rev(sp_order)),
+      group = species_to_group[as.character(species_label)]
+    )
 
   # Generate NB GLM predictions for each species (marginalized over site)
   vol_grid <- data.frame(volume = exp(seq(log(50), log(40000), length.out = 100)))
@@ -2628,15 +2653,18 @@ Source script: scripts/05_species_scaling_analysis.R
   })
   sp_pred_df <- do.call(rbind, Filter(Negate(is.null), sp_pred_list))
   sp_pred_df$species_label <- factor(sp_pred_df$species_label, levels = rev(sp_order))
+  sp_pred_df$group <- species_to_group[as.character(sp_pred_df$species_label)]
 
   panel_a_sp <- ggplot() +
-    geom_jitter(data = top10_data_all, aes(x = volume, y = abundance, color = species_label),
-                alpha = 0.15, size = 0.6, height = 0.3, width = 0, show.legend = FALSE) +
-    geom_line(data = sp_pred_df, aes(x = volume, y = abundance, color = species_label),
+    geom_jitter(data = top10_data_all, aes(x = volume, y = abundance, color = group),
+                alpha = 0.12, size = 0.6, height = 0.3, width = 0, show.legend = FALSE) +
+    geom_line(data = sp_pred_df,
+              aes(x = volume, y = abundance, color = group, linetype = species_label),
               linewidth = 0.7) +
     scale_x_log10(labels = scales::comma, breaks = c(100, 1000, 10000)) +
     scale_y_sqrt(breaks = c(0, 1, 5, 10, 25, 50)) +
-    scale_color_manual(values = sp_palette, name = NULL) +
+    scale_color_manual(values = group_palette, name = "Group") +
+    scale_linetype_manual(values = sp_linetypes, name = NULL) +
     coord_cartesian(xlim = shared_xlim) +
     labs(
       x = expression("Coral volume (cm"^3*")"),
@@ -2651,14 +2679,16 @@ Source script: scripts/05_species_scaling_analysis.R
       legend.justification = c(0, 1),
       legend.background = element_rect(fill = alpha("white", 0.85), color = NA),
       legend.key.size = unit(3, "mm"),
-      legend.key.width = unit(6, "mm"),
+      legend.key.width = unit(8, "mm"),
       legend.text = element_text(size = 5.5, face = "italic"),
       legend.spacing.y = unit(0.5, "mm"),
       legend.margin = margin(2, 4, 2, 2, "mm"),
       panel.grid.minor = element_blank(),
       plot.margin = margin(5, 8, 5, 8, "mm")
     ) +
-    guides(color = guide_legend(ncol = 2, byrow = FALSE))
+    guides(color = "none",
+           linetype = guide_legend(ncol = 2, byrow = FALSE,
+                                   override.aes = list(linewidth = 0.6)))
 
   # --- Panel B: Taxonomic group abundance vs volume (overlaid curves) ---
   # Reshape taxonomic groups to long format
@@ -2730,6 +2760,7 @@ Source script: scripts/05_species_scaling_analysis.R
     mutate(
       species_label = gsub("_", " ", response),
       species_label = factor(species_label, levels = rev(species_label[order(beta)])),
+      group = species_to_group[species_label],
       scaling_class = case_when(
         boot_ci_upper < 1 ~ "Redirection",
         boot_ci_lower > 1 ~ "Super-linear",
@@ -2766,10 +2797,10 @@ Source script: scripts/05_species_scaling_analysis.R
   panel_c_forest <- ggplot(sp_forest, aes(x = beta, y = species_label)) +
     geom_vline(xintercept = 1, linetype = "dashed", color = "gray45", linewidth = 0.4) +
     geom_segment(aes(x = boot_ci_lower, xend = boot_ci_upper,
-                     y = species_label, yend = species_label, color = scaling_class),
+                     y = species_label, yend = species_label, color = group),
                  linewidth = 0.5) +
-    geom_point(aes(color = scaling_class), size = 2) +
-    scale_color_manual(values = scaling_colors, name = NULL) +
+    geom_point(aes(color = group), size = 2) +
+    scale_color_manual(values = group_palette, name = NULL) +
     scale_x_continuous(limits = forest_xlim) +
     labs(
       x = expression("Scaling exponent (" * beta * ")"),
@@ -2788,10 +2819,10 @@ Source script: scripts/05_species_scaling_analysis.R
   panel_d_forest <- ggplot(tax_forest, aes(x = beta, y = group)) +
     geom_vline(xintercept = 1, linetype = "dashed", color = "gray45", linewidth = 0.4) +
     geom_segment(aes(x = ci_lower, xend = ci_upper,
-                     y = group, yend = group, color = scaling_class),
+                     y = group, yend = group, color = group),
                  linewidth = 0.5) +
-    geom_point(aes(color = scaling_class), size = 2.5) +
-    scale_color_manual(values = scaling_colors, name = NULL) +
+    geom_point(aes(color = group), size = 2.5) +
+    scale_color_manual(values = group_palette, name = NULL) +
     scale_x_continuous(limits = forest_xlim) +
     labs(
       x = expression("Scaling exponent (" * beta * ")"),
@@ -2863,16 +2894,12 @@ Across all ', n_species_total, ' species tested: ', n_redirection_all, ' Redirec
 FDR correction (Benjamini-Hochberg) applied within species and group categories.
 n = ', nrow(scaling_data), ' Pocillopora corals across 3 reef sites (HAU, MAT, MRB).
 
-PANEL A SPECIES COLORS (ordered by scaling exponent):
-', paste(sapply(seq_along(sp_order[1:min(length(sp_order), 10)]), function(i) {
-  sprintf("  %s: %s", gsub("_", " ", sp_order[i]), sp_palette[sp_order[i]])
-}), collapse = "\n"), '
-
-PANEL B TAXONOMIC GROUP COLORS:
-  Crabs: #E69F00 (amber)
-  Shrimps: #56B4E9 (sky blue)
-  Fishes: #009E73 (bluish green)
-  Snails: #CC79A7 (reddish purple)
+PANELS A-D TAXONOMIC GROUP COLORS (shared across all panels):
+  Crabs: #E69F00 (amber) — Trapezia spp., Calcinus nitidus
+  Shrimps: #56B4E9 (sky blue) — Alpheus, Harpiliopsis, Synalpheus, Fennera
+  Fishes: #009E73 (bluish green) — Paracirrhites arcatus
+  Snails: #CC79A7 (reddish purple) — Galeropsis monodonta
+Species within groups distinguished by linetype (solid, dashed, dotted, etc.).
 
 ================================================================================
 Generated: ', Sys.Date(), '
