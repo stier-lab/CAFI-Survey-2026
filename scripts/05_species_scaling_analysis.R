@@ -2600,9 +2600,11 @@ Source script: scripts/05_species_scaling_analysis.R
     pull(species_label)
 
   # Map species to broad taxonomic groups (matching Panel B/D colors)
+  # n_crabs = true crabs only (type == "crab": Trapezia, xanthids)
+  # Hermit crabs (Calcinus spp., type == "hermit") are a separate group
   species_to_group <- c(
     "Trapezia serenei" = "Crabs", "Trapezia bidentata" = "Crabs",
-    "Calcinus nitidus" = "Crabs",
+    "Calcinus latens" = "Hermit crabs", "Calcinus nitidus" = "Hermit crabs",
     "Alpheus lottini" = "Shrimps", "Harpiliopsis beaupresii" = "Shrimps",
     "Synalpheus charon" = "Shrimps", "Fennera" = "Shrimps",
     "Harpiliopsis spinigera" = "Shrimps",
@@ -2611,8 +2613,10 @@ Source script: scripts/05_species_scaling_analysis.R
   )
 
   # Group color palette (shared across panels A, B, C, D)
+  # Hermit crabs get a distinct muted color since they're not in the 4-group taxonomy
   group_palette <- c("Crabs" = "#E69F00", "Shrimps" = "#56B4E9",
-                     "Fishes" = "#009E73", "Snails" = "#CC79A7")
+                     "Fishes" = "#009E73", "Snails" = "#CC79A7",
+                     "Hermit crabs" = "#999999")
 
   # Assign linetypes within each group (up to 5 species per group)
   ltype_pool <- c("solid", "dashed", "dotted", "dotdash", "longdash")
@@ -2895,10 +2899,11 @@ FDR correction (Benjamini-Hochberg) applied within species and group categories.
 n = ', nrow(scaling_data), ' Pocillopora corals across 3 reef sites (HAU, MAT, MRB).
 
 PANELS A-D TAXONOMIC GROUP COLORS (shared across all panels):
-  Crabs: #E69F00 (amber) — Trapezia spp., Calcinus nitidus
-  Shrimps: #56B4E9 (sky blue) — Alpheus, Harpiliopsis, Synalpheus, Fennera
+  Crabs: #E69F00 (amber) — Trapezia serenei, T. bidentata
+  Shrimps: #56B4E9 (sky blue) — Alpheus lottini, Harpiliopsis spp., Synalpheus, Fennera
   Fishes: #009E73 (bluish green) — Paracirrhites arcatus
   Snails: #CC79A7 (reddish purple) — Galeropsis monodonta
+  Hermit crabs: #999999 (gray) — Calcinus latens, C. nitidus
 Species within groups distinguished by linetype (solid, dashed, dotted, etc.).
 
 ================================================================================
