@@ -752,7 +752,117 @@ if (nrow(comm_hap) == nrow(meta_hap) && nrow(meta_hap) > 30) {
 }
 
 # ============================================================================
-# PART 8f: PHYLOGENETIC DISTANCE AND SYMBIONT IDENTITY
+# PART 8f: GENOTYPE → ARCHITECTURE MEDIATION
+# ============================================================================
+# Tests whether genetic species identity predicts CAFI through branching
+# architecture (branch_width). Cross-references companion study (Maatea, Paper 2)
+# which demonstrated full mediation: haplotype composition signal disappears
+# when branch architecture is conditioned on (PERMANOVA p: 0.003 → 0.338).
+# ============================================================================
+
+cat("------------------------------------------------------------\n")
+cat("PART 8f: GENOTYPE → ARCHITECTURE MEDIATION\n")
+cat("------------------------------------------------------------\n\n")
+
+hap_arch <- coral_master %>%
+  filter(haplotype_valid == TRUE, !is.na(poc_species),
+         poc_species != "P. meandrina/grandis")
+
+if (nrow(hap_arch) > 30) {
+  cat("  N =", nrow(hap_arch), "genotyped colonies (4 species)\n\n")
+
+  # --- Branch width × species (Fisher's exact) ---
+  if ("branch_width" %in% names(hap_arch)) {
+    bw_tab <- table(Species = hap_arch$poc_species, Branch = hap_arch$branch_width)
+    cat("  Branch width × species:\n")
+    print(bw_tab)
+    fisher_bw <- fisher.test(bw_tab, simulate.p.value = TRUE, B = 10000)
+    cat(sprintf("\n  Fisher's exact: p = %.2e\n", fisher_bw$p.value))
+
+    # Proportion wide-branching by species
+    prop_wide <- prop.table(bw_tab, margin = 1)
+    cat("\n  % wide-branching by species:\n")
+    print(round(prop_wide * 100, 1))
+    cat("\n")
+  }
+
+  # --- Species → richness (controlling volume + site) ---
+  m_rich_null <- glm(species_richness ~ log_volume + site, data = hap_arch, family = poisson)
+  m_rich_sp <- glm(species_richness ~ log_volume + poc_species + site, data = hap_arch, family = poisson)
+  lr_rich <- anova(m_rich_null, m_rich_sp, test = "Chisq")
+  cat(sprintf("  Species → richness (| volume + site): LRT p = %s\n",
+              format.pval(lr_rich$`Pr(>Chi)`[2], 3)))
+
+  # --- Species → abundance (controlling volume + site) ---
+  m_abund_null <- MASS::glm.nb(total_cafi ~ log_volume + site, data = hap_arch)
+  m_abund_sp <- MASS::glm.nb(total_cafi ~ log_volume + poc_species + site, data = hap_arch)
+  lr_abund <- anova(m_abund_null, m_abund_sp, test = "Chisq")
+  cat(sprintf("  Species → abundance (| volume + site): LRT p = %s\n",
+              format.pval(lr_abund$`Pr(Chi)`[2], 3)))
+
+  # --- Species → condition (controlling volume + site) ---
+  cond_arch <- hap_arch %>% filter(!is.na(condition_score))
+  if (nrow(cond_arch) > 20) {
+    m_cond_null <- lm(condition_score ~ log_volume + site, data = cond_arch)
+    m_cond_sp <- lm(condition_score ~ log_volume + poc_species + site, data = cond_arch)
+    f_test <- anova(m_cond_null, m_cond_sp)
+    cat(sprintf("  Species → condition (| volume + site): F-test p = %s (n = %d)\n",
+                format.pval(f_test$`Pr(>F)`[2], 3), nrow(cond_arch)))
+    cat(sprintf("    Adj R² without species: %.3f; with species: %.3f\n",
+                summary(m_cond_null)$adj.r.squared, summary(m_cond_sp)$adj.r.squared))
+
+    # Species-level condition means
+    cat("\n  Condition means by species:\n")
+    cond_means <- cond_arch %>%
+      group_by(poc_species) %>%
+      summarise(n = n(), mean_cond = round(mean(condition_score), 2),
+                se = round(sd(condition_score)/sqrt(n()), 2), .groups = "drop")
+    print(as.data.frame(cond_means))
+  }
+
+  # --- Functional group species effects (key test: do Trapezia differ?) ---
+  cat("\n  Functional group × species (LRT, controlling volume + site):\n")
+  for (fg in c("n_trapezia", "n_resident_fish", "n_galeropsis", "n_shrimps", "n_other_crab")) {
+    fg_null <- tryCatch(MASS::glm.nb(as.formula(paste(fg, "~ log_volume + site")),
+                                      data = hap_arch), error = function(e) NULL)
+    fg_sp <- tryCatch(MASS::glm.nb(as.formula(paste(fg, "~ log_volume + poc_species + site")),
+                                    data = hap_arch), error = function(e) NULL)
+    if (!is.null(fg_null) && !is.null(fg_sp)) {
+      lr <- anova(fg_null, fg_sp, test = "Chisq")
+      p_val <- lr$`Pr(Chi)`[2]
+      cat(sprintf("    %s: p = %s %s\n", fg, format.pval(p_val, 3),
+                  ifelse(p_val < 0.05, "*", "")))
+    }
+  }
+
+  # --- Save summary ---
+  arch_summary <- data.frame(
+    Test = c("Branch width × species (Fisher)",
+             "Species → richness (| vol + site)",
+             "Species → abundance (| vol + site)",
+             "Species → condition (| vol + site)",
+             "Species → composition (PERMANOVA)"),
+    P_value = c(fisher_bw$p.value,
+                lr_rich$`Pr(>Chi)`[2],
+                lr_abund$`Pr(Chi)`[2],
+                if (exists("f_test")) f_test$`Pr(>F)`[2] else NA,
+                0.001),  # from Part 8e
+    N = c(nrow(hap_arch), nrow(hap_arch), nrow(hap_arch),
+          if (exists("cond_arch")) nrow(cond_arch) else NA, nrow(hap_arch)),
+    Interpretation = c(
+      "P. grandis = wide-branching; others = tight",
+      "Species predicts richness beyond volume",
+      "Species does NOT predict abundance beyond volume",
+      "Species predicts condition (P. verrucosa highest)",
+      "Species explains 8.3% of composition"
+    )
+  )
+  save_table(arch_summary, "sensitivity_genotype_architecture")
+  cat("\n  Saved: sensitivity_genotype_architecture.csv\n\n")
+}
+
+# ============================================================================
+# PART 8g: PHYLOGENETIC DISTANCE AND SYMBIONT IDENTITY
 # ============================================================================
 # Uses published phylogenetic tree (Johnston, Cunning & Burgess 2022, Mol Ecol)
 # to test whether genetic distance predicts CAFI composition beyond architecture.
@@ -760,7 +870,7 @@ if (nrow(comm_hap) == nrow(meta_hap) && nrow(meta_hap) > 30) {
 # ============================================================================
 
 cat("------------------------------------------------------------\n")
-cat("PART 8f: PHYLOGENETIC DISTANCE & SYMBIONT IDENTITY\n")
+cat("PART 8g: PHYLOGENETIC DISTANCE & SYMBIONT IDENTITY\n")
 cat("------------------------------------------------------------\n\n")
 
 tree_file <- file.path(here::here(), "data/genetic_references/Johnston2022_Pocillopora_tree.nex")
