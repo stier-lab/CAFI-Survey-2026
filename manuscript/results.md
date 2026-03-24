@@ -22,6 +22,8 @@ Community composition also shifted continuously along the coral size gradient. D
 
 Nestedness was not significant (NODF = 18.4, p = 0.28); beta diversity partitioning confirmed that species replacement accounted for 81% of total dissimilarity (Table S11). Combined with the significant db-RDA, this indicates species turnover---not passive accumulation---along the size gradient.
 
+Community variability declined from small to large corals (distance-to-centroid ANOVA F = 9.21, p < 0.001; Fig. S15), consistent with compositional convergence as communities mature. Three-way variance partitioning attributed more unique compositional variation to host architecture (branch width and genetic species identity, 5.6%) than to colony volume alone (4.6%) or site (2.9%; Table S16). Coral genetic species identity independently predicted CAFI composition (marginal PERMANOVA R² = 0.083, p = 0.001; Table S16), with 28 of 52 testable OTUs showing significant host associations (13 genuine genotype effects, 15 architecture-mediated; Table S17; Fig. S13).
+
 ### Pairwise co-occurrences are explained by volume and site
 
 After accounting for coral volume and site, no species pair co-occurred more or less often than expected (0 of 528 pairs significant after FDR correction; Fig. S9; Table S5), indicating that pairwise associations are largely explained by habitat size and location. However, six species showed significant mating-pair aggregation -- concentrating conspecific pairs on a subset of corals (Table S6) -- consistent with the territorial pair-bonding that underpins species stacking.
