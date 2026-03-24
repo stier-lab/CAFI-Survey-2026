@@ -15,6 +15,12 @@
 #   Part 6:  Non-linear BEF (log-richness, polynomial)
 #   Part 7:  Missing data characterization (114→84 dropout)
 #   Part 8:  Morphotype covariate in BEF model
+#     Part 8b: Morphotype–haplotype concordance
+#     Part 8c: BEF with haplotype (genetic species) covariate
+#     Part 8d: Scaling by species (Q1 sensitivity)
+#     Part 8e: Composition by species (Q2 sensitivity)
+#     Part 8f: Genotype → architecture mediation (branch width × species)
+#     Part 8g: Phylogenetic distance & symbiont identity
 #   Part 9:  Mediation: richness → abundance → condition
 #   Part 10: C-score community-wide co-occurrence robustness
 #   Part 11: MuMIn model-averaged neighborhood coefficients

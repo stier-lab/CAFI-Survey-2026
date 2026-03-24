@@ -50,7 +50,7 @@ The three papers form a complementary trilogy testing how habitat structure shap
 | Question | Script | Key Result |
 |----------|--------|------------|
 | **Q1: SCALING + NEIGHBORHOOD** | `05_species_scaling_analysis.R`, `04_landscape_effects.R` | Abundance β=0.52 (sublinear, Redirection); Richness z=0.34 (sublinear); density dilution; neighbor distance predicts richness (p=0.001) and rarefied richness (p=0.005) |
-| **Q2: COMPOSITION** | `02_community_analysis.R` | Site pools + size gradient structure composition; db-RDA confirms size effect survives rarefaction |
+| **Q2: COMPOSITION** | `02_community_analysis.R` | Site pools + size gradient structure composition; db-RDA confirms size effect survives rarefaction; coral species explains 8.3% of composition independently (p=0.001); 28/52 OTUs show genotype effects (13 genuine, 15 architecture-mediated) |
 | **Q3: FEEDBACKS** | `09_cafi_condition_feedbacks.R` | Species richness predicts condition (BEF framework, p=0.018); variance partitioning: 29% unique to richness, <1% to abundance |
 
 ### Supporting Analyses (Supplement)
@@ -59,6 +59,8 @@ The three papers form a complementary trilogy testing how habitat structure shap
 |----------|--------|------------|
 | **Co-occurrence** | `06_cooccurrence_analysis.R` | Volume-weighted null model; pairwise associations mostly explained by volume + site (Fig S9) |
 | **Neighborhood (count/volume)** | `04_landscape_effects.R` | n_neighbors and total_neighbor_volume NOT significant (all p>0.37); distance effect in main text under Q1 |
+| **Genotype × CAFI** | `16_genotype_cafi_analysis.R` | Coral species predicts CAFI composition (R²=0.083, p=0.001); 28/52 OTUs significant (13 genuine, 15 architecture-mediated); Galeropsis×P.verrucosa, T.serenei character displacement |
+| **Community assembly** | `15_community_assembly.R` | Raup-Crick null model (deterministic vs stochastic); Mantel/partial Mantel (dispersal limitation); 3-way variation partitioning (size vs architecture vs space); beta-dispersion convergence; SAD fitting; NRI/NTI taxonomic structure; beta diversity decomposition |
 
 ---
 
@@ -111,6 +113,8 @@ The three papers form a complementary trilogy testing how habitat structure shap
 - Nestedness (NODF): 18.37, z=−1.09, p=0.277 — **not nested**; small-coral faunas are not subsets of large-coral faunas
 - Pairwise co-occurrence: 0 of 528 pairs significant after FDR correction; strongest signals: H. beaupresii–P. modestus (SES = −3.43, p_FDR = 0.11), H. beaupresii–H. spinigera (SES = −3.42, p_FDR = 0.21)
 - Intraspecific density patterns tested for mating-pair hypothesis (Stier et al. 2012)
+- Host species identity (genetic): coral species explains 8.3% of composition (PERMANOVA p=0.001); 28/52 OTUs show genotype effects (13 genuine, 15 architecture-mediated); three-way variance partitioning: architecture 5.6% > volume 4.6% > site 2.9% unique
+- **Main text Q2 now has 3 summary sentences** pointing to supplement for genotype/OTU/architecture details (Tables S16–S19, Figs S12–S14)
 - Conclusion: site pools and continuous size gradient shape composition; co-occurrence is largely explained by volume + site
 
 ### Q3: Feedbacks — Does CAFI diversity predict coral condition? (BEF framework)
@@ -217,6 +221,7 @@ Located in `scripts/` folder. Run in order via `run_full_pipeline.R`.
 | `03_landscape_characterization.R` | Neighborhood metrics, spatial patterns | Landscape predictor variables |
 | `07_spatial_autocorrelation.R` | Moran's I, LISA, Mantel tests | Spatial structure diagnostics |
 | `08_functional_groups.R` | Taxonomic group scaling (loads from script 05), composition | Fig S7 + group patterns |
+| `16_genotype_cafi_analysis.R` | Host species PERMANOVA, OTU × genotype screen, indicator species, Trapezia body size | Fig S12–S14, Tables S16–S19 |
 
 #### Q3: FEEDBACKS (Fig 5)
 | Script | Analysis | Output |
@@ -228,12 +233,13 @@ Located in `scripts/` folder. Run in order via `run_full_pipeline.R`.
 |--------|----------|--------|
 | `06_cooccurrence_analysis.R` | Null-model pairwise co-occurrence, intraspecific density | Fig S9 (co-occurrence) |
 | `04_landscape_effects.R` | GLMs: size + neighbors → abundance/diversity | Fig S5 (neighborhood null) |
+| `15_community_assembly.R` | Q2 (assembly): Raup-Crick null model, dispersal limitation, variation partitioning, beta-dispersion, NRI/NTI | Fig S15–S17, Table S20 |
 
 #### SENSITIVITY (cross-cuts Q1-Q4)
 | Script | Analysis | Output |
 |--------|----------|--------|
 | `13_taxonomy_sensitivity.R` | 5 taxonomy scenarios × 7 metrics; uses pre-built data from 01_load_data.R | Fig S6 + sensitivity tables |
-| `14_supplementary_sensitivity.R` | 11+ sensitivity analyses (4 in supplement: betapart, mediation, morphotype, missing data; Parts 8b-8f: haplotype concordance, scaling-by-species, composition-by-species, phylogenetic distance, symbiont identity; 7 archived: envfit, IndVal, iNEXT, CWM, nonlinear BEF, C-score, MuMIn) | Tables S11–S15+ |
+| `14_supplementary_sensitivity.R` | 11+ sensitivity analyses (4 in supplement: betapart, mediation, morphotype, missing data; Parts 8b-8g: morphotype-haplotype concordance, BEF haplotype covariate, scaling by species, composition by species, genotype-architecture mediation (branch width × species), phylogenetic distance & symbiont identity; 7 archived: envfit, IndVal, iNEXT, CWM, nonlinear BEF, C-score, MuMIn) | Tables S11–S15 |
 
 ### Archived Scripts (`scripts/archive/` — NOT part of the manuscript or pipeline)
 
@@ -269,7 +275,12 @@ Each manuscript figure is created by its source analysis script with **dual save
 | **S9** | `06_cooccurrence_analysis.R` | Co-occurrence: pairwise SES heatmap + intraspecific density + size-dependent (3-panel) |
 | **S10** | `09_cafi_condition_feedbacks.R` | BEF variance partitioning + partial regression + path model coefficients |
 | **S11** | `09_cafi_condition_feedbacks.R` | A priori forest + rarefied richness + bidirectional (trimmed from 6 to 3 panels) |
-| **S12–S14** | `05`, `09` | *Archived* — occurrence curves, species×trait heatmap, species×trait biplots |
+| **S12** | `16_genotype_cafi_analysis.R` | Genotype composition: db-RDA biplot + variance partitioning |
+| **S13** | `16_genotype_cafi_analysis.R` | Genotype screen forest plot (mediation classification) |
+| **S14** | `16_genotype_cafi_analysis.R` | Trapezia body size: architecture filtering + character displacement |
+| **S15** | `15_community_assembly.R` | Beta-dispersion convergence across coral size classes |
+| **S16** | `15_community_assembly.R` | Community assembly null-model: Raup-Crick + beta-dispersion + variation partitioning (4-panel) |
+| **S17** | `15_community_assembly.R` | Taxonomic structure (SES.MPD / NRI) vs coral volume |
 
 **Note**: All archived/exploratory scripts are in `scripts/archive/` — they are NOT part of the manuscript or pipeline.
 
@@ -359,6 +370,10 @@ The following quality measures are implemented:
 | Composition by species | Marginal PERMANOVA: species R²=0.098, p=0.001 | `14_supplementary_sensitivity.R` |
 | Phylogenetic distance | Mantel r=0.12, p=0.013; partial Mantel r=0.13, p=0.002 | `14_supplementary_sensitivity.R` |
 | Symbiont identity | PERMANOVA R²=0.038, p=0.001; symbiont->condition beta=1.28, p=0.008 | `14_supplementary_sensitivity.R` |
+| Host species confound | Species-level PERMANOVA, variance partitioning, architecture mediation test | `16_genotype_cafi_analysis.R` |
+| Architecture vs genotype | Mediation classification: 13 genuine vs 15 architecture-mediated OTUs | `16_genotype_cafi_analysis.R` |
+| Genotype-architecture mediation | Branch width × species Fisher's test; species→richness/abundance/condition/composition controlling volume+site | `14_supplementary_sensitivity.R` |
+| Body size partitioning | Trapezia species × architecture chi-square, character displacement test | `16_genotype_cafi_analysis.R` |
 
 ## Output Structure
 
@@ -378,7 +393,7 @@ output/
 │   │   ├── fig4_legend_results.txt     (from 02_community_analysis.R)
 │   │   ├── fig5_feedbacks.png          (from 09_cafi_condition_feedbacks.R; 2-panel BEF: richness scatter + abundance scatter)
 │   │   └── fig5_legend_results.txt     (from 09_cafi_condition_feedbacks.R)
-│   ├── supplement/          # Supplementary figures (figS1-S14)
+│   ├── supplement/          # Supplementary figures (figS1-S17, S7 archived)
 │   ├── 01_data/             # Study design (1 figure)
 │   ├── 02_community/        # Community analysis (~13 figures)
 │   ├── 03_landscape/        # Landscape characterization (3 figures)
@@ -401,6 +416,14 @@ output/
 │   ├── pipeline_timing.csv             # Script execution times
 │   ├── taxonomy_sensitivity.csv        # Sensitivity results (5 scenarios)
 │   ├── taxonomy_sensitivity_species_scaling.csv  # Species-level sensitivity
+│   ├── genotype_permanova_marginal.csv  # Host species PERMANOVA results
+│   ├── genotype_species_screen.csv      # OTU × genotype screen with mediation
+│   ├── genotype_indicator_species.csv   # Indicator species for coral hosts
+│   ├── genotype_host_specificity.csv    # Host specificity index
+│   ├── trapezia_body_size_genotype.csv  # Trapezia body size by host
+│   ├── trapezia_pair_composition.csv    # Trapezia pair assemblages
+│   ├── sensitivity_genotype_architecture.csv # Genotype→architecture mediation summary
+│   ├── sensitivity_phylogenetic_symbiont.csv # Phylogenetic distance + symbiont identity
 │   └── ...                             # ~36 more analysis tables
 ├── objects/                 # 22 RDS files
 │   ├── coral_master.rds                # Main merged dataset
@@ -491,6 +514,8 @@ Scripts 00 and 01 must always run first. After that, most scripts can run indepe
 | `09_cafi_condition_feedbacks.R` | coral_master, condition_scores, cafi_pca_results | — | No |
 | `13_taxonomy_sensitivity.R` | coral_master, taxonomy_scenario_data | — | No |
 | `14_supplementary_sensitivity.R` | coral_master, community_matrix, condition_scores, cafi_clean | — | No |
+| `15_community_assembly.R` | coral_master, community_matrix | — | No |
+| `16_genotype_cafi_analysis.R` | coral_master, community_matrix, cafi_clean | — | No (uses haplotype data from coral_master) |
 
 ## Data Schema Quick Reference
 
@@ -572,7 +597,7 @@ The full assembled manuscript lives in `manuscript/combined_manuscript.md`. This
 9. Author Contributions (placeholder)
 10. Conflict of Interest
 11. Figure Legends (all 5 main figures, with inline figure images)
-12. References (→ `manuscript/references.bib`, 82 BibTeX entries)
+12. References (→ `manuscript/references.bib`, 64 BibTeX entries)
 13. Supplement pointer (→ `manuscript/combined_supplement.md`)
 
 **Figures are embedded inline** at the point of first reference in the text (markdown `![](...)` syntax with relative paths to `output/figures/manuscript/`). Figure legends also appear with images in the Legends section.
@@ -586,9 +611,9 @@ Individual section files remain in `manuscript/` for editing convenience. **Afte
 | File | Status |
 |------|--------|
 | `manuscript/combined_manuscript.md` | **Authoritative** — full assembly with inline figures |
-| `manuscript/combined_supplement.md` | Complete supplement: 14 figures (inline) + 11 tables + methods |
-| `manuscript/references.bib` | BibTeX file (81 entries, 70 with DOIs; 1 placeholder: StierInReview) |
-| `manuscript/figure_index.md` | Standalone figure inventory (all 19 figures with panels + descriptions) |
+| `manuscript/combined_supplement.md` | Complete supplement: 17 figures (S1–S17, S7 archived; inline) + 20 tables (S1–S20) + methods |
+| `manuscript/references.bib` | BibTeX file (64 entries; 1 placeholder: StierInReview; includes Johnston, Cunning & Burgess 2022 and Burgess et al. 2021 for haplotype/symbiont analyses) |
+| `manuscript/figure_index.md` | Standalone figure inventory (all 22 figures with panels + descriptions; S12–S14 entries may be stale — combined_supplement.md is authoritative) |
 | `manuscript/introduction.md` | Section source file for editing |
 | `manuscript/methods.md` | Section source file for editing |
 | `manuscript/results.md` | Section source file for editing |
@@ -611,7 +636,7 @@ Legend files in `output/figures/manuscript/` contain **publication-ready caption
 | Fig 5 | Richness scatter | Abundance scatter | — | — |
 
 ## File Ownership (parallel work)
-- `scripts/` — analysis scripts (00-13); can be edited independently
+- `scripts/` — analysis scripts (00–16); can be edited independently
 - `scripts/archive/` — archived/exploratory scripts; NOT part of manuscript or pipeline
 - `manuscript/` — text files, independent from analysis code
 - `data/` — READ ONLY (raw data; archived files in `data/archive/`)
