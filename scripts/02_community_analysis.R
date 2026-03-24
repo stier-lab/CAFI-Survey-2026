@@ -2579,7 +2579,7 @@ results_list <- list(
 save_object(results_list, "community_analysis_results")
 
 # Save divergence stats as CSV for manuscript
-divergence_stats_df <- data.frame(
+divergence_stats_df <- tryCatch(data.frame(
   test = c("PERMDISP (size classes)", "Linear trend (raw)",
            "Linear trend (site-controlled)", "Linear trend (rarefied)"),
   statistic = c(
@@ -2612,8 +2612,11 @@ divergence_stats_df <- data.frame(
     round(trend_summary_site$adj.r.squared, 3),
     round(trend_summary_rarefied$r.squared, 3)
   )
-)
-save_table(divergence_stats_df, "composition_divergence_stats")
+), error = function(e) {
+  cat("  WARNING: Could not create divergence_stats_df:", e$message, "\n")
+  NULL
+})
+if (!is.null(divergence_stats_df)) save_table(divergence_stats_df, "composition_divergence_stats")
 
 cat("\n")
 cat("============================================================\n")

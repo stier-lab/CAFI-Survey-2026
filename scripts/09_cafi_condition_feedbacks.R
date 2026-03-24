@@ -1383,9 +1383,9 @@ if (requireNamespace("piecewiseSEM", quietly = TRUE)) {
       else if (row$P.Value < 0.1) sig <- "."
     }
     cat(sprintf("  %-15s → %-15s  β = %7.4f, p = %s %s\n",
-        row$Predictor, row$Response,
-        row$Std.Estimate,
-        ifelse(is.na(row$P.Value), "  NA  ", sprintf("%.4f", row$P.Value)),
+        as.character(row$Predictor), as.character(row$Response),
+        as.numeric(row$Std.Estimate),
+        ifelse(is.na(as.numeric(row$P.Value)), "  NA  ", sprintf("%.4f", as.numeric(row$P.Value))),
         sig))
   }
 
@@ -1393,7 +1393,7 @@ if (requireNamespace("piecewiseSEM", quietly = TRUE)) {
   cat("\nR² for endogenous variables:\n")
   for (i in 1:nrow(psem_summary$R2)) {
     cat(sprintf("  %-20s R² = %.4f\n",
-        psem_summary$R2$Response[i], psem_summary$R2$R.squared[i]))
+        as.character(psem_summary$R2$Response[i]), as.numeric(psem_summary$R2$R.squared[i])))
   }
 
   # Extract the key path: richness → condition (direct BEF effect)
@@ -1404,11 +1404,11 @@ if (requireNamespace("piecewiseSEM", quietly = TRUE)) {
 
   if (nrow(rich_to_cond_row) > 0) {
     cat(sprintf("\nKey BEF path (richness → condition): β = %.4f, p = %.4f\n",
-        rich_to_cond_row$Std.Estimate, rich_to_cond_row$P.Value))
+        as.numeric(rich_to_cond_row$Std.Estimate), as.numeric(rich_to_cond_row$P.Value)))
   }
   if (nrow(abund_to_cond_row) > 0) {
     cat(sprintf("Abundance path (abundance → condition): β = %.4f, p = %.4f\n",
-        abund_to_cond_row$Std.Estimate, abund_to_cond_row$P.Value))
+        as.numeric(abund_to_cond_row$Std.Estimate), as.numeric(abund_to_cond_row$P.Value)))
   }
 
   # Indirect effects (manual calculation)
@@ -1418,11 +1418,11 @@ if (requireNamespace("piecewiseSEM", quietly = TRUE)) {
                                psem_coefs$Response == "abundance_z", ]
 
   if (nrow(vol_to_rich) > 0 && nrow(rich_to_cond_row) > 0) {
-    indirect_via_rich <- vol_to_rich$Std.Estimate * rich_to_cond_row$Std.Estimate
+    indirect_via_rich <- as.numeric(vol_to_rich$Std.Estimate) * as.numeric(rich_to_cond_row$Std.Estimate)
     cat(sprintf("\nIndirect effect (Volume → Richness → Condition): %.4f\n", indirect_via_rich))
   }
   if (nrow(vol_to_abund) > 0 && nrow(abund_to_cond_row) > 0) {
-    indirect_via_abund <- vol_to_abund$Std.Estimate * abund_to_cond_row$Std.Estimate
+    indirect_via_abund <- as.numeric(vol_to_abund$Std.Estimate) * as.numeric(abund_to_cond_row$Std.Estimate)
     cat(sprintf("Indirect effect (Volume → Abundance → Condition): %.4f\n", indirect_via_abund))
   }
 
