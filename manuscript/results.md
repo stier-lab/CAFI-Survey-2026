@@ -12,6 +12,8 @@ Five of six taxonomic groups scaled sublinearly (β range 0.43–0.74; Fig. 3B,D
 
 Among the 61 colonies with neighborhood surveys (5-m radius), closer neighbors predicted higher richness (β = −0.005, z = −3.20, p = 0.001) and Shannon diversity (p = 0.001), but not total abundance (p = 0.78; Fig. S5; Table S4). Neither neighbor count nor total neighbor volume predicted any response (all p > 0.37). The distance–richness relationship survived rarefaction (n = 39, p = 0.005), confirming genuine species accumulation rather than a passive sampling artifact.
 
+Beyond shaping how many species a colony hosts, colony size also structures which species are present.
+
 ## Q2: Site pools and coral size structure community composition
 
 Marginal PERMANOVA confirmed that both site and colony size structured CAFI composition (volume R² = 0.08, site R² = 0.06, both p = 0.001; n = 112; PERMDISP p = 0.42), together explaining ~14% of variation. The site effect was robust across five distance metrics and balanced subsampling (Fig. S2). The three sites exhibited distinct taxonomic signatures (Fig. 4B): Maatea was characterized by hermit crabs (33% of CAFI), Maharepa by obligate symbionts (71%), and Hauru by fishes (12%). Species vector fitting (envfit) identified *Trapezia punctimanus* (R² = 0.53), *Harpiliopsis beaupresii* (R² = 0.30), and *Paragobiodon modestus* (R² = 0.25) as the strongest drivers.
@@ -22,7 +24,7 @@ Community composition also shifted continuously along the coral size gradient. D
 
 Nestedness was not significant (NODF = 18.4, p = 0.28); beta diversity partitioning confirmed that species replacement accounted for 81% of total dissimilarity (Table S11). Combined with the significant db-RDA, this indicates species turnover---not passive accumulation---along the size gradient.
 
-Community variability declined from small to large corals (distance-to-centroid ANOVA F = 9.21, p < 0.001; Fig. S15), consistent with compositional convergence as communities mature. Three-way variance partitioning attributed more unique compositional variation to host architecture (branch width and genetic species identity, 5.6%) than to colony volume alone (4.6%) or site (2.9%; Table S16). Coral genetic species identity independently predicted CAFI composition (marginal PERMANOVA R² = 0.083, p = 0.001; Table S16), with 28 of 52 testable OTUs showing significant host associations (13 genuine genotype effects, 15 architecture-mediated; Table S17; Fig. S13).
+Community variability declined from small to large corals (distance-to-centroid ANOVA F = 9.21, p < 0.001; Fig. S15), consistent with compositional convergence as communities mature. Because *Pocillopora* comprises multiple cryptic species with distinct branching architectures, we tested whether host species identity contributes to compositional variation beyond colony size (Supplementary Methods). Coral genetic species predicted CAFI richness (p = 0.007) and composition (PERMANOVA R² = 0.08, p = 0.001) but not total abundance (p = 0.24; Table S16). Three-way variance partitioning attributed comparable unique variation to host architecture (5.6%) and colony volume (4.6%), both exceeding site (2.9%; Table S16). The corallivore *Galeropsis monodonta* showed strong host specificity to *P. verrucosa* (7-fold enrichment), while obligate *Trapezia* did not differ among coral species (p = 0.51), suggesting that guard crabs colonize based on colony geometry rather than host identity (Tables S17--S18; Figs. S12--S13).
 
 ### Pairwise co-occurrences are explained by volume and site
 
