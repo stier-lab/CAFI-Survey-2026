@@ -1,5 +1,5 @@
 ---
-title: "Supplementary Materials: Colony size drives sublinear scaling, compositional turnover, and biodiversity--condition feedbacks in coral-associated fauna"
+title: "Supplementary Materials: Colony size drives density dilution, species turnover, and biodiversity--condition covariation in coral-associated fauna"
 bibliography: references.bib
 csl: journal-of-animal-ecology.csl
 link-citations: true
@@ -8,7 +8,7 @@ lang: en
 
 # Supplementary Materials
 
-**Colony size drives sublinear scaling, compositional turnover, and biodiversity--condition feedbacks in coral-associated fauna**
+**Colony size drives density dilution, species turnover, and biodiversity--condition covariation in coral-associated fauna**
 
 Stier, A.C. et al.
 
@@ -42,7 +42,7 @@ Abbreviations: CAFI, coral-associated fishes and invertebrates; BEF, biodiversit
 
 ---
 
-**Figure S5.** Neighborhood effects on CAFI communities. Three response variables (rows: total CAFI abundance, species richness, Shannon diversity) plotted against two neighborhood predictors (columns: number of neighbors within 5 m, mean distance to neighbors). (A) Abundance vs. neighbor count; (B) abundance vs. neighbor distance; (C) richness vs. neighbor count; (D) richness vs. neighbor distance; (E) Shannon diversity vs. neighbor count; (F) Shannon diversity vs. neighbor distance. Trend lines shown only for significant relationships (p < 0.05): mean neighbor distance negatively predicts richness (D; β = −0.005, p = 0.001) and Shannon diversity (F; β = −0.007, p = 0.001), but not abundance (B; p = 0.78). Neighbor count does not predict any response (A, C, E; all p > 0.37). n = 61 corals with 5-m neighborhood surveys across three reef sites. Points colored by site (purple = Hauru, slate = Maatea, green = Maharepa). Power analysis indicates 65% power for medium effects (R² = 0.10) at α = 0.05.
+**Figure S5.** Neighborhood effects on CAFI communities. Three response variables (rows: total CAFI abundance, species richness, Shannon diversity) plotted against two neighborhood predictors (columns: number of neighbors within 5 m, mean distance to neighbors). (A) Abundance vs. neighbor count; (B) abundance vs. neighbor distance; (C) richness vs. neighbor count; (D) richness vs. neighbor distance; (E) Shannon diversity vs. neighbor count; (F) Shannon diversity vs. neighbor distance. Trend lines shown only for significant relationships (p < 0.05): mean neighbor distance negatively predicts richness (D; β = −0.005, p = 0.001) and Shannon diversity (F; β = −0.007, p = 0.001), but not abundance (B; p = 0.78). Neighbor count does not predict any response (A, C, E; all p > 0.37). n = 61 corals with 5-m neighborhood surveys across three reef sites. Points colored by site (purple = Hauru, slate = Maatea, green = Maharepa). Power-analysis details for this reduced neighborhood subset are provided in the Supplementary Methods.
 
 ![](../output/figures/supplement/figS5_neighborhood.png)
 
@@ -82,7 +82,39 @@ Abbreviations: CAFI, coral-associated fishes and invertebrates; BEF, biodiversit
 
 ---
 
-**Figures S12--S14.** *Archived — available upon request. S12: Species occurrence probability curves (24 species; logistic GLM); S13: Species × condition trait heatmap (19 species × 5 traits; 0 of 95 tests survived FDR); S14: Species × condition biplots (9 strongest associations). These analyses are fully computed in `05_species_scaling_analysis.R` and `09_cafi_condition_feedbacks.R`.*
+**Figure S12.** Host species identity and CAFI composition. (A) Distance-based redundancy analysis (db-RDA) biplot constrained by coral genetic species (*Pocillopora grandis*, *P. meandrina*, *P. tuahiniensis*, *P. verrucosa*) after partialing out colony volume and site effects; coral species explains 8.3% of compositional variation (F = 3.24, p = 0.001; n = 98 genotyped corals). Point symbols indicate coral species; vectors show top CAFI species loadings on constrained axes. (B) Variance partitioning (Hellinger-transformed community matrix) among three predictors: coral species (5.4% unique), log(volume) (4.9% unique), and site (4.1% unique), with minimal shared fractions (<0.2%), indicating largely independent axes of community variation. Total explained: 14.4%.
+
+![](../output/figures/supplement/figS12_genotype_composition.png)
+
+---
+
+**Figure S13.** Systematic screen of CAFI taxa for coral species effects. Forest plot showing negative binomial GLM species-effect chi-square (Type II LR) for 52 testable OTUs (present in >=5 genotyped corals), controlling for log(volume) and site. OTUs colored by mediation classification: blue = genuine genotype effect (species effect persists after adding branch_width; n = 13); orange = architecture-mediated (species effect eliminated by branch_width; n = 15); gray = non-significant (n = 24). Dashed vertical line at FDR q = 0.10 significance threshold. Top genuine genotype effects include *Galeropsis monodonta* (corallivore, strongly elevated on *P. verrucosa*), *Harpiliopsis beaupresii* (shrimp, elevated on non-grandis hosts), and *Fennera* sp. (absent from *P. tuahiniensis*/*P. verrucosa*). Top architecture-mediated effects include *Paragobiodon modestus* (goby), *Alpheus lottini* (snapping shrimp), and *Trapezia tigrina* (guard crab).
+
+![](../output/figures/supplement/figS13_genotype_screen.png)
+
+---
+
+**Figure S14.** Trapezia body size, architectural filtering, and niche partitioning. (A) Trapezia carapace width versus coral branch architecture (tight vs wide branching); *T. rufopunctata* (largest species, mean 17.0 mm) occurs almost exclusively in wide-branched corals (92%), while *T. tigrina* and *T. punctimanus* concentrate in tight-branched corals (chi-square p = 0.0002). (B) Character displacement in *T. serenei*: individuals are significantly smaller when co-occurring with other Trapezia species (6.2 vs 7.5 mm alone, p = 0.001), consistent with size-structured coexistence. (C) Body size ratios in two-species Trapezia assemblages (n = 33 corals); mean ratio = 1.66, consistent with size-ratio coexistence theory.
+
+![](../output/figures/supplement/figS14_trapezia_body_size.png)
+
+---
+
+**Figure S15.** Community assembly: beta-dispersion convergence across coral size classes. Distance to group centroid (Bray–Curtis) decreases from small (0.576 ± 0.091) to medium (0.515 ± 0.073) to large (0.506 ± 0.063) corals (ANOVA F = 9.21, p < 0.001). This pattern indicates that CAFI communities are less variable on larger corals, though this trend does not survive rarefaction (Fig. S3B) and likely reflects statistical convergence of richer samples rather than deterministic filtering (see main text). n = 112 corals across three size terciles; points show individual coral distances overlaid on boxplots.
+
+![](../output/figures/supplement/figS15_beta_dispersion.png)
+
+---
+
+**Figure S16.** Community assembly null-model analysis. (A) Histogram of pairwise Raup–Crick dissimilarity values (mean = 0.19, far below the null expectation of 0.5; dashed red line). Communities are significantly more similar than expected under stochastic assembly (t-test vs. 0.5: p < 2 × 10⁻¹⁶), indicating deterministic environmental filtering. (B) Raup–Crick dissimilarity by coral size class (violin plots). All three size classes show values well below 0.5 (Small: 0.23; Medium: 0.23; Large: 0.19), with no significant trend across size classes. (C) Beta-dispersion by size class (boxplots; same data as Fig. S15). (D) Variation partitioning: host architecture (branch width + haplotype; 5.6% unique), coral size (4.7%), and space (site; 2.9%) all significantly structure CAFI composition (all db-RDA p = 0.001), with 85% residual.
+
+![](../output/figures/supplement/figS16_community_assembly.png)
+
+---
+
+**Figure S17.** Taxonomic community structure along the coral size gradient. Standardized effect size of mean pairwise taxonomic distance (SES.MPD, equivalent to Net Relatedness Index) plotted against log(colony volume). The global mean SES.MPD is significantly negative (−1.18, p < 10⁻¹³), indicating that co-occurring CAFI are more taxonomically diverse than expected under random assembly — consistent with limiting similarity or interspecific competition. The trend toward more negative NRI values in larger corals (β = −0.17, R² = 0.02, p = 0.11) is suggestive but not significant. Dashed lines at ±1.96 mark conventional significance thresholds. Points colored by size class (blue = Small, orange = Medium, green = Large). n = 112 corals.
+
+![](../output/figures/supplement/figS17_taxonomic_structure.png)
 
 ---
 
@@ -136,21 +168,65 @@ Abbreviations: CAFI, coral-associated fishes and invertebrates; BEF, biodiversit
 
 *Data: `output/tables/sensitivity_mediation_richness_abundance.csv`*
 
-**Table S13.** Morphotype covariate sensitivity: BEF model with and without coral morphotype.
-
-*Data: `output/tables/sensitivity_morphotype_bef.csv`*
+**Table S13.** *Removed (morphotype covariate sensitivity). Field morphotype assignments showed limited concordance with genetic species (33--94%; Table S15A), so this analysis was not retained.*
 
 **Table S14.** Missing data characterization: logistic regression of dropout predictors.
 
 *Data: `output/tables/sensitivity_missing_data_predictors.csv`*
 
-**Table S15.** Haplotype sensitivity analyses. Molecular species assignments (mtORF haplotyping per @JohnstonCunningBurgess2022) were available for 101 of 114 colonies (99 of the 112 with volume data) and used to test whether genetic species identity confounds the main results. (A) **Morphotype--haplotype concordance.** Cross-tabulation of field morphotype assignment vs. genetic species. Concordance varied among morphotypes: "eudoxi" mapped to *P. grandis* in 94% of cases (45/48), "meandrina" to *P. meandrina* in 66% (19/29), and "verucosa" to *P. verrucosa* in only 33% (7/21). Chi-square test with simulated p-value confirmed significant non-random association between morphotype and haplotype. (B) **BEF with haplotype covariate.** Adding genetic species identity as a covariate to the richness → condition model reduced the richness coefficient by only 8% (β = 0.081, p = 0.008 without haplotype; β = 0.074, p = 0.010 with haplotype; n = 74 with both physiology and haplotype data). The richness signal is robust to genetic species identity, in contrast to morphotype which absorbed the signal entirely (Table S13: p went from 0.015 to 0.27). (C) **Scaling by genetic species.** The volume × species interaction was not significant (p = 0.39), indicating that scaling exponents do not differ among species. Species-specific estimates were all sublinear: *P. grandis* β = 0.46 (n = 49), *P. meandrina* β = 0.62 (n = 32), *P. verrucosa* β = 0.73 (n = 10, not significant, p = 0.17). (D) **Composition by genetic species.** Marginal PERMANOVA (community ~ log(volume) + genetic species + site) confirmed that genetic species explains 9.8% of composition variation (F = 2.95, p = 0.001), comparable to volume (8.1%, p = 0.001) and exceeding site (6.0%, p = 0.001). (E) **Phylogenetic distance and symbiont identity.** Mantel test detected a significant correlation between phylogenetic distance and CAFI community dissimilarity (r = 0.12, p = 0.013), which strengthened after controlling for volume (partial Mantel r = 0.13, p = 0.002). Symbiont identity (*Cladocopium latusorum* vs. *C. pacificum*, assigned per @Burgess2021) explained 3.8% of composition (PERMANOVA R² = 0.038, p = 0.001) and predicted coral condition (β = 1.28, p = 0.008; n = 74).
+**Table S15.** Haplotype sensitivity analyses. Molecular species assignments (mtORF haplotyping per @JohnstonCunningBurgess2022) were available for 101 of 114 colonies (99 of the 112 with volume data) and used to test whether genetic species identity confounds the main results. (A) **Morphotype--haplotype concordance.** Cross-tabulation of field morphotype assignment vs. genetic species. Concordance varied among morphotypes: "eudoxi" mapped to *P. grandis* in 94% of cases (45/48), "meandrina" to *P. meandrina* in 66% (19/29), and "verucosa" to *P. verrucosa* in only 33% (7/21), confirming that field morphotype is an unreliable proxy for genetic species identity. (B) **BEF with haplotype covariate.** Adding genetic species identity as a covariate to the richness → condition model reduced the richness coefficient by only 8% (β = 0.081, p = 0.008 without haplotype; β = 0.074, p = 0.010 with haplotype; n = 74 with both physiology and haplotype data). The richness signal is robust to genetic species identity. (C) **Scaling by genetic species.** The volume × species interaction was not significant (p = 0.39), indicating that scaling exponents do not differ among species. Species-specific estimates were all sublinear: *P. grandis* β = 0.46 (n = 49), *P. meandrina* β = 0.62 (n = 32 of 34 with volume data), *P. verrucosa* β = 0.73 (n = 10, not significant, p = 0.17). (D) **Composition by genetic species.** Marginal PERMANOVA (community ~ log(volume) + genetic species + site) confirmed that genetic species explains 9.8% of composition variation (F = 2.95, p = 0.001), comparable to volume (8.1%, p = 0.001) and exceeding site (6.0%, p = 0.001). (E) **Phylogenetic distance and symbiont identity.** Mantel test detected a significant correlation between phylogenetic distance and CAFI community dissimilarity (r = 0.12, p = 0.013), which strengthened after controlling for volume (partial Mantel r = 0.13, p = 0.002). Putative symbiont identity (*Cladocopium latusorum* vs. *C. pacificum*, inferred from published host species--symbiont associations in @Burgess2021, not directly measured) explained 3.8% of composition (PERMANOVA R² = 0.038, p = 0.001) and predicted coral condition (β = 1.28, p = 0.008; n = 74). Because symbiont identity was imputed from host species, these results are not independent of host species effects and should be interpreted as reframing the host species signal rather than as evidence for symbiont-specific mechanisms.
 
 *Data: `output/tables/sensitivity_morphotype_haplotype_concordance.csv`, `sensitivity_haplotype_bef.csv`, `sensitivity_scaling_by_species.csv`, `sensitivity_composition_by_species.csv`, `sensitivity_phylogenetic_symbiont.csv`*
+
+**Table S16.** Host species identity effects on CAFI composition. (A) Marginal PERMANOVA (Bray-Curtis, 999 permutations; n = 98 genotyped corals): coral species R² = 0.083, volume R² = 0.082, site R² = 0.053, all p = 0.001. (B) Pairwise PERMANOVA between all six coral species pairs (FDR-corrected; all p < 0.008). (C) Variance partitioning (adjusted R²): coral species alone 5.4%, volume alone 4.9%, site alone 4.1%, all shared fractions <0.2%. (D) Species vs architecture: species conditioned on branch_width = 2.3% (p = 0.001); branch_width conditioned on species = -0.1% (p = 0.65). Source script: `16_genotype_cafi_analysis.R`.
+
+*Data: `output/tables/genotype_permanova_marginal.csv`, `genotype_pairwise_permanova.csv`, `genotype_variance_partitioning.csv`*
+
+**Table S17.** Systematic screen of 52 CAFI OTUs for coral species effects. For each OTU: Model A (species + volume + site) and Model B (+ branch_width) LR chi-square and p-values for the species term, FDR-corrected q-value, mediation classification (genuine genotype / architecture-mediated / non-significant), and direction of effect for each coral species relative to *P. grandis*. Source: `genotype_species_screen.csv`.
+
+*Data: `output/tables/genotype_species_screen.csv`*
+
+**Table S18.** Indicator species and host specificity. (A) Indicator species (multipatt, IndVal.g): 19 significant indicators at p <= 0.05 -- 8 for *P. verrucosa*, 5 for *P. tuahiniensis*, 2 for *P. grandis*, 4 multi-host. (B) Host specificity index (SIS): 9 specialists (SIS < -1.96, all concentrated on *P. grandis*), 1 generalist (*Breviturma pica*, SIS = +2.24), 54 neutral. (C) Co-occurrence network structure by host species. Source: `genotype_indicator_species.csv`, `genotype_host_specificity.csv`, `genotype_cooccurrence_networks.csv`.
+
+*Data: `output/tables/genotype_indicator_species.csv`, `genotype_host_specificity.csv`, `genotype_cooccurrence_networks.csv`*
+
+**Table S19.** Trapezia body size, architectural filtering, and pair composition. (A) Body size by Trapezia species x coral species (n = 659 individuals with carapace width). (B) Species x architecture chi-square contingency. (C) Pair composition: per-coral Trapezia assemblage characterization (n = 114 corals). (D) Character displacement: body size of *T. serenei* alone vs co-occurring. Source: `trapezia_body_size_genotype.csv`, `trapezia_pair_composition.csv`.
+
+*Data: `output/tables/trapezia_body_size_genotype.csv`, `trapezia_pair_composition.csv`*
+
+**Table S20.** Community assembly results summary. Test statistics for nine community assembly tests (including separate NRI and NTI entries) across 112 *Pocillopora* colonies. Results are from `scripts/15_community_assembly.R`; full details in `output/tables/assembly_*.csv`.
+
+| Hypothesis | Test | Statistic | p-value |
+|---|---|---|---|
+| Deterministic vs. stochastic | Raup-Crick vs. 0.5 | mean RC = 0.19 | < 2 × 10⁻¹⁶ |
+| Dispersal limitation | Mantel (Bray ~ Geo) | r = 0.10 | 0.031 |
+| Dispersal (controlling for size) | Partial Mantel | r = 0.11 | 0.017 |
+| Size effect (variation partitioning) | db-RDA: log(volume) | F = 9.19 | 0.001 |
+| Architecture effect | db-RDA: branch + haplotype | F = 2.09 | 0.001 |
+| Space effect | db-RDA: site | F = 2.87 | 0.001 |
+| Community convergence | Beta-dispersion ANOVA | F = 9.21 | < 0.001 |
+| Taxonomic overdispersion (NRI) | SES.MPD vs. 0 | mean = −1.18 | < 10⁻¹³ |
+| Taxonomic overdispersion (NTI) | SES.MNTD vs. 0 | mean = −1.53 | < 2 × 10⁻¹⁶ |
 
 ---
 
 ## Supplementary Methods
+
+### Multiple-testing correction and model diagnostics
+
+We applied three levels of multiple-testing correction: (1) Hochberg step-up for the two pre-specified BEF predictors (richness and total abundance; k = 2); (2) Benjamini--Hochberg FDR for four exploratory BEF predictors (Shannon diversity, *Trapezia* abundance, resident fish abundance, and *Galeropsis monodonta* abundance; k = 4); and (3) FDR across all species in species-level analyses. General model diagnostics included simulated residuals (`DHARMa`), Cook's distance (4/n), and variance inflation factors. For OLS BEF models, Breusch--Pagan tests assessed homoscedasticity (all BP p > 0.75, confirming homoscedastic residuals). HC3-robust standard errors were computed as a sensitivity check: richness significance changed from p = 0.018 (OLS) to p = 0.14 (HC3), and abundance from p = 0.048 to p = 0.25. HC3 is known to be overly conservative at n < 100 (Long & Ervin 2000), and the Breusch--Pagan diagnostics do not indicate heteroscedasticity; we therefore retain OLS as the primary inference but report HC3 results for transparency. The PERMANOVA volume effect was also tested with site-stratified permutations (permuting within site blocks), yielding R² = 0.078, p = 0.005 — still significant but more conservative than the unstratified test (p < 0.001).
+
+### Species- and group-level scaling analyses
+
+The scaling analysis was repeated for 21 prevalent species (≥30 individuals and ≥15% prevalence) and six taxonomic groups (*Trapezia* crabs, shrimps, other crabs, gastropods, fish, and other invertebrates). We computed an inverse-variance-weighted mean β as a fixed-effect summary (weights = 1/SE²); because species co-occur on the same corals, this summary may underestimate uncertainty. We applied FDR correction within species-level and group-level test families and characterized size-dependent occurrence using logistic GLMs (presence ~ log(volume) + site) for 24 species with ≥15% prevalence. For community-level abundance, β = 1 was evaluated with both Wald and site-stratified bootstrap tests (1,000 iterations); bootstrap BCa confidence intervals were used when estimable, with percentile intervals as fallback.
+
+### Additional BEF sensitivity analyses
+
+Count-based predictors (total abundance, *Trapezia*, fish, and *Galeropsis* counts) were square-root transformed; species richness was untransformed. Beyond the main forward models, we fit joint models containing richness and √abundance, hierarchical R² variance partitioning, and a piecewise structural equation model with volume → richness → condition and volume → abundance → condition pathways (z-scored predictors; Fisher's C fit). We also tested mediation with bootstrap mediation analysis (`mediation`; 1,000 iterations; treatment = richness, mediator = √abundance, outcome = condition). As sensitivity checks, we added coral morphotype and genetic species identity (mtORF haplotype) as covariates in separate models. Species-specific contributions were tested for 19 prevalent species (≥5 corals; trait ~ √(species abundance) + log(volume) + site) across five condition measures, with FDR correction across all 95 tests. Reverse models (condition → CAFI) tested seven response variables with FDR correction, and cross-study concordance with the companion experiment was evaluated with a binomial test.
+
+### Additional neighborhood analyses
+
+For the 61 neighborhood-surveyed colonies, the full model included log(volume), neighbor count within 5 m, total neighbor volume, mean inter-colony distance, and site. AIC-based backward elimination identified the supported predictor subset for abundance, richness, and Shannon diversity models. We also tested size × neighborhood interactions and functional-group responses with FDR correction and assessed compositional variability across neighbor density with PERMDISP.
 
 ### Iterated rarefaction for composition analyses
 
@@ -182,7 +258,7 @@ Coral branch tissue exhibits gradients in protein, carbohydrate, and zooxanthell
 
 ### Power analysis
 
-Prospective power analyses were conducted using the pwr package [@Champely2020]. For the CAFI--condition feedbacks (Q3; n = 84), we computed power to detect medium (R² = 0.10; power = 76%) and small (R² = 0.05; power = 43%) effects at α = 0.05 with 2 numerator degrees of freedom (CAFI predictor + intercept) and site + volume as covariates. The minimum detectable R² at 80% power was 0.108. To assess cross-study comparability, we computed power to detect the companion experiment's observed effect size (R² ≈ 0.12): the survey had 85% power, confirming that the null result for individual predictors is not an artifact of insufficient sample size. For the neighborhood analysis (n = 61, 3 numerator degrees of freedom), power was 65% for medium effects (R² = 0.10) and 35% for small effects (R² = 0.05).
+Design-sensitivity calculations were conducted using the `pwr` package (`pwr.f2.test`). For the CAFI--condition feedbacks (Q3; n = 84), power was computed to detect the incremental variance explained by a single CAFI predictor beyond the covariates (log(volume) + site), with 1 numerator degree of freedom and 79 denominator degrees of freedom (84 − 5 model parameters). Power to detect medium (ΔR² = 0.10) effects was 84%, and small (ΔR² = 0.05) effects 53%, at α = 0.05. The minimum detectable ΔR² at 80% power was 0.09. To assess cross-study comparability, we computed power to detect the companion experiment's observed effect size (ΔR² ≈ 0.12): the survey had 91% power. For the rarefied richness test (n = 47; 1 numerator df, 42 denominator df), power was substantially lower: 58% for medium effects (ΔR² = 0.10), 32% for small effects (ΔR² = 0.05), and only 26% for effects the size of that observed in the full sample (ΔR² = 0.04). The minimum detectable ΔR² at 80% power was 0.16, indicating that the rarefied subset had limited sensitivity to detect the modest effects found in the main analysis. For the neighborhood analysis (n = 61; 1 numerator df, 55 denominator df), power was 70% for medium effects (ΔR² = 0.10) and 40% for small effects (ΔR² = 0.05). Full values are exported in `power_analysis.csv`.
 
 ### Taxonomy sensitivity analysis
 
@@ -190,11 +266,27 @@ To assess whether results depended on taxonomic resolution, we repeated seven ke
 
 ### Sensitivity analyses
 
-Four supplementary sensitivity analyses addressed methodological gaps identified during pre-submission audit (Tables S11--S14; script `14_supplementary_sensitivity.R`). A fifth set of haplotype sensitivity analyses (Table S15) is described separately below. (1) **Beta diversity partitioning** (betapart; Baselga 2010) decomposed total Sørensen dissimilarity into turnover (Simpson) and nestedness-resultant components along the coral size gradient (Table S11). (2) **Mediation analysis** (mediation package; 1,000 bootstrap iterations) tested whether the richness → condition effect operates through the abundance pathway (ACME; Table S12). (3) **Morphotype covariate** sensitivity tested whether adding coral morphotype to the BEF model changed the richness → condition result (Table S13). (4) **Missing data characterization** used logistic regression to test whether the 114 → 84 dropout for condition analyses was predicted by volume, site, richness, or abundance (Table S14). Additional sensitivity analyses (envfit species vectors, indicator species by size class, iNEXT coverage-based rarefaction, community-weighted mean obligate-mutualist fraction, nonlinear BEF, C-score community co-occurrence, AIC model averaging) were computed and are available upon request.
+Four supplementary sensitivity analyses addressed methodological gaps identified during pre-submission audit (Tables S11--S14; script `14_supplementary_sensitivity.R`). A fifth set of haplotype sensitivity analyses (Table S15) is described separately below. (1) **Beta diversity partitioning** (betapart; Baselga 2010) decomposed total Sørensen dissimilarity into turnover (Simpson) and nestedness-resultant components along the coral size gradient (Table S11). (2) **Mediation analysis** (mediation package; 1,000 bootstrap iterations) tested whether the richness → condition effect operates through the abundance pathway (ACME; Table S12). (3) **Morphotype covariate** sensitivity was planned but not retained because field morphotype assignments showed limited concordance with genetic species (33--94%; Table S15A). (4) **Missing data characterization** used logistic regression to test whether the 114 → 84 dropout for condition analyses was predicted by volume, site, richness, or abundance (Table S14). Additional sensitivity analyses (envfit species vectors, indicator species by size class, iNEXT coverage-based rarefaction, community-weighted mean obligate-mutualist fraction, nonlinear BEF, C-score community co-occurrence, AIC model averaging) were computed and are archived with the analysis code in the data repository.
 
 ### Haplotype sensitivity analyses
 
-Molecular species assignments were obtained via mtORF haplotyping following @JohnstonCunningBurgess2022. PCR amplification and sequencing of the mitochondrial open reading frame successfully genotyped 101 of 114 colonies (11 PCR failures, 2 without tissue samples); 99 of the 112 colonies with volume data had valid haplotypes. Genotyped colonies resolved to four genetic species: *Pocillopora grandis* (n = 49), *P. meandrina* (n = 32), *P. tuahiniensis* (n = 7), and *P. verrucosa* (n = 10), with 1 colony unresolved. Phylogenetic distances among host species were derived from the *Pocillopora* mtORF gene tree. Symbiont identity (*Cladocopium latusorum* vs. *C. pacificum*) was assigned based on the host species--symbiont associations documented by @Burgess2021, which showed strong species-specificity in Mo'orean *Pocillopora*. Five analyses tested whether genetic species identity confounds the main results (Table S15): (A) morphotype--haplotype concordance via chi-square test with simulated p-value; (B) BEF model with genetic species as a covariate; (C) volume × species interaction test for scaling differences among genetic species; (D) marginal PERMANOVA with genetic species as a predictor of community composition; and (E) Mantel and partial Mantel tests for phylogenetic distance--community dissimilarity correlations, plus PERMANOVA and linear model tests for symbiont effects on composition and condition.
+Molecular species assignments were obtained via mtORF haplotyping following @JohnstonCunningBurgess2022. PCR amplification and sequencing of the mitochondrial open reading frame successfully genotyped 101 of 114 colonies (11 PCR failures, 2 without tissue samples); 99 of the 112 colonies with volume data had valid haplotypes. Genotyped colonies resolved to four genetic species: *Pocillopora grandis* (n = 49), *P. meandrina* (n = 32 of 34 with volume data), *P. tuahiniensis* (n = 7), and *P. verrucosa* (n = 10), with 1 colony unresolved. Phylogenetic distances among host species were derived from the *Pocillopora* mtORF gene tree. Symbiont identity (*Cladocopium latusorum* vs. *C. pacificum*) was assigned based on the host species--symbiont associations documented by @Burgess2021, which showed strong species-specificity in Mo'orean *Pocillopora*. Five analyses tested whether genetic species identity confounds the main results (Table S15): (A) morphotype--haplotype concordance via chi-square test with simulated p-value (confirming that field morphotype is unreliable); (B) BEF model with genetic species as a covariate; (C) volume × species interaction test for scaling differences among genetic species; (D) marginal PERMANOVA with genetic species as a predictor of community composition; and (E) Mantel and partial Mantel tests for phylogenetic distance--community dissimilarity correlations, plus PERMANOVA and linear model tests for symbiont effects on composition and condition.
+
+### Host species identity and CAFI associations
+
+To test whether coral genetic species identity predicts CAFI community structure beyond colony volume and site, we conducted four complementary analyses on the 98 genotyped corals retained after excluding the single ambiguous *P. meandrina/grandis* haplotype and 2 colonies without volume. First, we ran marginal PERMANOVA (Bray-Curtis, 999 permutations) with coral species, log(volume), and site as predictors, followed by pairwise species comparisons (FDR-corrected). Three-way variance partitioning (vegan::varpart, Hellinger-transformed) decomposed community variation among coral species, volume, and site. We also partitioned species vs branch_width to test architecture mediation. Second, we screened all 52 CAFI OTUs present in >=5 genotyped corals using negative binomial GLMs (Poisson fallback) with Type II likelihood ratio tests for the coral species term (BH-FDR across OTUs). Each significant OTU was classified based on a covariate-sensitivity test: "species effect robust to architecture" (species term persists after adding branch_width) or "species effect absorbed by architecture" (species term eliminated by branch_width). Because species identity is upstream of branch_width in *Pocillopora* (species determines branching morphology), adding branch_width may over-control for genuinely genetic effects; these classifications should be interpreted as sensitivity tests, not causal mediation. Third, we identified indicator species using indicspecies::multipatt (func = "IndVal.g") and computed a standardized host specificity index comparing observed Simpson's diversity of host usage against a null model (999 iterations shuffling CAFI across corals while preserving coral species frequencies). Fourth, Trapezia body size (carapace width) was analyzed using LMMs (crab species + branch_width + coral species + volume + site as fixed effects, coral_id as random intercept). Trapezia species x architecture filtering was tested via chi-square with simulated p-value, and size-based habitat partitioning was assessed by comparing *T. serenei* body size when alone vs co-occurring with congeners (Wilcoxon rank-sum test).
+
+### Co-occurrence patterns
+
+We tested pairwise co-occurrence using a volume-weighted Bernoulli null model (10,000 iterations; restricted to species present on ≥10 coral colonies, yielding 33 species and 528 pairwise combinations; Stier et al. 2012) with FDR correction. Intraspecific density patterns and size-dependent co-occurrence were assessed with multinomial and tercile-stratified null models (see Volume-weighted co-occurrence null model and Intraspecific density null model sections above).
+
+### Community assembly
+
+We assessed the balance between deterministic and stochastic assembly using the Raup--Crick metric (vegan::raupcrick; 999 iterations; Chase et al. 2011), where values near 0 indicate stochastic assembly and values departing from 0 indicate deterministic processes. We tested taxonomic structure using standardized effect sizes of mean pairwise distance (SES.MPD / Net Relatedness Index; picante::ses.mpd; 999 randomizations). Taxonomic distances were computed from the Linnaean hierarchy (species, genus, family, order, class, phylum) using UPGMA clustering, providing a proxy for phylogenetic distances in the absence of a resolved molecular phylogeny for the full CAFI assemblage. Distance-decay of community similarity was tested with Mantel tests (Spearman correlation between Bray--Curtis dissimilarity and Haversine geographic distance; 9,999 permutations) on 57 colonies with GPS coordinates, with a partial Mantel controlling for coral size. We note that Mantel tests have known limitations, including inflated Type I error rates under certain spatial autocorrelation structures (Guillot & Rousset 2013) and low power for detecting nonlinear distance-decay relationships; results should be interpreted as complementary evidence alongside the variation partitioning and null-model analyses.
+
+### Sensitivity analyses (main text)
+
+We tested all results for robustness across five taxonomic resolution scenarios (baseline 243 taxa, species-only, merge-up, lump-down, rare-excluded; Fig. S6; Table S8) and assessed spatial autocorrelation using Moran's I (Table S9).
 
 ---
 
@@ -216,9 +308,14 @@ All statistical results referenced in the supplementary tables are exported as C
 | **Table S10** (BEF model diagnostics) | `bef_diversity_abundance_partition.csv`, `bef_path_coefficients.csv` | `09_cafi_condition_feedbacks.R` |
 | **Table S11** (Beta diversity partitioning) | `sensitivity_betapart_decomposition.csv` | `14_supplementary_sensitivity.R` |
 | **Table S12** (Mediation: richness → abundance → condition) | `sensitivity_mediation_richness_abundance.csv` | `14_supplementary_sensitivity.R` |
-| **Table S13** (Morphotype covariate sensitivity) | `sensitivity_morphotype_bef.csv` | `14_supplementary_sensitivity.R` |
+| **Table S13** (Removed -- morphotype unreliable) | — | — |
 | **Table S14** (Missing data predictors) | `sensitivity_missing_data_predictors.csv` | `14_supplementary_sensitivity.R` |
 | **Table S15** (Haplotype sensitivity) | `sensitivity_morphotype_haplotype_concordance.csv`, `sensitivity_haplotype_bef.csv`, `sensitivity_scaling_by_species.csv`, `sensitivity_composition_by_species.csv`, `sensitivity_phylogenetic_symbiont.csv` | `14_supplementary_sensitivity.R` |
+| **Table S16** (Host species identity effects) | `genotype_permanova_marginal.csv`, `genotype_pairwise_permanova.csv`, `genotype_variance_partitioning.csv` | `16_genotype_cafi_analysis.R` |
+| **Table S17** (CAFI OTU species screen) | `genotype_species_screen.csv` | `16_genotype_cafi_analysis.R` |
+| **Table S18** (Indicator species and host specificity) | `genotype_indicator_species.csv`, `genotype_host_specificity.csv`, `genotype_cooccurrence_networks.csv` | `16_genotype_cafi_analysis.R` |
+| **Table S19** (Trapezia body size and architecture) | `trapezia_body_size_genotype.csv`, `trapezia_pair_composition.csv` | `16_genotype_cafi_analysis.R` |
+| **Table S20** (Community assembly) | `assembly_*.csv` | `15_community_assembly.R` |
 
 ### Additional CSV outputs not mapped to numbered tables
 

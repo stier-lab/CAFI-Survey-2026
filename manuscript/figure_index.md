@@ -1,6 +1,6 @@
 # Figure Index
 
-**Colony size drives sublinear scaling, compositional turnover, and biodiversity--condition feedbacks in coral-associated fauna**
+**Colony size drives sublinear scaling, compositional turnover, and biodiversity--condition covariation in coral-associated fauna**
 
 Stier, A.C. et al. — *Journal of Animal Ecology*
 
@@ -28,7 +28,7 @@ All main text figures are saved in `output/figures/manuscript/` as both PNG (300
 | S2 | `figS2_permanova_sensitivity.png` | A--B | **(A)** PERMANOVA R^2 for site and volume across 5 distance metrics. **(B)** Composition divergence trend robustness across metrics. Site effect significant for all 5 metrics; volume for all except Gower. | `02_community_analysis.R` |
 | S3 | `figS3_composition_divergence.png` | A--B | **(A)** Distance-to-centroid by size class (raw Bray--Curtis). **(B)** After rarefaction (100 draws): divergence trend disappears (PERMDISP p = 0.61) -- abundance artifact. | `02_community_analysis.R` |
 | S4 | `figS4_species_scaling.png` | 1 | Species-level scaling forest plot (21 species). beta +/- 95% CI. 11 Redirection, 10 Field of Dreams, 0 super-linear. FDR-corrected within species category. | `05_species_scaling_analysis.R` |
-| S5 | `figS5_neighborhood_null.png` | A--C | **(A)** Total CAFI abundance, **(B)** species richness, **(C)** Shannon diversity vs. number of neighbors (n = 61). No significant neighborhood effects. Power: 65% for medium effects. | `04_landscape_effects.R` |
+| S5 | `figS5_neighborhood.png` | A--F | **(A,C,E)** Total CAFI abundance, species richness, and Shannon diversity vs. number of neighbors; **(B,D,F)** the same responses vs. mean neighbor distance (n = 61). Neighbor count effects were null, but shorter mean neighbor distance predicted higher richness and Shannon diversity. | `04_landscape_effects.R` |
 | S6 | `figS6_taxonomy_sensitivity.png` | 1 | Forest plot of 7 metrics across 5 taxonomy scenarios (baseline, species-only, merge-up, lump-down, rare-excluded). All results robust: abundance beta = 0.515--0.527; richness z = 0.310--0.343. | `13_taxonomy_sensitivity.R` |
 | S7 | `figS7_functional_groups.png` | A--B | **(A)** Taxonomic group scaling exponents (6 groups). 5/6 sublinear; gastropods the sole exception (beta = 0.94, n.s.). **(B)** Group composition by site. | `08_functional_groups.R` |
 | S8 | `figS8_rarefaction_sensitivity.png` | 1 | Rarefied richness vs. condition at 5 rarefaction depths (n = 10, 15, 20, 25, 30). Non-significant at all depths (all p > 0.10). | `09_cafi_condition_feedbacks.R` |
@@ -38,6 +38,9 @@ All main text figures are saved in `output/figures/manuscript/` as both PNG (300
 | S12 | `figS12_occurrence_curves.png` | 24 | Logistic GLM occurrence probability vs. log(volume) for 24 species. 14/24 significant after FDR; all positive (larger corals = higher occurrence). | `05_species_scaling_analysis.R` |
 | S13 | `figS13_species_trait_heatmap.png` | A--B | **(A)** Standardized beta for 19 species x 5 condition traits. **(B)** FDR-adjusted p-values. No species x trait test survives FDR -- consistent with complementarity (BEF). | `09_cafi_condition_feedbacks.R` |
 | S14 | `figS14_species_trait_biplots.png` | A--I | 9 strongest species x trait associations (raw p < 0.10). Position-corrected traits vs. sqrt(abundance). Includes *Breviturma pica* x protein, *Paracirrhites arcatus* x AFDW, *Periclimenes* sp. x zooxanthellae, others. | `09_cafi_condition_feedbacks.R` |
+| S15 | `figS15_beta_dispersion.png` | 1 | Distance-to-centroid by size class. Small > Medium > Large (ANOVA F = 9.21, p < 0.001). Communities converge with coral size. | `15_community_assembly.R` |
+| S16 | `figS16_community_assembly.png` | A--D | **(A)** Raup-Crick histogram (mean = 0.19, null = 0.5). **(B)** Raup-Crick by size class (violins). **(C)** Beta-dispersion by size class. **(D)** Variation partitioning bar chart (architecture 5.6%, size 4.6%, space 2.9%). | `15_community_assembly.R` |
+| S17 | `figS17_taxonomic_structure.png` | 1 | SES.MPD (NRI) vs. log(volume). Taxonomic overdispersion: mean NRI = −1.18 (p < 10⁻¹³). Trend with volume suggestive but NS (β = −0.17, p = 0.11). | `15_community_assembly.R` |
 
 All supplement figures are saved in `output/figures/supplement/` as both PNG (300 dpi) and PDF (cairo_pdf).
 
@@ -48,7 +51,7 @@ All supplement figures are saved in `output/figures/supplement/` as both PNG (30
 | Category | Count |
 |----------|-------|
 | Main text figures | 5 (14 panels total) |
-| Supplement figures | 14 (39+ panels total) |
-| Supplement tables | 11 |
+| Supplement figures | 17 (46+ panels total) |
+| Supplement tables | 12 |
 | CSV output files | ~66 |
 | Legend text files | 5 main + 3 supplement |
